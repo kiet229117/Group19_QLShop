@@ -9,6 +9,8 @@ import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.ArrayList;
 import java.util.List;
 @Entity
 @Data
@@ -24,6 +26,6 @@ public class Brand {
         private String description;
         private String logo;
 
-        @OneToMany (mappedBy = "category", cascade = CascadeType.ALL)
-    List<Product> products;
+        @OneToMany (mappedBy = "brand", cascade = CascadeType.ALL)
+        private List<Product> products = new ArrayList<>();
 }
