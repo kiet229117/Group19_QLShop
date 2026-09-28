@@ -2,6 +2,7 @@ package com.group19.QLShop.entity;
 
 import lombok.Data;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import jakarta.persistence.CascadeType;
@@ -31,7 +32,9 @@ public class Category {
     @Column(name = "active")
     private boolean isActive;
 
-    @OneToMany (mappedBy = "category", cascade = CascadeType.ALL)
-    List<Product> products;
+    // mappedBy dùng ánh xạ qua biến category ở file Product.java
+    // ascade = CascadeType.ALL là khi code trên Category thực thể cha, thì tự nó lan sang thực thể con là Product
+    @OneToMany (mappedBy = "category", cascade = CascadeType.ALL) 
+    private List<Product> products = new ArrayList<>();
     
 }
