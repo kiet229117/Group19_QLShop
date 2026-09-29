@@ -1,15 +1,21 @@
 package com.group19.QLShop.dto.reponse;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+@Data 
+@Builder                  
+@NoArgsConstructor     
+@AllArgsConstructor      
 public class CategoryReponse {
-	@NotNull(message = "ID danh mục không được để trống")
-	@Positive(message = "ID danh mục phải lớn hơn 0")
+	@NotNull(message = "ID sản phẩm không được để trống")
+	@Positive(message = "ID sản phẩm phải lớn hơn 0")
 	private Long id;
-
 	@NotBlank(message = "Tên danh mục không được để trống")
 	@Size(max = 255, message = "Tên danh mục không được vượt quá 255 ký tự")
 	private String name;
@@ -24,41 +30,8 @@ public class CategoryReponse {
 	@Size(max = 500, message = "Ảnh không được vượt quá 500 ký tự")
 	private String image;
 
-	private boolean active;
+	private boolean isActive;
 
-	public CategoryReponse() {
-	}
 
-	public CategoryReponse(Long id, String name, String slug, String description, String image, boolean active) {
-		this.id = id;
-		this.name = name;
-		this.slug = slug;
-		this.description = description;
-		this.image = image;
-		this.active = active;
-	}
 
-	public Long getId() {
-		return id;
-	}
-
-	public String getName() {
-		return name;
-	}
-
-	public String getSlug() {
-		return slug;
-	}
-
-	public String getDescription() {
-		return description;
-	}
-
-	public String getImage() {
-		return image;
-	}
-
-	public boolean isActive() {
-		return active;
-	}
 }

@@ -14,9 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.group19.QLShop.dto.reponse.ProductReponse;
 import com.group19.QLShop.dto.request.ProductRequest;
-import com.group19.QLShop.entity.Brand;
-import com.group19.QLShop.entity.Category;
-import com.group19.QLShop.entity.Product;
+
 import com.group19.QLShop.service.ProductService;
 
 import jakarta.validation.Valid;
@@ -29,66 +27,47 @@ public class ProductController {
         this.productService = productService;
     }
 
+    
     // Lấy bằng slug
-    @GetMapping ("/slug/{slug}")
+    @GetMapping("/slug/{slug}")
     public ResponseEntity<ProductReponse> getBySlug(@PathVariable String slug) {
-        return ResponseEntity.ok(toResponse(productService.getProductBySlug(slug)));
+        ProductReponse product = productService.getProductBySlug(slug);
+        return ResponseEntity.ok(product);
     }
-    // Lấy tất cả sản phẩm
+
+    // Lấy tất cả sản phẩm (Có phân trang)
     @GetMapping 
     public ResponseEntity<Page<ProductReponse>> getAll(
-        @RequestParam (defaultValue = "0") int page,
-        @RequestParam (defaultValue = "10") int size){
-        Page<ProductReponse> products = productService.getAllProducts(page, size).map(this::toResponse);
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "10") int size) {
+        // Service đã trả về Page<ProductReponse> sẵn rồi
+        Page<ProductReponse> products = productService.getAllProducts(page, size);
         return ResponseEntity.ok(products);
     }
 
     // Thêm sản phẩm
     @PostMapping
     public ResponseEntity<ProductReponse> add(@Valid @RequestBody ProductRequest request) {
-        return ResponseEntity.ok(toResponse(productService.addProduct(toProduct(request))));
+        ProductReponse newProduct = productService.addProduct(request);
+        return ResponseEntity.ok(newProduct);
     }
+    
 
-     // Sửa sản phẩm
+    // Sửa sản phẩm
     @PutMapping("/{id}")
     public ResponseEntity<ProductReponse> update(@PathVariable Long id, @Valid @RequestBody ProductRequest request) {
-        return ResponseEntity.ok(toResponse(productService.uppdateProduct(id, toProduct(request))));
+        ProductReponse updatedProduct = productService.updateProduct(id, request);
+        return ResponseEntity.ok(updatedProduct);
     }
 
-     // Xóa sản phẩm
-    @DeleteMapping ("/{id}")
+    // Xóa sản phẩm
+    @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         productService.deleteProduct(id);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.noContent().build(); 
     }
 
-    private Product toProduct(ProductRequest request) {
-        Product product = new Product();
-        product.setName(request.getName());
-        product.setPrice(request.getPrice());
-        product.setDescription(request.getDescription());
-        product.setRating(request.getRating());
-        product.setSlug(request.getSlug());
+    
 
-        Brand brand = new Brand();
-        brand.setId(request.getBrandId());
-        product.setBrand(brand);
-
-        Category category = new Category();
-        category.setId(request.getCategoryId());
-        product.setCategory(category);
-        return product;
-    }
-
-    private ProductReponse toResponse(Product product) {
-        return new ProductReponse(
-                product.getId(),
-                product.getName(),
-                product.getPrice(),
-                product.getDescription(),
-                product.getRating(),
-                product.getSlug(),
-                product.getBrand().getId(),
-                product.getCategory().getId());
-    }
+  
 }

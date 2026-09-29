@@ -29,51 +29,37 @@ public class CategoryController {
         this.categoryService = categoryService;
     }
 
-    // Lấy tất cả danh mục
+     // Lấy tất cả danh mục (Có phân trang)
     @GetMapping
     public ResponseEntity<Page<CategoryReponse>> getAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        Page<CategoryReponse> categories = categoryService.getAllCategories(page, size).map(this::toResponse);
+        // Service đã tự map sang Page<CategoryReponse> nên gọi thẳng an toàn
+        Page<CategoryReponse> categories = categoryService.getAllCategories(page, size);
         return ResponseEntity.ok(categories);
     }
 
     // Thêm danh mục
     @PostMapping
     public ResponseEntity<CategoryReponse> add(@Valid @RequestBody CategoryRequest request) {
-        return ResponseEntity.ok(toResponse(categoryService.addCategory(toCategory(request))));
+        // Truyền thẳng Request DTO vào Service và nhận về Response DTO
+        CategoryReponse newCategory = categoryService.addCategory(request);
+        return ResponseEntity.ok(newCategory);
     }
 
     // Sửa danh mục
     @PutMapping("/{id}")
     public ResponseEntity<CategoryReponse> update(@PathVariable Long id, @Valid @RequestBody CategoryRequest request) {
-        return ResponseEntity.ok(toResponse(categoryService.uppdateCategory(id, toCategory(request))));
+        // Lưu ý gọi đúng tên hàm updateCategory trong Service của bạn
+        CategoryReponse updatedCategory = categoryService.updateCategory(id, request);
+        return ResponseEntity.ok(updatedCategory);
     }
 
     // Xóa danh mục
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         categoryService.deleteCategory(id);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.noContent().build(); // Trả về 204 No Content đúng chuẩn RESTful khi xóa thành công
     }
 
-    private Category toCategory(CategoryRequest request) {
-        Category category = new Category();
-        category.setName(request.getName());
-        category.setSlug(request.getSlug());
-        category.setDescription(request.getDescription());
-        category.setImage(request.getImage());
-        category.setActive(request.isActive());
-        return category;
-    }
-
-    private CategoryReponse toResponse(Category category) {
-        return new CategoryReponse(
-                category.getId(),
-                category.getName(),
-                category.getSlug(),
-                category.getDescription(),
-                category.getImage(),
-                category.isActive());
-    }
 }

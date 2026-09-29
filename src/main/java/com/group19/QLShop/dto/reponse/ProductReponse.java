@@ -6,7 +6,14 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
-
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+@Data 
+@Builder                  
+@NoArgsConstructor       
+@AllArgsConstructor      
 public class ProductReponse {
 	@NotNull(message = "ID sản phẩm không được để trống")
 	@Positive(message = "ID sản phẩm phải lớn hơn 0")
@@ -40,50 +47,5 @@ public class ProductReponse {
 	@Positive(message = "ID danh mục phải lớn hơn 0")
 	private Long categoryId;
 
-	public ProductReponse() {
-	}
-
-	public ProductReponse(Long id, String name, Double price, String description, Double rating, String slug,
-			Long brandId, Long categoryId) {
-		this.id = id;
-		this.name = name;
-		this.price = price;
-		this.description = description;
-		this.rating = rating;
-		this.slug = slug;
-		this.brandId = brandId;
-		this.categoryId = categoryId;
-	}
-
-	public Long getId() {
-		return id;
-	}
-
-	public String getName() {
-		return name;
-	}
-
-	public Double getPrice() {
-		return price;
-	}
-
-	public String getDescription() {
-		return description;
-	}
-
-	public Double getRating() {
-		return rating;
-	}
-
-	public String getSlug() {
-		return slug;
-	}
-
-	public Long getBrandId() {
-		return brandId;
-	}
-
-	public Long getCategoryId() {
-		return categoryId;
-	}
+	
 }

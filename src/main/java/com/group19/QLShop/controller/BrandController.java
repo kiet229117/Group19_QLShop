@@ -29,49 +29,40 @@ public class BrandController {
         this.brandService = brandService;
     }
 
-    // Lấy tất cả thương hiệu
+     // Lấy tất cả thương hiệu (Có phân trang)
     @GetMapping
     public ResponseEntity<Page<BrandReponse>> getAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        Page<BrandReponse> brands = brandService.getAllBrands(page, size).map(this::toResponse);
+        // Service đã tự map sang Page<BrandReponse> nên gọi trực tiếp
+        Page<BrandReponse> brands = brandService.getAllBrands(page, size);
         return ResponseEntity.ok(brands);
     }
 
     // Thêm thương hiệu
     @PostMapping
     public ResponseEntity<BrandReponse> add(@Valid @RequestBody BrandRequest request) {
-        return ResponseEntity.ok(toResponse(brandService.addBrand(toBrand(request))));
+        // Truyền thẳng Request DTO vào Service và nhận về Response DTO
+        BrandReponse newBrand = brandService.addBrand(request);
+        return ResponseEntity.ok(newBrand);
     }
 
     // Sửa thương hiệu
     @PutMapping("/{id}")
     public ResponseEntity<BrandReponse> update(@PathVariable Long id, @Valid @RequestBody BrandRequest request) {
-        return ResponseEntity.ok(toResponse(brandService.uppdateBrand(id, toBrand(request))));
+        // Gọi đúng tên hàm updateBrand (1 chữ p) trong Service chuẩn của bạn
+        BrandReponse updatedBrand = brandService.updateBrand(id, request);
+        return ResponseEntity.ok(updatedBrand);
     }
 
     // Xóa thương hiệu
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         brandService.deleteBrand(id);
-        return ResponseEntity.noContent().build();
+        return ResponseEntity.noContent().build(); // Trả về 204 No Content đúng chuẩn RESTful khi xóa thành công
     }
 
-    private Brand toBrand(BrandRequest request) {
-        Brand brand = new Brand();
-        brand.setName(request.getName());
-        brand.setSlug(request.getSlug());
-        brand.setDescription(request.getDescription());
-        brand.setLogo(request.getLogo());
-        return brand;
-    }
+    
 
-    private BrandReponse toResponse(Brand brand) {
-        return new BrandReponse(
-                brand.getId(),
-                brand.getName(),
-                brand.getSlug(),
-                brand.getDescription(),
-                brand.getLogo());
-    }
+
 } 
