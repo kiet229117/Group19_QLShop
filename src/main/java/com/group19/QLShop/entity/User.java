@@ -43,4 +43,8 @@ public class User {
     private Cart cart;
 
 
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> a7fc072719ac6267605bc9c84e3e3816da8b1fba

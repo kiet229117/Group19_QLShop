@@ -36,4 +36,8 @@ public class Cart {
     // orphanRemoval = true là ki xóa 1 sp trong cart nó xóa luôn record trong DB
     @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CartItems> cartItems = new ArrayList<>();
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> a7fc072719ac6267605bc9c84e3e3816da8b1fba
