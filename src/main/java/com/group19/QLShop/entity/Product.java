@@ -7,7 +7,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -29,6 +28,8 @@ public class Product {
     private double  price;
     private String description;
     private double rating;
+    private String slug;
+
 
     @ManyToOne(fetch = FetchType.LAZY) // LAZY giúp tối ưu hiệu năng, chỉ tải category khi cần
     @JoinColumn(name = "brand_id", nullable = false) // Tên cột khóa ngoại (Foreign Key) trong DB
