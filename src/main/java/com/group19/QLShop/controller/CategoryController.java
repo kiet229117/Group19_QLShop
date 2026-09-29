@@ -12,8 +12,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.group19.QLShop.dto.reponse.CategoryReponse;
+import com.group19.QLShop.dto.request.CategoryRequest;
 import com.group19.QLShop.entity.Category;
 import com.group19.QLShop.service.CategoryService;
+
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/categories")
@@ -27,23 +31,23 @@ public class CategoryController {
 
     // Lấy tất cả danh mục
     @GetMapping
-    public ResponseEntity<Page<Category>> getAll(
+    public ResponseEntity<Page<CategoryReponse>> getAll(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        Page<Category> categories = categoryService.getAllCategories(page, size);
+        Page<CategoryReponse> categories = categoryService.getAllCategories(page, size).map(this::toResponse);
         return ResponseEntity.ok(categories);
     }
 
     // Thêm danh mục
     @PostMapping
-    public ResponseEntity<Category> add(@RequestBody Category category) {
-        return ResponseEntity.ok(categoryService.addCategory(category));
+    public ResponseEntity<CategoryReponse> add(@Valid @RequestBody CategoryRequest request) {
+        return ResponseEntity.ok(toResponse(categoryService.addCategory(toCategory(request))));
     }
 
     // Sửa danh mục
     @PutMapping("/{id}")
-    public ResponseEntity<Category> update(@PathVariable Long id, @RequestBody Category category) {
-        return ResponseEntity.ok(categoryService.uppdateCategory(id, category));
+    public ResponseEntity<CategoryReponse> update(@PathVariable Long id, @Valid @RequestBody CategoryRequest request) {
+        return ResponseEntity.ok(toResponse(categoryService.uppdateCategory(id, toCategory(request))));
     }
 
     // Xóa danh mục
@@ -51,5 +55,25 @@ public class CategoryController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         categoryService.deleteCategory(id);
         return ResponseEntity.noContent().build();
+    }
+
+    private Category toCategory(CategoryRequest request) {
+        Category category = new Category();
+        category.setName(request.getName());
+        category.setSlug(request.getSlug());
+        category.setDescription(request.getDescription());
+        category.setImage(request.getImage());
+        category.setActive(request.isActive());
+        return category;
+    }
+
+    private CategoryReponse toResponse(Category category) {
+        return new CategoryReponse(
+                category.getId(),
+                category.getName(),
+                category.getSlug(),
+                category.getDescription(),
+                category.getImage(),
+                category.isActive());
     }
 }
