@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.group19.QLShop.dto.reponse.BrandReponse;
 import com.group19.QLShop.dto.request.BrandRequest;
-import com.group19.QLShop.entity.Brand;
 import com.group19.QLShop.service.BrandService;
 
 import jakarta.validation.Valid;

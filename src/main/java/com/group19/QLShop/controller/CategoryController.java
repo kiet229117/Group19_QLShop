@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.group19.QLShop.dto.reponse.CategoryReponse;
 import com.group19.QLShop.dto.request.CategoryRequest;
-import com.group19.QLShop.entity.Category;
 import com.group19.QLShop.service.CategoryService;
 
 import jakarta.validation.Valid;

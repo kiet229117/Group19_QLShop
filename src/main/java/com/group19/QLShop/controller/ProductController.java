@@ -67,7 +67,43 @@ public class ProductController {
         return ResponseEntity.noContent().build(); 
     }
 
-    
+    // Tìm kiếm sản phẩm theo tên (Có phân trang)
+    @GetMapping("/search")
+    public ResponseEntity<Page<ProductReponse>> searchByName(
+        @RequestParam String keyword,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "10") int size) {
+        Page<ProductReponse> products = productService.searchProducts(keyword, page, size);
+        return ResponseEntity.ok(products);
+    }
 
-  
+    // Lọc sản phẩm theo thương hiệu (Có phân trang)
+    @GetMapping("/filter/brand")
+    public ResponseEntity<Page<ProductReponse>> filterByBrand(
+        @RequestParam Long brandId,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "10") int size) {
+        Page<ProductReponse> products = productService.findProductsByBrand(brandId, page, size);
+        return ResponseEntity.ok(products);
+    }
+
+    @GetMapping("/filter/category")
+    public ResponseEntity<Page<ProductReponse>> filterByCategory(
+        @RequestParam Long categoryId,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "10") int size) {
+        Page<ProductReponse> products = productService.findProductsByCategory(categoryId, page, size);
+        return ResponseEntity.ok(products);
+    }
+
+    @GetMapping("/filter/price")
+    public ResponseEntity<Page<ProductReponse>> filterByPriceRange(
+        @RequestParam Double minPrice,
+        @RequestParam Double maxPrice,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "10") int size) {
+        Page<ProductReponse> products = productService.findProductsByPriceRange(minPrice, maxPrice, page, size);
+        return ResponseEntity.ok(products);
+    }
+
 }

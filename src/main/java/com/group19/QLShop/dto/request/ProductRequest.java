@@ -10,14 +10,13 @@ import lombok.Data;
 @Data 
 public class ProductRequest {
 	@NotBlank(message = "Tên sản phẩm không được để trống")
-	@Size(max = 255, message = "Tên sản phẩm không được vượt quá 255 ký tự")
+	@Size(min = 3, max = 255, message = "Tên sản phẩm phải từ 3 đến 255 ký tự")
 	private String name;
 
 	@NotNull(message = "Giá sản phẩm không được để trống")
 	@Positive(message = "Giá sản phẩm phải lớn hơn 0")
 	private Double price;
 
-	@Size(max = 2000, message = "Mô tả không được vượt quá 2000 ký tự")
 	private String description;
 
 	@NotNull(message = "Đánh giá không được để trống")
@@ -26,15 +25,13 @@ public class ProductRequest {
 	private Double rating;
 
 	@NotBlank(message = "Slug không được để trống")
-	@Size(max = 255, message = "Slug không được vượt quá 255 ký tự")
+	@Size(min=3,max = 255, message = "Slug phải từ 3 đến 255 ký tự")
 	private String slug;
 
 	@NotNull(message = "Thương hiệu không được để trống")
-	@Positive(message = "ID thương hiệu phải lớn hơn 0")
 	private Long brandId;
 
 	@NotNull(message = "Danh mục không được để trống")
-	@Positive(message = "ID danh mục phải lớn hơn 0")
 	private Long categoryId;
 
 	

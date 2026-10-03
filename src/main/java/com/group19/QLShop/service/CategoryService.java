@@ -33,6 +33,7 @@ public class CategoryService {
 
   
     public CategoryReponse addCategory(CategoryRequest request) {
+        
         Category newCategory = new Category();
         newCategory.setName(request.getName());
         newCategory.setSlug(request.getSlug());
