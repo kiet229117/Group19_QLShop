@@ -19,8 +19,9 @@ import lombok.NoArgsConstructor;
 @Table(name = "products")
 
 public class Product {
-      @Id
-    @GeneratedValue(strategy=GenerationType.IDENTITY)
+     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY) // <-- Thiếu dòng này hoặc strategy khác sẽ khiến id không tự tăng
+
     private Long id;
     private String name;
     private double  price;

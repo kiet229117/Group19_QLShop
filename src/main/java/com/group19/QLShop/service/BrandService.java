@@ -5,6 +5,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.group19.QLShop.dto.reponse.BrandReponse;
+import com.group19.QLShop.dto.request.BrandRequest;
 import com.group19.QLShop.entity.Brand;
 
 import com.group19.QLShop.repository.BrandRepository;
@@ -22,42 +24,56 @@ public class BrandService {
     }
 
     
-    // Xem tất cả
-    public Page<Brand> getAllBrands(int page, int size) {
-        Pageable data = PageRequest.of(page,size);
-        return brandRepository.findAll(data);
+    // Xem tất cả (Chuyển đổi Page sang DTO Response)
+    public Page<BrandReponse> getAllBrands(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Brand> brands = brandRepository.findAll(pageable);
+        return brands.map(this::toResponse);
     }
 
-    // Thêm
-    public Brand addBrand(Brand brand) {
-
-
+    // Thêm (Nhận Request DTO -> Lưu và trả về Response DTO)
+    public BrandReponse addBrand(BrandRequest request) {
         Brand newBrand = new Brand();
-        newBrand.setName(brand.getName());
-        newBrand.setSlug(brand.getSlug());
-        newBrand.setDescription(brand.getDescription());
-        newBrand.setLogo(brand.getLogo());
-        return brandRepository.save(newBrand);
-
+        newBrand.setName(request.getName());
+        newBrand.setSlug(request.getSlug());
+        newBrand.setDescription(request.getDescription());
+        newBrand.setLogo(request.getLogo());
+        
+        Brand savedBrand = brandRepository.save(newBrand);
+        return toResponse(savedBrand);
     }
 
-    // sửa
-    public Brand uppdateBrand(Long id, Brand brand) {
+    // Sửa (Nhận Request DTO -> Cập nhật và trả về Response DTO)
+    public BrandReponse updateBrand(Long id, BrandRequest request) {
         Brand exists = brandRepository.findById(id)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy thương hiệu"));
-        exists.setName(brand.getName());
-        exists.setDescription(brand.getDescription());
-        exists.setSlug(brand.getSlug());
-        exists.setLogo(brand.getLogo());
-        return brandRepository.save(exists);
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy thương hiệu với ID: " + id));
         
+        exists.setName(request.getName());
+        exists.setDescription(request.getDescription());
+        exists.setSlug(request.getSlug());
+        exists.setLogo(request.getLogo());
+        
+        Brand updatedBrand = brandRepository.save(exists);
+        return toResponse(updatedBrand);
     }
 
     // Xóa
     public void deleteBrand(Long id) {
         Brand exists = brandRepository.findById(id)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy thương hiệu"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy thương hiệu với ID: " + id));
 
+        // Lưu ý: Tương tự như Category, nên kiểm tra xem có Product nào đang thuộc thương hiệu này không trước khi xóa
         brandRepository.delete(exists);
+    }
+
+    // Hàm chuyển đổi (Mapping) chuẩn từ Entity sang Response DTO
+    private BrandReponse toResponse(Brand brand) {
+        BrandReponse response = new BrandReponse();
+        response.setId(brand.getId());
+        response.setName(brand.getName());
+        response.setSlug(brand.getSlug());
+        response.setDescription(brand.getDescription());
+        response.setLogo(brand.getLogo());
+        return response;
     }
 }
