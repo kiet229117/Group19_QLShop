@@ -1,95 +1,209 @@
 package com.group19.QLShop.service;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
-
+import com.group19.QLShop.entity.Cart;
 import com.group19.QLShop.entity.User;
+import com.group19.QLShop.entity.enums.Role;
+import com.group19.QLShop.repository.CartRepository;
 import com.group19.QLShop.repository.UserRepository;
+import com.group19.QLShop.dto.request.UserRequest;
+import com.group19.QLShop.dto.reponse.UserReponse;
+import org.springframework.stereotype.Service;
 
-@Service 
+import java.util.List;
+
+@Service
 public class UserService {
+
     private final UserRepository userRepository;
+    private final CartRepository cartRepository;
 
-    public UserService(UserRepository userRepository) {
+    public UserService(
+            UserRepository userRepository,
+            CartRepository cartRepository
+    ) {
         this.userRepository = userRepository;
+        this.cartRepository = cartRepository;
     }
 
-    // Xem user bằng username
-    public User getUserByUsername(String username) {
-        return userRepository.findByUsername(username).orElseThrow(()
-         -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng với user:" + username));
+    // =========================
+    // LẤY TẤT CẢ USER
+    // =========================
+
+    public List<UserReponse> getAllUsers() {
+        return userRepository.findAll()
+                .stream()
+                .map(this::toReponse)
+                .toList();
     }
 
-    // Xem tất cả
-    public Page<User> getAllUsers(int page, int size) {
-        Pageable data = PageRequest.of(page, size);
-        return userRepository.findAll(data);
+
+    // =========================
+    // LẤY USER THEO ID
+    // =========================
+
+    public UserReponse getUserById(Long id) {
+
+        User user = userRepository.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException("Không tìm thấy User"));
+
+        return toReponse(user);
     }
 
-    // Thêm
-    public User addUser(User user) {
-        if (user.getUsername() == null || user.getUsername().trim().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Username không được để trống");
-        }
-        if (userRepository.existsByUsername(user.getUsername())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Username đã tồn tại trong hệ thống");
-        }
-        if (user.getEmail() != null && userRepository.existsByEmail(user.getEmail())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email đã tồn tại trong hệ thống");
-        }
 
-        User newUser = new User();
-        newUser.setName(user.getName());
-        newUser.setUsername(user.getUsername());
-        newUser.setPhone(user.getPhone());
-        newUser.setEmail(user.getEmail());
-        newUser.setGender(user.getGender());
-        newUser.setAddress(user.getAddress());
-        newUser.setPassword(user.getPassword()); 
-        newUser.setAvatar(user.getAvatar());
-        newUser.setRole(user.getRole());
+    // =========================
+    // TÌM USER THEO USERNAME
+    // =========================
 
-        return userRepository.save(newUser);
+    public UserReponse getUserByUsername(String username) {
+
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() ->
+                        new RuntimeException("Không tìm thấy User"));
+
+        return toReponse(user);
     }
 
-    // sửa
-    public User updateUser(Long id, User user) {
-        User exists = userRepository.findById(id)
-        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng"));
 
-        if (user.getUsername() != null && !user.getUsername().equals(exists.getUsername()) && userRepository.existsByUsername(user.getUsername())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Username đã tồn tại");
-        }
-        if (user.getEmail() != null && !user.getEmail().equals(exists.getEmail()) && userRepository.existsByEmail(user.getEmail())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email đã tồn tại");
-        }
+    // =========================
+    // TÌM USER THEO EMAIL
+    // =========================
 
-        exists.setName(user.getName());
-        if (user.getUsername() != null) exists.setUsername(user.getUsername());
-        exists.setPhone(user.getPhone());
-        exists.setEmail(user.getEmail());
-        exists.setGender(user.getGender());
-        exists.setAddress(user.getAddress());
-        
-        if (user.getPassword() != null && !user.getPassword().isEmpty()) {
-            exists.setPassword(user.getPassword()); 
-        }
-        
-        exists.setAvatar(user.getAvatar());
-        if(user.getRole() != null) exists.setRole(user.getRole());
+    public UserReponse getUserByEmail(String email) {
 
-        return userRepository.save(exists);
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new RuntimeException("Không tìm thấy User"));
+
+        return toReponse(user);
     }
-    
-    // Xóa
+
+
+    // =========================
+    // ĐĂNG KÝ USER
+    // =========================
+
+    public UserReponse createUser(UserRequest request) {
+
+        // Kiểm tra username đã tồn tại
+        if (userRepository.findByUsername(request.getUsername()).isPresent()) {
+            throw new RuntimeException("Username đã tồn tại");
+        }
+
+        // Kiểm tra email đã tồn tại
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new RuntimeException("Email đã tồn tại");
+        }
+
+        User user = new User();
+        user.setName(request.getName());
+        user.setUsername(request.getUsername());
+        user.setEmail(request.getEmail());
+        user.setPassword(request.getPassword());
+        user.setPhone(request.getPhone());
+        user.setGender(request.getGender());
+        user.setAddress(request.getAddress());
+        user.setAvatar(request.getAvatar());
+
+        // Đăng ký luôn là role user
+        user.setRole(Role.user);
+
+        return toReponse(userRepository.save(user));
+    }
+
+
+    // =========================
+    // CẬP NHẬT USER
+    // =========================
+
+    public UserReponse updateUser(Long id, UserRequest request) {
+
+        User existingUser = userRepository.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException("Không tìm thấy User"));
+
+        existingUser.setName(request.getName());
+        existingUser.setPhone(request.getPhone());
+        existingUser.setEmail(request.getEmail());
+        existingUser.setGender(request.getGender());
+        existingUser.setAddress(request.getAddress());
+        existingUser.setAvatar(request.getAvatar());
+
+        return toReponse(userRepository.save(existingUser));
+    }
+
+
+    // =========================
+    // ĐỔI MẬT KHẨU
+    // =========================
+
+  public UserReponse changePassword(
+            Long id,
+            String oldPassword,
+            String newPassword
+    ) {
+        // Kiểm tra dữ liệu gửi lên
+        if (oldPassword == null || oldPassword.isBlank()) {
+            throw new RuntimeException("Mật khẩu cũ không được để trống");
+        }
+        if (newPassword == null || newPassword.isBlank()) {
+            throw new RuntimeException("Mật khẩu mới không được để trống");
+        }
+        if (newPassword.length() < 8) {
+            throw new RuntimeException("Mật khẩu mới phải có ít nhất 8 ký tự");
+        }
+        User user = userRepository.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException("Không tìm thấy User"));
+        // Kiểm tra mật khẩu cũ
+        if (!user.getPassword().equals(oldPassword)) {
+            throw new RuntimeException("Mật khẩu cũ không đúng");
+        }
+        // Mật khẩu mới không được trùng mật khẩu cũ
+        if (newPassword.equals(oldPassword)) {
+            throw new RuntimeException("Mật khẩu mới phải khác mật khẩu cũ");
+        }
+        user.setPassword(newPassword);
+        return toReponse(userRepository.save(user));
+    }
+
+
+    // =========================
+    // XÓA USER
+    // =========================
+
     public void deleteUser(Long id) {
-        User exists = userRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng"));
 
-        userRepository.delete(exists);
+        User user = userRepository.findById(id)
+                .orElseThrow(() ->
+                        new RuntimeException("Không tìm thấy User"));
+
+        userRepository.delete(user);
+    }
+
+
+    // =========================
+    // CHUYỂN USER -> USER REPONSE
+    // =========================
+
+    private UserReponse toReponse(User user) {
+
+        // Lấy id giỏ hàng của User (chưa có giỏ thì null)
+        Long cartId = cartRepository.findByUserId(user.getId())
+                .map(Cart::getId)
+                .orElse(null);
+
+        return UserReponse.builder()
+                .id(user.getId())
+                .name(user.getName())
+                .username(user.getUsername())
+                .phone(user.getPhone())
+                .email(user.getEmail())
+                .gender(user.getGender())
+                .address(user.getAddress())
+                .avatar(user.getAvatar())
+                .role(user.getRole())
+                .cartId(cartId)
+                .build();
     }
 }
