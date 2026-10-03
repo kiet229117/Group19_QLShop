@@ -33,7 +33,14 @@ public class CategoryService {
 
   
     public CategoryReponse addCategory(CategoryRequest request) {
+          if (categoryRepository.existsByName(request.getName())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tên danh mục '" + request.getName() + "' đã tồn tại trên hệ thống");
+        }
+        if( categoryRepository.existsBySlug(request.getSlug())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Slug '" + request.getSlug() + "' đã tồn tại trên hệ thống");
+        }
         
+
         Category newCategory = new Category();
         newCategory.setName(request.getName());
         newCategory.setSlug(request.getSlug());
@@ -41,13 +48,22 @@ public class CategoryService {
         newCategory.setImage(request.getImage());
         newCategory.setActive(request.isActive()); 
 
+      
         Category savedCategory = categoryRepository.save(newCategory);
         return toResponse(savedCategory);
     }
 
     public CategoryReponse updateCategory(Long id, CategoryRequest request) {
+     
+        
         Category exists = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy danh mục với ID: " + id));
+        if (categoryRepository.existsByName(request.getName())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tên danh mục '" + request.getName() + "' đã tồn tại trên hệ thống");
+        }
+        if( categoryRepository.existsBySlug(request.getSlug())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Slug '" + request.getSlug() + "' đã tồn tại trên hệ thống");
+        }
         exists.setName(request.getName());
         exists.setDescription(request.getDescription());
         exists.setSlug(request.getSlug());

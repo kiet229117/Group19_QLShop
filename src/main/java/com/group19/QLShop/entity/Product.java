@@ -30,6 +30,7 @@ public class Product {
     private String description;
     private double rating;
     private String slug;
+    private int views;
 
 
     @ManyToOne(fetch = FetchType.LAZY) // LAZY giúp tối ưu hiệu năng, chỉ tải category khi cần

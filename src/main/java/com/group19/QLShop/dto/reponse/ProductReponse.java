@@ -16,6 +16,7 @@ public class ProductReponse {
     private String description;
     private Double rating;
     private String slug;
+    private int views;
     private Long brandId;
     private Long categoryId;
 

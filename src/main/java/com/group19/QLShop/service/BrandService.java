@@ -33,6 +33,12 @@ public class BrandService {
 
     // Thêm (Nhận Request DTO -> Lưu và trả về Response DTO)
     public BrandReponse addBrand(BrandRequest request) {
+        if (brandRepository.existsByName(request.getName())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tên thương hiệu '" + request.getName() + "' đã tồn tại trên hệ thống");
+        }
+        if (brandRepository.existsBySlug(request.getSlug())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Slug '" + request.getSlug() + "' đã tồn tại trên hệ thống");
+        }
         Brand newBrand = new Brand();
         newBrand.setName(request.getName());
         newBrand.setSlug(request.getSlug());
@@ -45,9 +51,17 @@ public class BrandService {
 
     // Sửa (Nhận Request DTO -> Cập nhật và trả về Response DTO)
     public BrandReponse updateBrand(Long id, BrandRequest request) {
+     
         Brand exists = brandRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy thương hiệu với ID: " + id));
         
+
+        if (brandRepository.existsByName(request.getName())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tên thương hiệu '" + request.getName() + "' đã tồn tại trên hệ thống");
+        }
+        if (brandRepository.existsBySlug(request.getSlug())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Slug '" + request.getSlug() + "' đã tồn tại trên hệ thống");
+        }
         exists.setName(request.getName());
         exists.setDescription(request.getDescription());
         exists.setSlug(request.getSlug());
