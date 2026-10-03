@@ -1,16 +1,20 @@
 package com.group19.QLShop.service;
 
+
+
+
+
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+
+import com.group19.QLShop.dto.reponse.UserReponse;
+import com.group19.QLShop.dto.request.UserRequest;
 import com.group19.QLShop.entity.Cart;
 import com.group19.QLShop.entity.User;
 import com.group19.QLShop.entity.enums.Role;
 import com.group19.QLShop.repository.CartRepository;
 import com.group19.QLShop.repository.UserRepository;
-import com.group19.QLShop.dto.request.UserRequest;
-import com.group19.QLShop.dto.reponse.UserReponse;
-import org.springframework.stereotype.Service;
-
-import java.util.List;
-
 @Service
 public class UserService {
 
@@ -121,7 +125,7 @@ public class UserService {
         User existingUser = userRepository.findById(id)
                 .orElseThrow(() ->
                         new RuntimeException("Không tìm thấy User"));
-
+existingUser.setUsername(request.getUsername());
         existingUser.setName(request.getName());
         existingUser.setPhone(request.getPhone());
         existingUser.setEmail(request.getEmail());

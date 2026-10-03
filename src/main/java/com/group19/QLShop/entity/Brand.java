@@ -1,4 +1,5 @@
 package com.group19.QLShop.entity;
+import java.util.ArrayList;
 import java.util.List;
 
 import jakarta.persistence.CascadeType;
@@ -11,12 +12,6 @@ import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-<<<<<<< HEAD
-
-import java.util.ArrayList;
-import java.util.List;
-=======
->>>>>>> a7fc072719ac6267605bc9c84e3e3816da8b1fba
 @Entity
 @Data
 @AllArgsConstructor
