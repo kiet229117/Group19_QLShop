@@ -7,17 +7,20 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
+
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.group19.QLShop.dto.reponse.ProductReponse;
 import com.group19.QLShop.dto.request.ProductRequest;
-
 import com.group19.QLShop.service.ProductService;
 
 import jakarta.validation.Valid;
+import java.io.IOException;
+import java.util.List;
 
 @RestController 
 @RequestMapping("/api/products")
@@ -27,7 +30,6 @@ public class ProductController {
         this.productService = productService;
     }
 
-    
     // Lấy bằng slug
     @GetMapping("/slug/{slug}")
     public ResponseEntity<ProductReponse> getBySlug(@PathVariable String slug) {
@@ -40,25 +42,32 @@ public class ProductController {
     public ResponseEntity<Page<ProductReponse>> getAll(
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "10") int size) {
-        // Service đã trả về Page<ProductReponse> sẵn rồi
         Page<ProductReponse> products = productService.getAllProducts(page, size);
         return ResponseEntity.ok(products);
     }
 
-    // Thêm sản phẩm
-    @PostMapping
-    public ResponseEntity<ProductReponse> add(@Valid @RequestBody ProductRequest request) {
-        ProductReponse newProduct = productService.addProduct(request);
+    // Thêm sản phẩm (Đã sửa đổi hỗ trợ Đa ảnh qua RequestPart)
+    @PostMapping(consumes = {"multipart/form-data"})
+    public ResponseEntity<ProductReponse> add(
+        @Valid @RequestPart("product") ProductRequest request,
+        @RequestPart(value = "images", required = false) List<MultipartFile> images
+    ) throws IOException {
+        ProductReponse newProduct = productService.addProduct(request, images);
         return ResponseEntity.ok(newProduct);
     }
-    
 
     // Sửa sản phẩm
-    @PutMapping("/{id}")
-    public ResponseEntity<ProductReponse> update(@PathVariable Long id, @Valid @RequestBody ProductRequest request) {
-        ProductReponse updatedProduct = productService.updateProduct(id, request);
+       @PutMapping(value = "/{id}", consumes = {"multipart/form-data"})
+    public ResponseEntity<ProductReponse> update(
+        @PathVariable Long id, 
+        @Valid @RequestPart("product") ProductRequest request, // Thay @RequestBody thành @RequestPart
+        @RequestPart(value = "images", required = false) List<MultipartFile> images
+    ) throws IOException {
+        
+        ProductReponse updatedProduct = productService.updateProduct(id, request, images);
         return ResponseEntity.ok(updatedProduct);
     }
+
 
     // Xóa sản phẩm
     @DeleteMapping("/{id}")
@@ -87,6 +96,7 @@ public class ProductController {
         return ResponseEntity.ok(products);
     }
 
+    // Lọc sản phẩm theo danh mục (Có phân trang)
     @GetMapping("/filter/category")
     public ResponseEntity<Page<ProductReponse>> filterByCategory(
         @RequestParam Long categoryId,
@@ -96,6 +106,7 @@ public class ProductController {
         return ResponseEntity.ok(products);
     }
 
+    // Lọc sản phẩm theo khoảng giá (Có phân trang)
     @GetMapping("/filter/price")
     public ResponseEntity<Page<ProductReponse>> filterByPriceRange(
         @RequestParam Double minPrice,
@@ -105,5 +116,4 @@ public class ProductController {
         Page<ProductReponse> products = productService.findProductsByPriceRange(minPrice, maxPrice, page, size);
         return ResponseEntity.ok(products);
     }
-
 }
