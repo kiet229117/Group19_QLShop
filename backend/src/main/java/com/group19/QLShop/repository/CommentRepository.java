@@ -7,8 +7,11 @@ import com.group19.QLShop.entity.Comment;
 
 @Repository
 public interface CommentRepository extends JpaRepository<Comment, Long> {
-    
-    // Lấy danh sách comment chưa bị xóa soft-delete theo Product
-    @Query("SELECT c FROM Comment c WHERE c.productId = :productId AND c.deleted_at IS NULL")
-    List<Comment> findActiveCommentsByProductId(Long productId);
+    List<Comment> findByProductIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long productId);
+
+    List<Comment> findByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long userId);
+
+    @Query("SELECT COUNT(c), COALESCE(AVG(c.rating), 0) FROM Comment c "
+            + "WHERE c.productId = :productId AND c.deletedAt IS NULL")
+    Object[] getRatingSummary(Long productId);
 }

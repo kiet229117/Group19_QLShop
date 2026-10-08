@@ -153,17 +153,17 @@ INSERT INTO `cart_items` (`id`, `cart_id`, `product_id`, `quantity`) VALUES
 DELETE FROM `comment`;
 ALTER TABLE `comment` AUTO_INCREMENT = 1;
 
-INSERT INTO `comment` (`id`, `user_id`, `product_id`, `content`, `created_at`, `updated_at`, `deleted_at`) VALUES
-(1, 3, 1, 'Áo mặc cực kỳ êm và mát, form rất vừa vặn, sẽ tiếp tục ủng hộ shop!', NOW(), NOW(), NULL),
-(2, 4, 2, 'Chất vải thể thao xịn xò, thấm mồ hôi rất tốt khi chơi thể thao, màu sắc đẹp.', NOW(), NOW(), NULL),
-(3, 5, 3, 'Sơ mi lên form chuẩn công sở, màu sắc trang nhã dễ phối đồ với quần tây.', NOW(), NOW(), NULL),
-(4, 6, 4, 'Áo khoác gió rất nhẹ nhưng cản gió cực ấm, đường may tỉ mỉ và sắc nét.', NOW(), NOW(), NULL),
-(5, 7, 5, 'Hoodie dày dặn, nón to trùm đầu thoải mái, phong cách trẻ trung chuẩn streetwear.', NOW(), NOW(), NULL),
-(6, 8, 6, 'Quần jeans co giãn thoải mái, không bị gò bó khi ngồi xe hay vận động mạnh.', NOW(), NOW(), NULL),
-(7, 9, 7, 'Chất khaki dày dặn, giặt máy không bị xù lông hay phai màu, đóng gói cẩn thận.', NOW(), NOW(), NULL),
-(8, 10, 8, 'Quần short thể thao mặc chạy bộ rất nhẹ, có túi khóa zip cực kỳ tiện lợi.', NOW(), NOW(), NULL),
-(9, 3, 9, 'Họa tiết in sắc nét, giặt không bị nứt vỡ hình in, vải cotton dày dặn.', NOW(), NOW(), NULL),
-(10, 4, 10, 'Áo polo len dệt kim mặc rất sang, màu sắc đúng y hệt như hình mẫu chụp.', NOW(), NOW(), NULL);
+INSERT INTO `comment` (`id`, `user_id`, `product_id`, `rating`, `content`, `created_at`, `updated_at`, `deleted_at`) VALUES
+(1, 3, 1, 5, 'Áo mặc cực kỳ êm và mát, form rất vừa vặn, sẽ tiếp tục ủng hộ shop!', NOW(), NOW(), NULL),
+(2, 4, 2, 5, 'Chất vải thể thao xịn xò, thấm mồ hôi rất tốt khi chơi thể thao, màu sắc đẹp.', NOW(), NOW(), NULL),
+(3, 5, 3, 4, 'Sơ mi lên form chuẩn công sở, màu sắc trang nhã dễ phối đồ với quần tây.', NOW(), NOW(), NULL),
+(4, 6, 4, 5, 'Áo khoác gió rất nhẹ nhưng cản gió cực ấm, đường may tỉ mỉ và sắc nét.', NOW(), NOW(), NULL),
+(5, 7, 5, 4, 'Hoodie dày dặn, nón to trùm đầu thoải mái, phong cách trẻ trung chuẩn streetwear.', NOW(), NOW(), NULL),
+(6, 8, 6, 4, 'Quần jeans co giãn thoải mái, không bị gò bó khi ngồi xe hay vận động mạnh.', NOW(), NOW(), NULL),
+(7, 9, 7, 5, 'Chất khaki dày dặn, giặt máy không bị xù lông hay phai màu, đóng gói cẩn thận.', NOW(), NOW(), NULL),
+(8, 10, 8, 5, 'Quần short thể thao mặc chạy bộ rất nhẹ, có túi khóa zip cực kỳ tiện lợi.', NOW(), NOW(), NULL),
+(9, 3, 9, 4, 'Họa tiết in sắc nét, giặt không bị nứt vỡ hình in, vải cotton dày dặn.', NOW(), NOW(), NULL),
+(10, 4, 10, 5, 'Áo polo len dệt kim mặc rất sang, màu sắc đúng y hệt như hình mẫu chụp.', NOW(), NOW(), NULL);
 
 -- ==============================================================================
 -- 9. BẢNG `order` (10 Đơn hàng)

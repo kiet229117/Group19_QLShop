@@ -8,6 +8,7 @@ public class CommentResponse {
     private Long id;
     private Long userId;
     private Long productId;
+    private Integer rating;
     private String content;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

@@ -21,6 +21,9 @@ public class Comment {
     @Column(name = "product_id", nullable = false)
     private Long productId;
 
+    @Column(nullable = false)
+    private Integer rating;
+
     @Column(columnDefinition = "TEXT")
     private String content;
 
@@ -31,7 +34,7 @@ public class Comment {
     private LocalDateTime updatedAt;
 
     @Column(name = "deleted_at")
-    private LocalDateTime deleted_at;
+    private LocalDateTime deletedAt;
 
     @PrePersist
     protected void onCreate() {

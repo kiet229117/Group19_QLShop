@@ -53,6 +53,7 @@ public class SecurityConfig {
                 .requestMatchers("/error").permitAll()
                 .requestMatchers("/api/seed/**").permitAll()
                 .requestMatchers("/api/webhook/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/comments/mine").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/products/**", "/api/brands/**", 
                                  "/api/categories/**", "/api/comments/**").permitAll()
                 .requestMatchers("/uploads/**").permitAll()
