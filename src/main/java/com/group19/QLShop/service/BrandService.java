@@ -1,6 +1,8 @@
 package com.group19.QLShop.service;
 
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -8,12 +10,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.group19.QLShop.dto.reponse.BrandReponse;
 import com.group19.QLShop.dto.request.BrandRequest;
 import com.group19.QLShop.entity.Brand;
-
 import com.group19.QLShop.repository.BrandRepository;
-
-import org.springframework.data.domain.Page;
-
-import org.springframework.data.domain.Pageable;
 
 @Service 
 public class BrandService {
