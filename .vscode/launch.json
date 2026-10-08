@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot - QlShopApplication",
+            "request": "launch",
+            "mainClass": "com.group19.QLShop.QlShopApplication",
+            "projectName": "QLShop",
+            "cwd": "${workspaceFolder}/backend"
+        }
+    ]
+}
+
