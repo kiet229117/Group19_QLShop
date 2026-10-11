@@ -4,7 +4,5 @@ public enum Role {
     admin,
     user,
     staff,
-    ADMIN,
-    USER,
-    STAFF
+
 }

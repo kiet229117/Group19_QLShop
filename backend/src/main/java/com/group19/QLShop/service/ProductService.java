@@ -1,6 +1,7 @@
 package com.group19.QLShop.service;
 
 import com.group19.QLShop.entity.Product;
+import com.group19.QLShop.entity.ProductVariant;
 import com.group19.QLShop.repository.BrandRepository;
 import com.group19.QLShop.repository.CategoryRepository;
 import com.group19.QLShop.repository.ProductRepository;
@@ -97,6 +98,18 @@ public class ProductService {
         newProduct.setBrand(brand);
         newProduct.setCategory(category);
 
+        // ---> THÊM MỚI LOGIC SALE, HOT & SIZE/COLOR (VARIANTS) TẠI ĐÂY <---
+        newProduct.setSalePrice(request.getSalePrice());
+        newProduct.setHot(request.isHot());
+
+        if (request.getVariants() != null && !request.getVariants().isEmpty()) {
+            for (ProductVariant variant : request.getVariants()) {
+                variant.setProduct(newProduct); // Gán khóa ngoại
+            }
+            newProduct.setVariants(request.getVariants());
+        }
+        // ------------------------------------------------------------------
+
         // 1. Lưu thông tin sản phẩm vào DB trước để sinh ID
         Product savedProduct = productRepository.save(newProduct);
 
@@ -104,25 +117,21 @@ public class ProductService {
         if (images != null && !images.isEmpty()) {
             for (MultipartFile file : images) {
                 if (!file.isEmpty()) {
-                    // Gọi FileStorageService để lưu file vật lý vào ổ đĩa và nhận lại tên
-                    // file/đường dẫn
                     String fileName = fileStorageService.storeFile(file);
 
-                    // Khởi tạo đối tượng ProductImage để map vào database
                     ProductImage productImage = new ProductImage();
                     productImage.setImageUrl(fileName);
-                    productImage.setProduct(savedProduct); // Gắn quan hệ với sản phẩm vừa tạo
+                    productImage.setProduct(savedProduct); 
 
-                    // Lưu thông tin ảnh sản phẩm vào DB thông qua JpaRepository
                     productImageRepository.save(productImage);
                 }
             }
         }
 
-        // Trả về thông tin sản phẩm kèm định dạng DTO
         return toResponse(savedProduct);
     }
-        // Sửa/Cập nhật sản phẩm (Có xử lý cập nhật lại danh sách ảnh)
+    
+    // Sửa/Cập nhật sản phẩm (Có xử lý cập nhật lại danh sách ảnh)
     @Transactional(rollbackFor = Exception.class)
     public ProductReponse updateProduct(Long id, ProductRequest request, List<MultipartFile> images) throws IOException {
         
@@ -156,25 +165,33 @@ public class ProductService {
         existingProduct.setBrand(brand);
         existingProduct.setCategory(category);
 
+        // ---> THÊM MỚI LOGIC CẬP NHẬT SALE, HOT & VARIANTS <---
+        existingProduct.setSalePrice(request.getSalePrice());
+        existingProduct.setHot(request.isHot());
+
+        if (request.getVariants() != null) {
+            existingProduct.getVariants().clear(); // Xóa Size/Color cũ
+            for (ProductVariant variant : request.getVariants()) {
+                variant.setProduct(existingProduct); // Gán khóa ngoại lại
+                existingProduct.getVariants().add(variant); // Thêm cái mới
+            }
+        }
+        // ------------------------------------------------------
+
         // Lưu thông tin sản phẩm cập nhật trước
         Product updatedProduct = productRepository.save(existingProduct);
 
-        // 6. Xử lý cập nhật ảnh (Chỉ thay đổi nếu phía Client có truyền danh sách ảnh mới lên)
+        // 6. Xử lý cập nhật ảnh 
         if (images != null && !images.isEmpty() && !images.get(0).isEmpty()) {
             
-            // Bước A: Tìm toàn bộ thông tin ảnh cũ trong DB thuộc về sản phẩm này
-            // LƯU Ý: Bạn cần viết thêm phương thức `findByProductId` trong `ProductImageRepository` nếu chưa có
             List<ProductImage> oldImages = productImageRepository.findByProductId(id);
             
-            // Bước B: Duyệt vòng lặp để xóa sạch file vật lý của ảnh cũ trên ổ đĩa
             for (ProductImage oldImg : oldImages) {
                 fileStorageService.deleteImage(oldImg.getImageUrl());
             }
             
-            // Bước C: Xóa sạch các bản ghi ảnh cũ của sản phẩm này trong database
             productImageRepository.deleteAll(oldImages);
 
-            // Bước D: Tiến hành lưu danh sách hình ảnh mới thay thế
             for (MultipartFile file : images) {
                 if (!file.isEmpty()) {
                     String imagePath = fileStorageService.storeFile(file);
@@ -190,7 +207,6 @@ public class ProductService {
 
         return toResponse(updatedProduct);
     }
-
 
     // Xóa sản phẩm
     @Transactional
@@ -259,8 +275,7 @@ public class ProductService {
         return products.map(this::toResponse);
     }
 
-    // Hàm kiểm tra tính hợp lệ của phân trang (Bổ sung để tránh lỗi thiếu phương
-    // thức)
+    // Hàm kiểm tra tính hợp lệ của phân trang 
     private void validatePagination(int page, int size) {
         if (page < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số trang không được nhỏ hơn 0");
@@ -279,6 +294,15 @@ public class ProductService {
         response.setDescription(product.getDescription());
         response.setRating(product.getRating());
         response.setSlug(product.getSlug());
+
+        // ---> THÊM MỚI TRẢ VỀ DỮ LIỆU SALE, HOT & VARIANTS TẠI ĐÂY <---
+        response.setSalePrice(product.getSalePrice());
+        response.setHot(product.isHot());
+        
+        if (product.getVariants() != null) {
+            response.setVariants(product.getVariants());
+        }
+        // --------------------------------------------------------------
 
         if (product.getBrand() != null) {
             response.setBrandId(product.getBrand().getId());
