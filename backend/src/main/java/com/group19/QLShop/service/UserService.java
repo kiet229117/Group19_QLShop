@@ -4,26 +4,32 @@ package com.group19.QLShop.service;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.group19.QLShop.dto.reponse.UserReponse;
 import com.group19.QLShop.dto.request.UserRequest;
 import com.group19.QLShop.entity.Cart;
 import com.group19.QLShop.entity.User;
 import com.group19.QLShop.entity.enums.Role;
+import com.group19.QLShop.exception.AppException;
 import com.group19.QLShop.repository.CartRepository;
 import com.group19.QLShop.repository.UserRepository;
+
 @Service
 public class UserService {
 
     private final UserRepository userRepository;
     private final CartRepository cartRepository;
+    private final FileStorageService fileStorageService;
 
     public UserService(
             UserRepository userRepository,
-            CartRepository cartRepository
+            CartRepository cartRepository,
+            FileStorageService fileStorageService
     ) {
         this.userRepository = userRepository;
         this.cartRepository = cartRepository;
+        this.fileStorageService = fileStorageService;
     }
 
     // =========================
@@ -33,7 +39,7 @@ public class UserService {
     public List<UserReponse> getAllUsers() {
         return userRepository.findAll()
                 .stream()
-                .map(this::toReponse)
+                .map(this::toResponse)
                 .toList();
     }
 
@@ -48,7 +54,7 @@ public class UserService {
                 .orElseThrow(() ->
                         new RuntimeException("Không tìm thấy User"));
 
-        return toReponse(user);
+        return toResponse(user);
     }
 
 
@@ -62,7 +68,7 @@ public class UserService {
                 .orElseThrow(() ->
                         new RuntimeException("Không tìm thấy User"));
 
-        return toReponse(user);
+        return toResponse(user);
     }
 
 
@@ -76,7 +82,7 @@ public class UserService {
                 .orElseThrow(() ->
                         new RuntimeException("Không tìm thấy User"));
 
-        return toReponse(user);
+        return toResponse(user);
     }
 
 
@@ -109,7 +115,7 @@ public class UserService {
         // Đăng ký luôn là role user
         user.setRole(Role.user);
 
-        return toReponse(userRepository.save(user));
+        return toResponse(userRepository.save(user));
     }
 
 
@@ -130,7 +136,7 @@ existingUser.setUsername(request.getUsername());
         existingUser.setAddress(request.getAddress());
         existingUser.setAvatar(request.getAvatar());
 
-        return toReponse(userRepository.save(existingUser));
+        return toResponse(userRepository.save(existingUser));
     }
 
 
@@ -165,7 +171,7 @@ existingUser.setUsername(request.getUsername());
             throw new RuntimeException("Mật khẩu mới phải khác mật khẩu cũ");
         }
         user.setPassword(newPassword);
-        return toReponse(userRepository.save(user));
+        return toResponse(userRepository.save(user));
     }
 
 
@@ -183,11 +189,28 @@ existingUser.setUsername(request.getUsername());
     }
 
 
+    public UserReponse uploadAvatar(Long userId, MultipartFile file) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AppException("Không tìm thấy người dùng với ID: " + userId));
+
+        // Xóa avatar cũ nếu có để tiết kiệm bộ nhớ server
+        if (user.getAvatar() != null && !user.getAvatar().startsWith("http")) {
+            fileStorageService.deleteFile(user.getAvatar());
+        }
+
+        // Lưu avatar mới vào thư mục uploads/avatars
+        String avatarUrl = fileStorageService.storeFile(file, "avatars");
+        user.setAvatar(avatarUrl);
+        userRepository.save(user);
+
+        return toResponse(user);
+    }
+
     // =========================
     // CHUYỂN USER -> USER REPONSE
     // =========================
 
-    private UserReponse toReponse(User user) {
+    private UserReponse toResponse(User user) {
 
         // Lấy id giỏ hàng của User (chưa có giỏ thì null)
         Long cartId = cartRepository.findByUserId(user.getId())

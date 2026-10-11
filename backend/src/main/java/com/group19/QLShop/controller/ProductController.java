@@ -19,7 +19,6 @@ import com.group19.QLShop.dto.request.ProductRequest;
 import com.group19.QLShop.service.ProductService;
 
 import jakarta.validation.Valid;
-import java.io.IOException;
 import java.util.List;
 
 @RestController 
@@ -51,18 +50,18 @@ public class ProductController {
     public ResponseEntity<ProductReponse> add(
         @Valid @RequestPart("product") ProductRequest request,
         @RequestPart(value = "images", required = false) List<MultipartFile> images
-    ) throws IOException {
+    ) {
         ProductReponse newProduct = productService.addProduct(request, images);
         return ResponseEntity.ok(newProduct);
     }
 
     // Sửa sản phẩm
-       @PutMapping(value = "/{id}", consumes = {"multipart/form-data"})
+    @PutMapping(value = "/{id}", consumes = {"multipart/form-data"})
     public ResponseEntity<ProductReponse> update(
         @PathVariable Long id, 
         @Valid @RequestPart("product") ProductRequest request, // Thay @RequestBody thành @RequestPart
         @RequestPart(value = "images", required = false) List<MultipartFile> images
-    ) throws IOException {
+    ) {
         
         ProductReponse updatedProduct = productService.updateProduct(id, request, images);
         return ResponseEntity.ok(updatedProduct);
