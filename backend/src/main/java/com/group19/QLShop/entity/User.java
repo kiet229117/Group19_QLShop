@@ -26,9 +26,15 @@ public class User {
     @GeneratedValue (strategy = GenerationType.IDENTITY)
     private Long id;
     private String name;
+
+    @jakarta.persistence.Column(unique = true, nullable = false)
     private String username;
+
     private String phone;
+
+    @jakarta.persistence.Column(unique = true, nullable = false)
     private String email;
+
     private String gender;
     private String address;
     private String password;
