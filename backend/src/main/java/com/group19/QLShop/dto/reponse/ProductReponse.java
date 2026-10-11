@@ -8,12 +8,13 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class ProductReponse {
+import java.util.List;
 
+@Data 
+@Builder                  
+@NoArgsConstructor       
+@AllArgsConstructor      
+public class ProductReponse {
     private Long id;
     private String name;
     private Double price;
@@ -27,4 +28,7 @@ public class ProductReponse {
     private boolean isHot;
     private List<ProductVariant> variants;
 
+    private String image;             // Đường dẫn ảnh đại diện chính (thuận tiện cho frontend)
+    private String primaryImage;      // Ảnh chính
+    private List<String> images;      // Danh sách tất cả đường dẫn ảnh của sản phẩm
 }

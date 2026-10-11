@@ -15,8 +15,13 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.http.HttpMethod;
 
 import java.util.List;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
+@EnableWebSecurity
+@EnableMethodSecurity(prePostEnabled = true)
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -46,20 +51,108 @@ public class SecurityConfig {
             }))
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint((request, response, authException) -> {
+                    response.setContentType("application/json;charset=UTF-8");
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.getWriter().write("{\"status\":401,\"message\":\"Bạn chưa đăng nhập hoặc phiên đăng nhập đã hết hạn\"}");
+                })
+                .accessDeniedHandler((request, response, accessDeniedException) -> {
+                    response.setContentType("application/json;charset=UTF-8");
+                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    response.getWriter().write("{\"status\":403,\"message\":\"Bạn không có quyền thực hiện thao tác này\"}");
+                })
+            )
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/logout", 
-                                 "/api/auth/forgot-password", "/api/auth/reset-password").permitAll()
-                .requestMatchers("/api/auth/me", "/api/auth/change-password").authenticated()
-                .requestMatchers("/error").permitAll()
-                .requestMatchers("/api/seed/**").permitAll()
-                .requestMatchers("/api/webhook/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/products/**", "/api/brands/**", 
-                                 "/api/categories/**", "/api/comments/**").permitAll()
+                // ==========================================
+                // 1. PUBLIC: Không cần đăng nhập
+                // ==========================================
+                .requestMatchers(
+                    "/api/auth/login", 
+                    "/api/auth/register", 
+                    "/api/auth/forgot-password", 
+                    "/api/auth/reset-password",
+                    "/error",
+                    "/api/seed/**",
+                    "/api/webhook/**"
+                ).permitAll()
+                .requestMatchers(HttpMethod.GET, 
+                    "/api/products/**", 
+                    "/api/brands/**", 
+                    "/api/categories/**", 
+                    "/api/comments/**"
+                ).permitAll()
                 .requestMatchers("/uploads/**").permitAll()
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.POST, "/api/brands/**", "/api/categories/**").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.PUT, "/api/brands/**", "/api/categories/**").hasRole("ADMIN")
+
+                // ==========================================
+                // 2. AUTH: Thông tin cá nhân, đổi mật khẩu, đăng xuất (Đã đăng nhập)
+                // ==========================================
+                .requestMatchers("/api/auth/logout", "/api/auth/me", "/api/auth/change-password").authenticated()
+
+                // ==========================================
+                // 3. QUẢN LÝ SẢN PHẨM (PRODUCTS)
+                // - Thêm / Sửa: ADMIN, STAFF
+                // - Xóa: Chỉ ADMIN
+                // ==========================================
+                .requestMatchers(HttpMethod.POST, "/api/products/**").hasAnyRole("ADMIN", "STAFF")
+                .requestMatchers(HttpMethod.PUT, "/api/products/**").hasAnyRole("ADMIN", "STAFF")
+                .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasRole("ADMIN")
+
+                // ==========================================
+                // 4. QUẢN LÝ THƯƠNG HIỆU & DANH MỤC (BRANDS, CATEGORIES)
+                // - Thêm / Sửa: ADMIN, STAFF
+                // - Xóa: Chỉ ADMIN
+                // ==========================================
+                .requestMatchers(HttpMethod.POST, "/api/brands/**", "/api/categories/**").hasAnyRole("ADMIN", "STAFF")
+                .requestMatchers(HttpMethod.PUT, "/api/brands/**", "/api/categories/**").hasAnyRole("ADMIN", "STAFF")
                 .requestMatchers(HttpMethod.DELETE, "/api/brands/**", "/api/categories/**").hasRole("ADMIN")
+
+                // ==========================================
+                // 5. QUẢN LÝ NGƯỜI DÙNG (USERS)
+                // - Xem danh sách tất cả users: ADMIN, STAFF
+                // - Tạo user trực tiếp từ Admin: Chỉ ADMIN
+                // - Xóa user: Chỉ ADMIN
+                // - Xem / sửa / upload avatar cá nhân: User đã đăng nhập
+                // ==========================================
+                .requestMatchers(HttpMethod.GET, "/api/users").hasAnyRole("ADMIN", "STAFF")
+                .requestMatchers(HttpMethod.POST, "/api/users").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/users/**").hasRole("ADMIN")
+                .requestMatchers("/api/users/**").authenticated()
+
+                // ==========================================
+                // 6. QUẢN LÝ ĐƠN HÀNG (ORDERS)
+                // - Xem tất cả đơn hàng (quản trị): ADMIN, STAFF
+                // - Cập nhật trạng thái đơn (duyệt, giao): ADMIN, STAFF
+                // - Xóa đơn hàng: Chỉ ADMIN
+                // - Đặt hàng, xem đơn cá nhân, hủy đơn: Mọi user đã đăng nhập
+                // ==========================================
+                .requestMatchers(HttpMethod.GET, "/api/orders").hasAnyRole("ADMIN", "STAFF")
+                .requestMatchers(HttpMethod.PUT, "/api/orders/*/status").hasAnyRole("ADMIN", "STAFF")
+                .requestMatchers(HttpMethod.DELETE, "/api/orders/**").hasRole("ADMIN")
+                .requestMatchers("/api/orders/**").authenticated()
+
+                // ==========================================
+                // 7. QUẢN LÝ GIỎ HÀNG (CARTS)
+                // - Xem tất cả giỏ hàng hệ thống: ADMIN, STAFF
+                // - Thao tác giỏ hàng cá nhân: Mọi user đã đăng nhập
+                // ==========================================
+                .requestMatchers(HttpMethod.GET, "/api/carts").hasAnyRole("ADMIN", "STAFF")
+                .requestMatchers("/api/carts/**").authenticated()
+
+                // ==========================================
+                // 8. BÌNH LUẬN (COMMENTS)
+                // - Gửi / sửa / xóa bình luận: Mọi user đã đăng nhập
+                // ==========================================
+                .requestMatchers("/api/comments/**").authenticated()
+
+                // ==========================================
+                // 9. ĐƯỜNG DẪN QUẢN TRỊ RIÊNG (NẾU CÓ)
+                // ==========================================
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+
+                // ==========================================
+                // 10. TẤT CẢ CÁC REQUEST KHÁC: Yêu cầu đăng nhập
+                // ==========================================
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

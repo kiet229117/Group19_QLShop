@@ -31,7 +31,8 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtUtils jwtUtils;
     private final EmailService emailService;
-
+   
+    
     // Lớp nội bộ để trả về cả Token (dùng set Cookie) và UserResponse
     public record AuthResult(String token, UserResponse userResponse) {}
 

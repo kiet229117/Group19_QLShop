@@ -9,53 +9,55 @@ import java.util.UUID;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.group19.QLShop.exception.AppException;
+
 @Service // Thêm annotation này để Spring nhận diện là một Bean dịch vụ
 public class FileStorageService {
-    private final String uploadDir = "uploads/products/";
+    private final String BASE_UPLOAD_DIR = "uploads/";
 
-    public String storeFile(MultipartFile file) throws IOException {
-
-        // 1. Tạo thư mục nếu chưa tồn tại
-        Path uploadPath = Paths.get(uploadDir);
-
-        if (!Files.exists(uploadPath)) {
-            Files.createDirectories(uploadPath);
+        public String storeFile(MultipartFile file, String subFolder) {
+        if (file.isEmpty()) {
+            throw new AppException("File không được để trống");
         }
-
-        // 2. Lấy tên file gốc
-        String originalFileName = file.getOriginalFilename();
-
-        // 3. Tạo tên file mới nhằm tránh trùng lặp trùng tên
-        String fileName = UUID.randomUUID() + "_" + originalFileName;
-
-        // 4. Tạo đường dẫn file vật lý
-        Path filePath = uploadPath.resolve(fileName);
-
-        // 5. Lưu file vào ổ đĩa vật lý của Server
-        Files.copy(
-                file.getInputStream(),
-                filePath,
-                StandardCopyOption.REPLACE_EXISTING);
-
-        // 6. Trả về đường dẫn chuẩn để lưu vào Database phục vụ hiển thị
-        return "/uploads/products/" + fileName;
+        // 1. Kiểm tra định dạng ảnh hợp lệ
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new AppException("Chỉ chấp nhận file định dạng hình ảnh (JPG, PNG, WEBP,...)");
+        }
+        try {
+            // 2. Tạo thư mục con (vd: uploads/avatars/ hoặc uploads/products/)
+            Path uploadPath = Paths.get(BASE_UPLOAD_DIR + subFolder);
+            if (!Files.exists(uploadPath)) {
+                Files.createDirectories(uploadPath);
+            }
+            // 3. Đặt tên file ngẫu nhiên tránh trùng lặp
+            String originalFileName = file.getOriginalFilename();
+            String fileExtension = "";
+            if (originalFileName != null && originalFileName.contains(".")) {
+                fileExtension = originalFileName.substring(originalFileName.lastIndexOf("."));
+            }
+            String fileName = UUID.randomUUID() + fileExtension;
+            // 4. Lưu file vật lý
+            Path filePath = uploadPath.resolve(fileName);
+            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+            // 5. Trả về đường dẫn tương đối để lưu vào DB
+            return "/" + BASE_UPLOAD_DIR + subFolder + "/" + fileName;
+        } catch (IOException e) {
+            throw new AppException("Lỗi khi lưu trữ file: " + e.getMessage(), e);
+        }
     }
-
-    // Thêm hàm này vào bên trong class FileStorageService của bạn
-public void deleteImage(String imagePath) {
-    if (imagePath == null || imagePath.isEmpty()) return;
-    
-    try {
-        // Biến đổi ngược "/uploads/products/tên_file" thành đường dẫn vật lý để xóa
-        String relativePath = imagePath.startsWith("/") ? imagePath.substring(1) : imagePath;
-        Path filePath = Paths.get(relativePath);
-        
-        // Tiến hành xóa file nếu tồn tại
-        Files.deleteIfExists(filePath);
-    } catch (IOException e) {
-        // Log lỗi hoặc bỏ qua nếu không tìm thấy file vật lý
-        System.err.println("Không thể xóa file vật lý tại: " + imagePath + ". Lỗi: " + e.getMessage());
+    public void deleteFile(String relativePath) {
+        if (relativePath == null || relativePath.trim().isEmpty()) return;
+        // Nếu là URL online (Unsplash, Cloudinary, CDN) thì không xóa file local
+        if (relativePath.startsWith("http://") || relativePath.startsWith("https://")) {
+            return;
+        }
+        try {
+            String path = relativePath.startsWith("/") ? relativePath.substring(1) : relativePath;
+            Files.deleteIfExists(Paths.get(path));
+        } catch (Exception e) {
+            System.err.println("Không thể xóa file cũ: " + relativePath + " (" + e.getMessage() + ")");
+        }
     }
-}
 
 }

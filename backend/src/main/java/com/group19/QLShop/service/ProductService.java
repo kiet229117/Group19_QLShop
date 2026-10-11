@@ -18,12 +18,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.multipart.MultipartFile;
-import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import com.group19.QLShop.entity.ProductImage;
 import com.group19.QLShop.repository.ProductImageRepository;
 
 @Service
+@Transactional(readOnly = true)
 public class ProductService {
     private final ProductRepository productRepository;
     private final BrandRepository brandRepository;
@@ -65,7 +66,7 @@ public class ProductService {
 
     // Thêm sản phẩm (Có xử lý đa ảnh)
     @Transactional(rollbackFor = Exception.class) // Đảm bảo rollback dữ liệu nếu lưu file lỗi
-    public ProductReponse addProduct(ProductRequest request, List<MultipartFile> images) throws IOException {
+    public ProductReponse addProduct(ProductRequest request, List<MultipartFile> images) {
 
         if (productRepository.existsByName(request.getName())) {
             throw new ResponseStatusException(
@@ -115,25 +116,30 @@ public class ProductService {
 
         // 2. Xử lý và lưu danh sách ảnh đi kèm (nếu có)
         if (images != null && !images.isEmpty()) {
+            boolean isFirst = true;
             for (MultipartFile file : images) {
-                if (!file.isEmpty()) {
-                    String fileName = fileStorageService.storeFile(file);
+                if (file != null && !file.isEmpty()) {
+                    // Gọi FileStorageService để lưu file vật lý vào ổ đĩa và nhận lại tên file/đường dẫn
+                    String fileName = fileStorageService.storeFile(file, "products");
 
                     ProductImage productImage = new ProductImage();
                     productImage.setImageUrl(fileName);
-                    productImage.setProduct(savedProduct); 
+                    productImage.setIsPrimary(isFirst);
+                    productImage.setProduct(savedProduct); // Gắn quan hệ với sản phẩm vừa tạo
 
-                    productImageRepository.save(productImage);
+                    // Lưu thông tin ảnh sản phẩm vào DB thông qua JpaRepository
+                    ProductImage savedImage = productImageRepository.save(productImage);
+                    savedProduct.getImages().add(savedImage);
+                    isFirst = false;
                 }
             }
         }
 
         return toResponse(savedProduct);
     }
-    
     // Sửa/Cập nhật sản phẩm (Có xử lý cập nhật lại danh sách ảnh)
     @Transactional(rollbackFor = Exception.class)
-    public ProductReponse updateProduct(Long id, ProductRequest request, List<MultipartFile> images) throws IOException {
+    public ProductReponse updateProduct(Long id, ProductRequest request, List<MultipartFile> images) {
         
         // 1. Kiểm tra sản phẩm có tồn tại không
         Product existingProduct = productRepository.findById(id)
@@ -184,23 +190,31 @@ public class ProductService {
         // 6. Xử lý cập nhật ảnh 
         if (images != null && !images.isEmpty() && !images.get(0).isEmpty()) {
             
+            // Bước A: Tìm toàn bộ thông tin ảnh cũ trong DB thuộc về sản phẩm này
             List<ProductImage> oldImages = productImageRepository.findByProductId(id);
             
             for (ProductImage oldImg : oldImages) {
-                fileStorageService.deleteImage(oldImg.getImageUrl());
+                fileStorageService.deleteFile(oldImg.getImageUrl());
             }
             
+            // Bước C: Xóa sạch các bản ghi ảnh cũ của sản phẩm này trong database và bộ nhớ
             productImageRepository.deleteAll(oldImages);
+            existingProduct.getImages().clear();
 
+            // Bước D: Tiến hành lưu danh sách hình ảnh mới thay thế
+            boolean isFirst = true;
             for (MultipartFile file : images) {
-                if (!file.isEmpty()) {
-                    String imagePath = fileStorageService.storeFile(file);
+                if (file != null && !file.isEmpty()) {
+                    String imagePath = fileStorageService.storeFile(file, "products");
 
                     ProductImage newProductImage = new ProductImage();
                     newProductImage.setImageUrl(imagePath);
+                    newProductImage.setIsPrimary(isFirst);
                     newProductImage.setProduct(updatedProduct);
 
-                    productImageRepository.save(newProductImage);
+                    ProductImage savedImage = productImageRepository.save(newProductImage);
+                    existingProduct.getImages().add(savedImage);
+                    isFirst = false;
                 }
             }
         }
@@ -214,6 +228,12 @@ public class ProductService {
         Product exists = productRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Không tìm thấy sản phẩm với ID: " + id));
+
+        // Xóa file vật lý các ảnh của sản phẩm trên ổ đĩa
+        List<ProductImage> oldImages = productImageRepository.findByProductId(id);
+        for (ProductImage oldImg : oldImages) {
+            fileStorageService.deleteFile(oldImg.getImageUrl());
+        }
 
         productRepository.delete(exists);
     }
@@ -294,6 +314,7 @@ public class ProductService {
         response.setDescription(product.getDescription());
         response.setRating(product.getRating());
         response.setSlug(product.getSlug());
+        response.setViews(product.getViews());
 
         // ---> THÊM MỚI TRẢ VỀ DỮ LIỆU SALE, HOT & VARIANTS TẠI ĐÂY <---
         response.setSalePrice(product.getSalePrice());
@@ -310,6 +331,33 @@ public class ProductService {
         if (product.getCategory() != null) {
             response.setCategoryId(product.getCategory().getId());
         }
+
+        // Lấy danh sách ảnh sản phẩm
+        List<ProductImage> imageEntities = product.getImages();
+        if (imageEntities == null || imageEntities.isEmpty()) {
+            imageEntities = productImageRepository.findByProductIdOrderByIsPrimaryDesc(product.getId());
+        }
+
+        List<String> imageUrls = new ArrayList<>();
+        String primaryImageUrl = null;
+
+        if (imageEntities != null && !imageEntities.isEmpty()) {
+            for (ProductImage img : imageEntities) {
+                if (img.getImageUrl() != null) {
+                    imageUrls.add(img.getImageUrl());
+                    if (Boolean.TRUE.equals(img.getIsPrimary()) && primaryImageUrl == null) {
+                        primaryImageUrl = img.getImageUrl();
+                    }
+                }
+            }
+            if (primaryImageUrl == null && !imageUrls.isEmpty()) {
+                primaryImageUrl = imageUrls.get(0);
+            }
+        }
+
+        response.setImages(imageUrls);
+        response.setPrimaryImage(primaryImageUrl);
+        response.setImage(primaryImageUrl);
 
         return response;
     }

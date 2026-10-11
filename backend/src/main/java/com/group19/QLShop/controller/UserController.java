@@ -15,7 +15,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.MediaType;
 
 import java.util.List;
 
@@ -102,24 +105,6 @@ public class UserController {
     }
 
 
-    // =========================
-    // ĐỔI MẬT KHẨU
-    // PUT /api/users/{id}/password
-    // =========================
-
-   @PutMapping("/{id}/password")
-public ResponseEntity<UserReponse> changePassword(
-        @PathVariable Long id,
-        @RequestBody UserRequest request
-) {
-    return ResponseEntity.ok(
-            userService.changePassword(
-                    id,
-                    request.getOldPassword(),
-                    request.getNewPassword()
-            )
-    );
-}
 
 
     // =========================
@@ -132,4 +117,14 @@ public ResponseEntity<UserReponse> changePassword(
         userService.deleteUser(id);
         return ResponseEntity.ok("Xóa User thành công");
     }
+
+    // POST /api/users/{id}/avatar
+        @PostMapping(value = "/{id}/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+        public ResponseEntity<UserReponse> uploadAvatar(
+                @PathVariable Long id,
+                @RequestParam("avatar") MultipartFile avatarFile
+        ) {
+            UserReponse updatedUser = userService.uploadAvatar(id, avatarFile);
+            return ResponseEntity.ok(updatedUser);
+        }
 }

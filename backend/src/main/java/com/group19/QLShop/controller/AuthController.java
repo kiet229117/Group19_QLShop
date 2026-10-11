@@ -36,9 +36,16 @@ public class AuthController {
         // Tạo Cookie HttpOnly chứa JWT
         ResponseCookie cookie = jwtUtils.generateJwtCookie(result.token());
 
+        AuthResponse response = AuthResponse.builder()
+                .message("Đăng ký thành công")
+                .user(result.userResponse())
+                .token(result.token())
+                .tokenType("Bearer")
+                .build();
+
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookie.toString())
-                .body(new AuthResponse("Đăng ký thành công", result.userResponse()));
+                .body(response);
     }
 
     // ==========================================
@@ -51,9 +58,16 @@ public class AuthController {
         // Tạo Cookie HttpOnly chứa JWT
         ResponseCookie cookie = jwtUtils.generateJwtCookie(result.token());
 
+        AuthResponse response = AuthResponse.builder()
+                .message("Đăng nhập thành công")
+                .user(result.userResponse())
+                .token(result.token())
+                .tokenType("Bearer")
+                .build();
+
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookie.toString())
-                .body(new AuthResponse("Đăng nhập thành công", result.userResponse()));
+                .body(response);
     }
 
     // ==========================================
@@ -111,4 +125,6 @@ public class AuthController {
         authService.resetPassword(request);
         return ResponseEntity.ok("Đặt lại mật khẩu thành công");
     }
+
+    
 }
