@@ -1,11 +1,13 @@
 package com.group19.QLShop.repository;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import com.group19.QLShop.entity.User;
+import com.group19.QLShop.entity.enums.Role;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
@@ -14,4 +16,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByUsername(String username);
     boolean existsByEmail(String email);
     Optional<User> findByResetPasswordToken(String resetPasswordToken);
+    List<User> findByRole(Role role);
+    Optional<User> findFirstByRole(Role role);
 }
