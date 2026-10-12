@@ -146,12 +146,24 @@ public class SecurityConfig {
                 .requestMatchers("/api/comments/**").authenticated()
 
                 // ==========================================
-                // 9. ĐƯỜNG DẪN QUẢN TRỊ RIÊNG (NẾU CÓ)
+                // 9. DANH SÁCH YÊU THÍCH (WISHLISTS)
+                // - Thao tác danh sách yêu thích: Mọi user đã đăng nhập
+                // ==========================================
+                .requestMatchers("/api/wishlists/**").authenticated()
+
+                // ==========================================
+                // 10. TRÒ CHUYỆN / CHAT (CHATS & MESSAGES)
+                // - Nhắn tin giữa người mua và shop: Mọi user đã đăng nhập
+                // ==========================================
+                .requestMatchers("/api/chat/**").authenticated()
+
+                // ==========================================
+                // 11. ĐƯỜNG DẪN QUẢN TRỊ RIÊNG (NẾU CÓ)
                 // ==========================================
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
                 // ==========================================
-                // 10. TẤT CẢ CÁC REQUEST KHÁC: Yêu cầu đăng nhập
+                // 12. TẤT CẢ CÁC REQUEST KHÁC: Yêu cầu đăng nhập
                 // ==========================================
                 .anyRequest().authenticated()
             )

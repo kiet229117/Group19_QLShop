@@ -1,8 +1,11 @@
 package com.group19.QLShop.entity;
 
 import lombok.Data;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 
-
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -11,35 +14,35 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
-
-import lombok.NoArgsConstructor;
 
 import java.util.ArrayList;
 import java.util.List;
-import jakarta.persistence.CascadeType;
+
 @Entity
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
 @Table(name = "products")
-
 public class Product {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY) // <-- Thiếu dòng này hoặc strategy khác sẽ khiến id không tự
-                                                        // tăng
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
     private String name;
+    
+    // GIỮ NGUYÊN GIÁ GỐC TẠI ĐÂY
     private double price;
+
     private String description;
     private double rating;
     private String slug;
     private int views;
 
-    @ManyToOne(fetch = FetchType.LAZY) // LAZY giúp tối ưu hiệu năng, chỉ tải category khi cần
-    @JoinColumn(name = "brand_id", nullable = false) // Tên cột khóa ngoại (Foreign Key) trong DB
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "brand_id", nullable = false)
     private Brand brand;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -49,4 +52,21 @@ public class Product {
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ProductImage> images = new ArrayList<>();
 
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ProductVariant> variants = new ArrayList<>();
+
+    // ---> BẢNG GIÁ KHUYẾN MÃI (CHỈ CHỨA SALE_PRICE) <---
+    @OneToOne(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private ProductPrice productPrice;
+
+    @Column(name = "is_hot")
+    private boolean isHot;
+
+    // Helper method gán quan hệ 2 chiều
+    public void setProductPrice(ProductPrice productPrice) {
+        this.productPrice = productPrice;
+        if (productPrice != null) {
+            productPrice.setProduct(this);
+        }
+    }
 }

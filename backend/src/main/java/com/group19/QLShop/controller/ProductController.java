@@ -45,9 +45,36 @@ public class ProductController {
         return ResponseEntity.ok(products);
     }
 
-    // Thêm sản phẩm (Đã sửa đổi hỗ trợ Đa ảnh qua RequestPart)
-    @PostMapping(consumes = {"multipart/form-data"})
-    public ResponseEntity<ProductReponse> add(
+    @GetMapping("/hot")
+public Page<ProductReponse> getHotProducts(
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "8") int size) {
+    return productService.getHotProducts(page, size);
+}
+
+@GetMapping("/sale")
+public Page<ProductReponse> getSaleProducts(
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "8") int size) {
+    return productService.getSaleProducts(page, size);
+}
+
+@GetMapping("/newest")
+public Page<ProductReponse> getNewestProducts(
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "8") int size) {
+    return productService.getNewestProducts(page, size);
+}
+
+    // 1. Dành cho gửi JSON trực tiếp (test trên Thunder Client cực nhanh, hết lỗi 415)
+    @PostMapping(consumes = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ProductReponse> addJson(@Valid @org.springframework.web.bind.annotation.RequestBody ProductRequest request) {
+        ProductReponse newProduct = productService.addProduct(request, null);
+        return ResponseEntity.ok(newProduct);
+    }
+    // 2. Dành cho gửi Multipart/Form-data kèm file ảnh
+    @PostMapping(consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ProductReponse> addMultipart(
         @Valid @RequestPart("product") ProductRequest request,
         @RequestPart(value = "images", required = false) List<MultipartFile> images
     ) {

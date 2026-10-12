@@ -3,6 +3,7 @@ package com.group19.QLShop.service;
 import com.group19.QLShop.entity.Cart;
 import com.group19.QLShop.entity.CartItems;
 import com.group19.QLShop.entity.Product;
+import com.group19.QLShop.entity.ProductPrice;
 import com.group19.QLShop.entity.User;
 import com.group19.QLShop.repository.CartItemRepository;
 import com.group19.QLShop.repository.CartRepository;
@@ -17,254 +18,242 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 @Service
+@Transactional
 public class CartService {
 
-    private final CartRepository cartRepository;
-    private final CartItemRepository cartItemRepository;
-    private final ProductRepository productRepository;
-    private final UserRepository userRepository;
+        private final CartRepository cartRepository;
+        private final CartItemRepository cartItemRepository;
+        private final ProductRepository productRepository;
+        private final UserRepository userRepository;
 
-    public CartService(
-            CartRepository cartRepository,
-            CartItemRepository cartItemRepository,
-            ProductRepository productRepository,
-            UserRepository userRepository
-    ) {
-        this.cartRepository = cartRepository;
-        this.cartItemRepository = cartItemRepository;
-        this.productRepository = productRepository;
-        this.userRepository = userRepository;
-    }
-
-    // =========================
-    // [ADMIN] XEM TẤT CẢ GIỎ HÀNG
-    // =========================
-
-    public List<CartReponse> getAllCarts() {
-
-        return cartRepository.findAll()
-                .stream()
-                .map(this::toCartReponse)
-                .toList();
-    }
-
-
-    // =========================
-    // XEM GIỎ HÀNG (USER + ADMIN)
-    // =========================
-
-    public CartReponse getCart(Long userId) {
-
-        // Tìm Cart của User
-        Cart cart = cartRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("User chưa có giỏ hàng"));
-
-        return toCartReponse(cart);
-    }
-
-
-    // =========================
-    // THÊM SẢN PHẨM VÀO GIỎ
-    // =========================
-
-    public CartItemReponse addProduct(
-            Long userId,
-            CartItemRequest request
-    ) {
-
-        if (request.getQuantity() <= 0) {
-            throw new RuntimeException("Số lượng phải lớn hơn 0");
+        public CartService(
+                        CartRepository cartRepository,
+                        CartItemRepository cartItemRepository,
+                        ProductRepository productRepository,
+                        UserRepository userRepository) {
+                this.cartRepository = cartRepository;
+                this.cartItemRepository = cartItemRepository;
+                this.productRepository = productRepository;
+                this.userRepository = userRepository;
         }
 
-        // Tìm User
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy User"));
+        // =========================
+        // [ADMIN] XEM TẤT CẢ GIỎ HÀNG
+        // =========================
+        @Transactional(readOnly = true)
+        public List<CartReponse> getAllCarts() {
 
-        // Tìm hoặc tạo Cart
-        Cart cart = cartRepository.findByUserId(userId)
-                .orElseGet(() -> {
-                    Cart newCart = new Cart();
-                    newCart.setUser(user);
-                    return cartRepository.save(newCart);
-                });
-
-        // Tìm Product
-        Product product = productRepository.findById(request.getProductId())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy Product"));
-
-        // Kiểm tra sản phẩm đã có trong Cart chưa
-        var existingItem =
-                cartItemRepository.findByCartIdAndProductId(
-                        cart.getId(),
-                        request.getProductId()
-                );
-
-        // Nếu đã có → cộng thêm số lượng
-        if (existingItem.isPresent()) {
-
-            CartItems cartItem = existingItem.get();
-
-            cartItem.setQuantity(
-                    cartItem.getQuantity() + request.getQuantity()
-            );
-
-            return toItemResponse(cartItemRepository.save(cartItem));
+                return cartRepository.findAll()
+                                .stream()
+                                .map(this::toCartReponse)
+                                .toList();
         }
 
-        // Nếu chưa có → tạo CartItems mới
-        CartItems cartItem = new CartItems();
+        // =========================
+        // XEM GIỎ HÀNG (USER + ADMIN)
+        // =========================
+        @Transactional(readOnly = true)
+        public CartReponse getCart(Long userId) {
 
-        cartItem.setCart(cart);
-        cartItem.setProduct(product);
-        cartItem.setQuantity(request.getQuantity());
+                // Tìm Cart của User
+                Cart cart = cartRepository.findByUserId(userId)
+                                .orElseThrow(() -> new RuntimeException("User chưa có giỏ hàng"));
 
-        return toItemResponse(cartItemRepository.save(cartItem));
-    }
-
-
-    // =========================
-    // TĂNG SỐ LƯỢNG +1
-    // =========================
-
-    public CartItemReponse increaseQuantity(
-            Long userId,
-            Long cartItemId
-    ) {
-
-        // Tìm Cart của User
-        Cart cart = cartRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("User chưa có giỏ hàng"));
-
-        // Tìm CartItem
-        CartItems cartItem = cartItemRepository.findById(cartItemId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm trong giỏ"));
-
-        // Kiểm tra CartItem có thuộc Cart của User không
-        if (!cartItem.getCart().getId().equals(cart.getId())) {
-            throw new RuntimeException("Sản phẩm không thuộc giỏ hàng của User");
+                return toCartReponse(cart);
         }
 
-        // Tăng số lượng lên 1
-        cartItem.setQuantity(cartItem.getQuantity() + 1);
+        // =========================
+        // THÊM SẢN PHẨM VÀO GIỎ
+        // =========================
+        public CartItemReponse addProduct(
+                        Long userId,
+                        CartItemRequest request) {
 
-        return toItemResponse(cartItemRepository.save(cartItem));
-    }
+                if (request.getQuantity() <= 0) {
+                        throw new RuntimeException("Số lượng phải lớn hơn 0");
+                }
 
+                // Tìm User
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new RuntimeException("Không tìm thấy User"));
 
-    // =========================
-    // GIẢM SỐ LƯỢNG -1
-    // =========================
+                // Tìm hoặc tạo Cart
+                Cart cart = cartRepository.findByUserId(userId)
+                                .orElseGet(() -> {
+                                        Cart newCart = new Cart();
+                                        newCart.setUser(user);
+                                        return cartRepository.save(newCart);
+                                });
 
-    public CartItemReponse decreaseQuantity(
-            Long userId,
-            Long cartItemId
-    ) {
+                // Tìm Product
+                Product product = productRepository.findById(request.getProductId())
+                                .orElseThrow(() -> new RuntimeException("Không tìm thấy Product"));
 
-        // Tìm Cart của User
-        Cart cart = cartRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("User chưa có giỏ hàng"));
+                // Kiểm tra sản phẩm đã có trong Cart chưa
+                var existingItem = cartItemRepository.findByCartIdAndProductId(
+                                cart.getId(),
+                                request.getProductId());
 
-        // Tìm CartItem
-        CartItems cartItem = cartItemRepository.findById(cartItemId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm trong giỏ"));
+                // Nếu đã có → cộng thêm số lượng
+                if (existingItem.isPresent()) {
 
-        // Kiểm tra CartItem có thuộc Cart của User không
-        if (!cartItem.getCart().getId().equals(cart.getId())) {
-            throw new RuntimeException("Sản phẩm không thuộc giỏ hàng của User");
+                        CartItems cartItem = existingItem.get();
+
+                        cartItem.setQuantity(
+                                        cartItem.getQuantity() + request.getQuantity());
+
+                        return toItemResponse(cartItemRepository.save(cartItem));
+                }
+
+                // Nếu chưa có → tạo CartItems mới
+                CartItems cartItem = new CartItems();
+
+                cartItem.setCart(cart);
+                cartItem.setProduct(product);
+                cartItem.setQuantity(request.getQuantity());
+
+                return toItemResponse(cartItemRepository.save(cartItem));
         }
 
-        // Nếu số lượng = 1 → xóa sản phẩm
-        if (cartItem.getQuantity() == 1) {
+        // =========================
+        // TĂNG SỐ LƯỢNG +1
+        // =========================
+        public CartItemReponse increaseQuantity(
+                        Long userId,
+                        Long cartItemId) {
 
-            cartItemRepository.delete(cartItem);
+                // Tìm Cart của User
+                Cart cart = cartRepository.findByUserId(userId)
+                                .orElseThrow(() -> new RuntimeException("User chưa có giỏ hàng"));
 
-            return null;
+                // Tìm CartItem
+                CartItems cartItem = cartItemRepository.findById(cartItemId)
+                                .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm trong giỏ"));
+
+                // Kiểm tra CartItem có thuộc Cart của User không
+                if (!cartItem.getCart().getId().equals(cart.getId())) {
+                        throw new RuntimeException("Sản phẩm không thuộc giỏ hàng của User");
+                }
+
+                // Tăng số lượng lên 1
+                cartItem.setQuantity(cartItem.getQuantity() + 1);
+
+                return toItemResponse(cartItemRepository.save(cartItem));
         }
 
-        // Giảm số lượng xuống 1
-        cartItem.setQuantity(cartItem.getQuantity() - 1);
+        // =========================
+        // GIẢM SỐ LƯỢNG -1
+        // =========================
+        public CartItemReponse decreaseQuantity(
+                        Long userId,
+                        Long cartItemId) {
 
-        return toItemResponse(cartItemRepository.save(cartItem));
-    }
+                // Tìm Cart của User
+                Cart cart = cartRepository.findByUserId(userId)
+                                .orElseThrow(() -> new RuntimeException("User chưa có giỏ hàng"));
 
+                // Tìm CartItem
+                CartItems cartItem = cartItemRepository.findById(cartItemId)
+                                .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm trong giỏ"));
 
-    // =========================
-    // XÓA SẢN PHẨM KHỎI GIỎ
-    // =========================
+                // Kiểm tra CartItem có thuộc Cart của User không
+                if (!cartItem.getCart().getId().equals(cart.getId())) {
+                        throw new RuntimeException("Sản phẩm không thuộc giỏ hàng của User");
+                }
 
-    public void removeProduct(
-            Long userId,
-            Long cartItemId
-    ) {
+                // Nếu số lượng = 1 → xóa sản phẩm
+                if (cartItem.getQuantity() == 1) {
 
-        // Tìm Cart của User
-        Cart cart = cartRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("User chưa có giỏ hàng"));
+                        cartItemRepository.delete(cartItem);
 
-        // Tìm CartItem
-        CartItems cartItem = cartItemRepository.findById(cartItemId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm trong giỏ"));
+                        return null;
+                }
 
-        // Kiểm tra sản phẩm thuộc Cart của User
-        if (!cartItem.getCart().getId().equals(cart.getId())) {
-            throw new RuntimeException("Sản phẩm không thuộc giỏ hàng của User");
+                // Giảm số lượng xuống 1
+                cartItem.setQuantity(cartItem.getQuantity() - 1);
+
+                return toItemResponse(cartItemRepository.save(cartItem));
         }
 
-        // Xóa sản phẩm
-        cartItemRepository.delete(cartItem);
-    }
+        // =========================
+        // XÓA SẢN PHẨM KHỎI GIỎ
+        // =========================
+        public void removeProduct(
+                        Long userId,
+                        Long cartItemId) {
 
+                // Tìm Cart của User
+                Cart cart = cartRepository.findByUserId(userId)
+                                .orElseThrow(() -> new RuntimeException("User chưa có giỏ hàng"));
 
-    // =========================
-    // XÓA TOÀN BỘ GIỎ HÀNG
-    // =========================
+                // Tìm CartItem
+                CartItems cartItem = cartItemRepository.findById(cartItemId)
+                                .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm trong giỏ"));
 
-    @Transactional
-    public void clearCart(Long userId) {
+                // Kiểm tra sản phẩm thuộc Cart của User
+                if (!cartItem.getCart().getId().equals(cart.getId())) {
+                        throw new RuntimeException("Sản phẩm không thuộc giỏ hàng của User");
+                }
 
-        // Tìm Cart của User
-        Cart cart = cartRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("User chưa có giỏ hàng"));
+                // Xóa sản phẩm
+                cartItemRepository.delete(cartItem);
+        }
 
-        // Xóa tất cả sản phẩm
-        cartItemRepository.deleteByCartId(cart.getId());
-    }
+        // =========================
+        // XÓA TOÀN BỘ GIỎ HÀNG
+        // =========================
+        public void clearCart(Long userId) {
 
+                // Tìm Cart của User
+                Cart cart = cartRepository.findByUserId(userId)
+                                .orElseThrow(() -> new RuntimeException("User chưa có giỏ hàng"));
 
-    // =========================
-    // CHUYỂN CART -> CART RESPONSE
-    // =========================
+                // Xóa tất cả sản phẩm
+                cartItemRepository.deleteByCartId(cart.getId());
+        }
 
-    private CartReponse toCartReponse(Cart cart) {
+        // =========================
+        // CHUYỂN CART -> CART RESPONSE
+        // =========================
+        private CartReponse toCartReponse(Cart cart) {
 
-        List<CartItemReponse> items = cartItemRepository.findByCartId(cart.getId())
-                .stream()
-                .map(this::toItemResponse)
-                .toList();
+                List<CartItemReponse> items = cartItemRepository.findByCartId(cart.getId())
+                                .stream()
+                                .map(this::toItemResponse)
+                                .toList();
 
-        return CartReponse.builder()
-                .id(cart.getId())
-                .userId(cart.getUser().getId())
-                .items(items)
-                .build();
-    }
+                return CartReponse.builder()
+                                .id(cart.getId())
+                                .userId(cart.getUser().getId())
+                                .items(items)
+                                .build();
+        }
 
+        // =========================
+        // CHUYỂN CARTITEMS -> CARTITEM RESPONSE
+        // =========================
+        private CartItemReponse toItemResponse(CartItems cartItem) {
 
-    // =========================
-    // CHUYỂN CARTITEMS -> CARTITEM RESPONSE
-    // =========================
+                Product product = cartItem.getProduct();
 
-    private CartItemReponse toItemResponse(CartItems cartItem) {
+                // 1. Mặc định lấy giá gốc từ Product
+                double finalPrice = (product != null) ? product.getPrice() : 0.0;
 
-        Product product = cartItem.getProduct();
+                // 2. Nếu có bảng ProductPrice và có giá sale > 0 thì áp dụng giá sale
+                if (product != null && product.getProductPrice() != null) {
+                        Double salePrice = product.getProductPrice().getSalePrice();
+                        if (salePrice != null && salePrice > 0) {
+                                finalPrice = salePrice;
+                        }
+                }
 
-        return CartItemReponse.builder()
-                .id(cartItem.getId())
-                .productId(product.getId())
-                .productName(product.getName())
-                .price(product.getPrice())
-                .quantity(cartItem.getQuantity())
-                .total(product.getPrice() * cartItem.getQuantity())
-                .build();
-    }
+                return CartItemReponse.builder()
+                                .id(cartItem.getId())
+                                .productId(product != null ? product.getId() : null)
+                                .productName(product != null ? product.getName() : null)
+                                .price(finalPrice)
+                                .quantity(cartItem.getQuantity())
+                                .total(finalPrice * cartItem.getQuantity())
+                                .build();
+        }
 }
