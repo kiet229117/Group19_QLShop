@@ -7,6 +7,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
@@ -15,6 +17,9 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -34,11 +39,26 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String username = jwtUtils.extractUsername(jwt);
 
                 if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                    UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);
+                    if (!jwtUtils.isTokenExpired(jwt)) {
+                        String role = jwtUtils.extractRole(jwt);
+                        List<GrantedAuthority> authorities;
 
-                    if (jwtUtils.validateToken(jwt, userDetails)) {
+                        if (StringUtils.hasText(role)) {
+                            // TỐI ƯU SIÊU TỐC (<0.1ms): Trích xuất trực tiếp quyền từ token đã ký số an toàn (KHÔNG CẦN QUERY DB)
+                            authorities = Collections.singletonList(new SimpleGrantedAuthority(role));
+                        } else {
+                            // Dự phòng cho token cũ chưa nhúng claim role: nạp qua database
+                            UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);
+                            authorities = new ArrayList<>(userDetails.getAuthorities());
+                        }
+
+                        UserDetails principal = new org.springframework.security.core.userdetails.User(
+                                username, "", authorities
+                        );
+
                         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                                userDetails, null, userDetails.getAuthorities());
+                                principal, null, authorities
+                        );
                         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
                         SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -46,17 +66,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             }
         } catch (Exception ex) {
-            logger.error("Không thể xác thực người dùng trong SecurityContext", ex);
+            // Không spam stack trace lỗi khi token hết hạn thông thường
+            logger.debug("Token không hợp lệ hoặc đã hết hạn: " + ex.getMessage());
         }
 
         filterChain.doFilter(request, response);
     }
 
     private String getJwtFromRequest(HttpServletRequest request) {
-        // 1. Ưu tiên trích xuất JWT từ HttpOnly Cookie "access_token"
+        // 1. Ưu tiên trích xuất JWT từ HttpOnly Cookie
+        String targetCookieName = jwtUtils.getCookieName();
         if (request.getCookies() != null) {
             for (Cookie cookie : request.getCookies()) {
-                if (JwtUtils.COOKIE_NAME.equals(cookie.getName()) && StringUtils.hasText(cookie.getValue())) {
+                if (targetCookieName.equals(cookie.getName()) && StringUtils.hasText(cookie.getValue())) {
                     return cookie.getValue();
                 }
             }

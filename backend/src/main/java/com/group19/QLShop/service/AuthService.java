@@ -55,7 +55,7 @@ public class AuthService {
 
         User savedUser = userRepository.save(user);
 
-        String token = jwtUtils.generateTokenFromUsername(savedUser.getUsername());
+        String token = jwtUtils.generateToken(savedUser);
         return new AuthResult(token, toUserResponse(savedUser));
     }
 
@@ -68,7 +68,7 @@ public class AuthService {
                 .orElseGet(() -> userRepository.findByEmail(request.getUsernameOrEmail())
                         .orElseThrow(() -> new AppException("Không tìm thấy User")));
 
-        String token = jwtUtils.generateTokenFromUsername(user.getUsername());
+        String token = jwtUtils.generateToken(user);
 
         return new AuthResult(token, toUserResponse(user));
     }
