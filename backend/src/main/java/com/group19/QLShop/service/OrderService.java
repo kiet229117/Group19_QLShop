@@ -22,44 +22,45 @@ import com.group19.QLShop.entity.CartItems;
 import com.group19.QLShop.entity.Order;
 import com.group19.QLShop.entity.OrderItem;
 import com.group19.QLShop.entity.Product;
+import com.group19.QLShop.entity.ProductVariant;
 import com.group19.QLShop.entity.User;
 import com.group19.QLShop.entity.enums.OrderStatus;
 import com.group19.QLShop.repository.CartItemRepository;
 import com.group19.QLShop.repository.CartRepository;
-import com.group19.QLShop.repository.OrderItemRepository;
 import com.group19.QLShop.repository.OrderRepository;
 import com.group19.QLShop.repository.ProductRepository;
+import com.group19.QLShop.repository.ProductVariantRepository;
 import com.group19.QLShop.repository.UserRepository;
 
 @Service
 public class OrderService {
 
     private final OrderRepository orderRepository;
-
     private final ProductRepository productRepository;
+    private final ProductVariantRepository productVariantRepository;
     private final UserRepository userRepository;
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
 
     public OrderService(
             OrderRepository orderRepository,
-            OrderItemRepository orderItemRepository,
             ProductRepository productRepository,
+            ProductVariantRepository productVariantRepository,
             UserRepository userRepository,
             CartRepository cartRepository,
             CartItemRepository cartItemRepository) {
         this.orderRepository = orderRepository;
-   
         this.productRepository = productRepository;
+        this.productVariantRepository = productVariantRepository;
         this.userRepository = userRepository;
         this.cartRepository = cartRepository;
         this.cartItemRepository = cartItemRepository;
     }
 
     // ==========================================
-    // 1. TẠO ĐƠN HÀNG (checkout từ cart hoặc đặt trực tiếp items)
+    // 1. TẠO ĐƠN HÀNG (Có Trừ Tồn Kho Variant)
     // ==========================================
-    @Transactional
+    @Transactional(rollbackFor = Exception.class)
     public OrderResponse createOrder(OrderRequest request) {
         if (request.getUserId() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User ID không được để trống");
@@ -79,27 +80,49 @@ public class OrderService {
         List<OrderItem> orderItems = new ArrayList<>();
         double totalAmount = 0.0;
 
-        // Nếu request có danh sách items -> tạo đơn theo items này
+        // Đặt hàng trực tiếp qua danh sách items
         if (request.getItems() != null && !request.getItems().isEmpty()) {
             for (OrderItemRequest itemReq : request.getItems()) {
                 if (itemReq.getQuantity() <= 0) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số lượng sản phẩm phải lớn hơn 0");
                 }
+
                 Product product = productRepository.findById(itemReq.getProductId())
                         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                                 "Không tìm thấy sản phẩm với ID: " + itemReq.getProductId()));
+
+                // ---> KIỂM TRA & TRỪ TỒN KHO VARIANT <---
+                if (itemReq.getVariantId() != null) {
+                    ProductVariant variant = productVariantRepository.findById(itemReq.getVariantId())
+                            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                                    "Không tìm thấy phân loại sản phẩm với ID: " + itemReq.getVariantId()));
+
+                    if (variant.getStockQuantity() < itemReq.getQuantity()) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                "Sản phẩm " + product.getName() + " (" + variant.getColor() + " - " + variant.getSize() + 
+                                ") chỉ còn " + variant.getStockQuantity() + " chiếc trong kho!");
+                    }
+
+                    // Trừ số lượng tồn kho
+                    variant.setStockQuantity(variant.getStockQuantity() - itemReq.getQuantity());
+                    productVariantRepository.save(variant);
+                }
 
                 OrderItem orderItem = new OrderItem();
                 orderItem.setOrder(order);
                 orderItem.setProduct(product);
                 orderItem.setQuantity(itemReq.getQuantity());
-                orderItem.setPrice(product.getPrice());
+                
+                // Lấy giá áp dụng (ưu tiên salePrice từ ProductPrice, nếu không lấy price gốc từ Product)
+                double priceToUse = getEffectivePrice(product);
+                        
+                orderItem.setPrice(priceToUse);
 
-                totalAmount += product.getPrice() * itemReq.getQuantity();
+                totalAmount += priceToUse * itemReq.getQuantity();
                 orderItems.add(orderItem);
             }
         } else {
-            // Ngược lại: checkout từ giỏ hàng (Cart) của User
+            // Checkout từ giỏ hàng
             Cart cart = cartRepository.findByUserId(user.getId())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Giỏ hàng của người dùng đang trống"));
 
@@ -114,13 +137,17 @@ public class OrderService {
                 orderItem.setOrder(order);
                 orderItem.setProduct(product);
                 orderItem.setQuantity(cartItem.getQuantity());
-                orderItem.setPrice(product.getPrice());
+                
+                // Lấy giá áp dụng
+                double priceToUse = getEffectivePrice(product);
 
-                totalAmount += product.getPrice() * cartItem.getQuantity();
+                orderItem.setPrice(priceToUse);
+
+                totalAmount += priceToUse * cartItem.getQuantity();
                 orderItems.add(orderItem);
             }
 
-            // Xóa sạch giỏ hàng sau khi checkout thành công
+            // Xóa giỏ hàng sau khi đặt
             cartItemRepository.deleteByCartId(cart.getId());
         }
 
@@ -182,7 +209,7 @@ public class OrderService {
     }
 
     // ==========================================
-    // 6. HỦY ĐƠN HÀNG (USER / ADMIN)
+    // 6. HỦY ĐƠN HÀNG
     // ==========================================
     @Transactional
     public OrderResponse cancelOrder(Long orderId) {
@@ -215,8 +242,25 @@ public class OrderService {
     }
 
     // ==========================================
-    // HELPER MAPPERS & VALIDATION
+    // HELPER: TÍNH GIÁ BÁN THỰC TẾ
     // ==========================================
+    private double getEffectivePrice(Product product) {
+        if (product == null) {
+            return 0.0;
+        }
+
+        // 1. Kiểm tra nếu có bảng ProductPrice và có salePrice > 0 thì dùng giá sale
+        if (product.getProductPrice() != null) {
+            Double salePrice = product.getProductPrice().getSalePrice();
+            if (salePrice != null && salePrice > 0) {
+                return salePrice;
+            }
+        }
+
+        // 2. Nếu không có sale hoặc không có ProductPrice, lấy giá gốc từ Product
+        return product.getPrice();
+    }
+
     private void validatePagination(int page, int size) {
         if (page < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số trang không được âm");
@@ -259,4 +303,3 @@ public class OrderService {
                 .build();
     }
 }
-

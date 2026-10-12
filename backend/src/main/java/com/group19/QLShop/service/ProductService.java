@@ -1,10 +1,13 @@
 package com.group19.QLShop.service;
 
 import com.group19.QLShop.entity.Product;
+import com.group19.QLShop.entity.ProductPrice;
+import com.group19.QLShop.entity.ProductVariant;
 import com.group19.QLShop.repository.BrandRepository;
 import com.group19.QLShop.repository.CategoryRepository;
 import com.group19.QLShop.repository.ProductRepository;
 import com.group19.QLShop.dto.reponse.ProductReponse;
+import com.group19.QLShop.dto.reponse.ProductPriceResponse; // THÊM IMPORT NÀY
 import com.group19.QLShop.dto.request.ProductRequest;
 import com.group19.QLShop.entity.Brand;
 import com.group19.QLShop.entity.Category;
@@ -63,8 +66,8 @@ public class ProductService {
         return products.map(this::toResponse);
     }
 
-    // Thêm sản phẩm (Có xử lý đa ảnh)
-    @Transactional(rollbackFor = Exception.class) // Đảm bảo rollback dữ liệu nếu lưu file lỗi
+    // Thêm sản phẩm
+    @Transactional(rollbackFor = Exception.class)
     public ProductReponse addProduct(ProductRequest request, List<MultipartFile> images) {
 
         if (productRepository.existsByName(request.getName())) {
@@ -91,31 +94,36 @@ public class ProductService {
 
         Product newProduct = new Product();
         newProduct.setName(request.getName());
-        newProduct.setPrice(request.getPrice());
+        newProduct.setPrice(request.getPrice()); // Gán giá gốc
         newProduct.setDescription(request.getDescription());
         newProduct.setRating(request.getRating());
         newProduct.setSlug(request.getSlug());
         newProduct.setBrand(brand);
         newProduct.setCategory(category);
+        newProduct.setHot(request.isHot());
 
-        // 1. Lưu thông tin sản phẩm vào DB trước để sinh ID
+        // Xử lý biến thể (Size/Color)
+        if (request.getVariants() != null && !request.getVariants().isEmpty()) {
+            for (ProductVariant variant : request.getVariants()) {
+                variant.setProduct(newProduct);
+            }
+            newProduct.setVariants(request.getVariants());
+        }
+
         Product savedProduct = productRepository.save(newProduct);
 
-        // 2. Xử lý và lưu danh sách ảnh đi kèm (nếu có)
+        // Lưu ảnh
         if (images != null && !images.isEmpty()) {
             boolean isFirst = true;
             for (MultipartFile file : images) {
                 if (file != null && !file.isEmpty()) {
-                    // Gọi FileStorageService để lưu file vật lý vào ổ đĩa và nhận lại tên file/đường dẫn
                     String fileName = fileStorageService.storeFile(file, "products");
 
-                    // Khởi tạo đối tượng ProductImage để map vào database
                     ProductImage productImage = new ProductImage();
                     productImage.setImageUrl(fileName);
                     productImage.setIsPrimary(isFirst);
-                    productImage.setProduct(savedProduct); // Gắn quan hệ với sản phẩm vừa tạo
+                    productImage.setProduct(savedProduct);
 
-                    // Lưu thông tin ảnh sản phẩm vào DB thông qua JpaRepository
                     ProductImage savedImage = productImageRepository.save(productImage);
                     savedProduct.getImages().add(savedImage);
                     isFirst = false;
@@ -123,63 +131,59 @@ public class ProductService {
             }
         }
 
-        // Trả về thông tin sản phẩm kèm định dạng DTO
         return toResponse(savedProduct);
     }
 
-    // Sửa/Cập nhật sản phẩm (Có xử lý cập nhật lại danh sách ảnh)
+    // Sửa sản phẩm
     @Transactional(rollbackFor = Exception.class)
     public ProductReponse updateProduct(Long id, ProductRequest request, List<MultipartFile> images) {
         
-        // 1. Kiểm tra sản phẩm có tồn tại không
         Product existingProduct = productRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy sản phẩm với ID: " + id));
 
-        // 2. Kiểm tra trùng tên với sản phẩm khác
         if (productRepository.existsByName(request.getName()) && !existingProduct.getName().equals(request.getName())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tên sản phẩm '" + request.getName() + "' đã tồn tại");
         }
 
-        // 3. Kiểm tra trùng slug với sản phẩm khác
         if (productRepository.existsBySlug(request.getSlug()) && !existingProduct.getSlug().equals(request.getSlug())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Slug '" + request.getSlug() + "' đã tồn tại");
         }
 
-        // 4. Tìm kiếm Brand và Category mới
         Brand brand = brandRepository.findById(request.getBrandId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy thương hiệu ID: " + request.getBrandId()));
 
         Category category = categoryRepository.findById(request.getCategoryId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy danh mục ID: " + request.getCategoryId()));
 
-        // 5. Cập nhật thông tin cơ bản
         existingProduct.setName(request.getName());
-        existingProduct.setPrice(request.getPrice());
+        existingProduct.setPrice(request.getPrice()); // Cập nhật giá gốc
         existingProduct.setDescription(request.getDescription());
         existingProduct.setRating(request.getRating());
         existingProduct.setSlug(request.getSlug());
         existingProduct.setBrand(brand);
         existingProduct.setCategory(category);
+        existingProduct.setHot(request.isHot());
 
-        // Lưu thông tin sản phẩm cập nhật trước
+        // Cập nhật biến thể
+        if (request.getVariants() != null) {
+            existingProduct.getVariants().clear();
+            for (ProductVariant variant : request.getVariants()) {
+                variant.setProduct(existingProduct);
+                existingProduct.getVariants().add(variant);
+            }
+        }
+
         Product updatedProduct = productRepository.save(existingProduct);
 
-        // 6. Xử lý cập nhật ảnh (Chỉ thay đổi nếu phía Client có truyền danh sách ảnh mới lên)
+        // Cập nhật ảnh
         if (images != null && !images.isEmpty() && !images.get(0).isEmpty()) {
-            
-            // Bước A: Tìm toàn bộ thông tin ảnh cũ trong DB thuộc về sản phẩm này
             List<ProductImage> oldImages = productImageRepository.findByProductId(id);
-            
-            // Bước B: Duyệt vòng lặp để xóa sạch file vật lý của ảnh cũ trên ổ đĩa
             for (ProductImage oldImg : oldImages) {
                 fileStorageService.deleteFile(oldImg.getImageUrl());
             }
-            
-            // Bước C: Xóa sạch các bản ghi ảnh cũ của sản phẩm này trong database và bộ nhớ
             productImageRepository.deleteAll(oldImages);
             existingProduct.getImages().clear();
 
-            // Bước D: Tiến hành lưu danh sách hình ảnh mới thay thế
             boolean isFirst = true;
             for (MultipartFile file : images) {
                 if (file != null && !file.isEmpty()) {
@@ -207,7 +211,6 @@ public class ProductService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Không tìm thấy sản phẩm với ID: " + id));
 
-        // Xóa file vật lý các ảnh của sản phẩm trên ổ đĩa
         List<ProductImage> oldImages = productImageRepository.findByProductId(id);
         for (ProductImage oldImg : oldImages) {
             fileStorageService.deleteFile(oldImg.getImageUrl());
@@ -216,7 +219,6 @@ public class ProductService {
         productRepository.delete(exists);
     }
 
-    // Tìm kiếm sản phẩm theo tên (Có phân trang)
     public Page<ProductReponse> searchProducts(String keyword, int page, int size) {
         if (keyword == null || keyword.trim().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vui lòng nhập từ khóa");
@@ -232,7 +234,6 @@ public class ProductService {
         return products.map(this::toResponse);
     }
 
-    // Lọc theo thương hiệu
     public Page<ProductReponse> findProductsByBrand(Long brandId, int page, int size) {
         if (productRepository.countByBrandId(brandId) == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy sản phẩm của thương hiệu này");
@@ -244,7 +245,6 @@ public class ProductService {
         return products.map(this::toResponse);
     }
 
-    // Lọc theo danh mục
     public Page<ProductReponse> findProductsByCategory(Long categoryId, int page, int size) {
         if (productRepository.countByCategoryId(categoryId) == 0) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy sản phẩm của danh mục này");
@@ -257,7 +257,7 @@ public class ProductService {
         return products.map(this::toResponse);
     }
 
-    // Lọc theo khoảng giá
+    // Lọc theo khoảng giá gốc
     public Page<ProductReponse> findProductsByPriceRange(Double minPrice, Double maxPrice, int page, int size) {
         if (minPrice == null || maxPrice == null || minPrice < 0 || maxPrice < 0 || minPrice > maxPrice) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Khoảng giá không hợp lệ");
@@ -273,8 +273,6 @@ public class ProductService {
         return products.map(this::toResponse);
     }
 
-    // Hàm kiểm tra tính hợp lệ của phân trang (Bổ sung để tránh lỗi thiếu phương
-    // thức)
     private void validatePagination(int page, int size) {
         if (page < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số trang không được nhỏ hơn 0");
@@ -284,7 +282,7 @@ public class ProductService {
         }
     }
 
-    // Hàm chuyển đổi (Mapping) từ Entity sang Response DTO chính xác
+    // Hàm chuyển đổi sang DTO
     private ProductReponse toResponse(Product product) {
         ProductReponse response = new ProductReponse();
         response.setId(product.getId());
@@ -294,6 +292,31 @@ public class ProductService {
         response.setRating(product.getRating());
         response.setSlug(product.getSlug());
         response.setViews(product.getViews());
+        response.setHot(product.isHot());
+
+        // ---> GÁN THÔNG TIN KHUYẾN MÃI VÀO FIELD RIÊNG PRODUCT_PRICE NẾU CÓ <---
+        if (product.getProductPrice() != null && product.getProductPrice().getSalePrice() != null) {
+            Double sale = product.getProductPrice().getSalePrice();
+            double original = product.getPrice();
+            Integer discount = null;
+
+            if (sale > 0 && original > 0 && sale < original) {
+                discount = (int) Math.round(((original - sale) / original) * 100);
+            }
+
+            response.setProductPrice(ProductPriceResponse.builder()
+                    .id(product.getProductPrice().getId())
+                    .productId(product.getId())
+                    .productName(product.getName())
+                    .originalPrice(original)
+                    .salePrice(sale)
+                    .discountPercent(discount)
+                    .build());
+        }
+
+        if (product.getVariants() != null) {
+            response.setVariants(product.getVariants());
+        }
 
         if (product.getBrand() != null) {
             response.setBrandId(product.getBrand().getId());
@@ -302,7 +325,6 @@ public class ProductService {
             response.setCategoryId(product.getCategory().getId());
         }
 
-        // Lấy danh sách ảnh sản phẩm
         List<ProductImage> imageEntities = product.getImages();
         if (imageEntities == null || imageEntities.isEmpty()) {
             imageEntities = productImageRepository.findByProductIdOrderByIsPrimaryDesc(product.getId());

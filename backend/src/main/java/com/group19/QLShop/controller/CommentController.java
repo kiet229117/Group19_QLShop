@@ -21,7 +21,7 @@ public class CommentController {
     public ResponseEntity<CommentResponse> createComment(@Valid @RequestBody CommentRequest request) {
         return ResponseEntity.ok(commentService.createComment(request));
     }
-
+                                                                            
     @GetMapping("/product/{productId}")
     public ResponseEntity<List<CommentResponse>> getCommentsByProduct(@PathVariable Long productId) {
         return ResponseEntity.ok(commentService.getCommentsByProduct(productId));
