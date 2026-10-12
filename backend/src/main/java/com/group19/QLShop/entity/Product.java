@@ -14,6 +14,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 
 import java.util.ArrayList;
@@ -31,7 +32,10 @@ public class Product {
     private Long id;
 
     private String name;
+    
+    // GIỮ NGUYÊN GIÁ GỐC TẠI ĐÂY
     private double price;
+
     private String description;
     private double rating;
     private String slug;
@@ -48,13 +52,21 @@ public class Product {
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ProductImage> images = new ArrayList<>();
 
-    // THÊM ĐOẠN NÀY ĐỂ TẠO QUAN HỆ VỚI PRODUCT_VARIANT
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ProductVariant> variants = new ArrayList<>();
 
-    @Column(name = "sale_price")
-    private Double salePrice;
-    
+    // ---> BẢNG GIÁ KHUYẾN MÃI (CHỈ CHỨA SALE_PRICE) <---
+    @OneToOne(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private ProductPrice productPrice;
+
     @Column(name = "is_hot")
     private boolean isHot;
+
+    // Helper method gán quan hệ 2 chiều
+    public void setProductPrice(ProductPrice productPrice) {
+        this.productPrice = productPrice;
+        if (productPrice != null) {
+            productPrice.setProduct(this);
+        }
+    }
 }

@@ -39,7 +39,9 @@ public class ProductRequest {
 
     @NotNull(message = "Danh mục không được để trống")
     private Long categoryId;
-    private Double salePrice;
+
+    // (ĐÃ XÓA: private Double salePrice; - Chuyển sang quản lý qua ProductPriceRequest)
+
     private boolean isHot;
     private List<ProductVariant> variants;
 }
