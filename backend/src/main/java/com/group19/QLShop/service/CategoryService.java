@@ -3,9 +3,8 @@ package com.group19.QLShop.service;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-
-
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -16,6 +15,7 @@ import com.group19.QLShop.entity.Category;
 import com.group19.QLShop.repository.CategoryRepository;
 
 @Service
+@Transactional(readOnly = true)
 public class CategoryService {
     private final CategoryRepository categoryRepository;
 
@@ -23,23 +23,20 @@ public class CategoryService {
         this.categoryRepository = categoryRepository;
     }
 
-   
     public Page<CategoryReponse> getAllCategories(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<Category> categories = categoryRepository.findAll(pageable);
-        
         return categories.map(this::toResponse);
     }
 
-  
+    @Transactional
     public CategoryReponse addCategory(CategoryRequest request) {
-          if (categoryRepository.existsByName(request.getName())) {
+        if (categoryRepository.existsByName(request.getName())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tên danh mục '" + request.getName() + "' đã tồn tại trên hệ thống");
         }
-        if( categoryRepository.existsBySlug(request.getSlug())) {
+        if (categoryRepository.existsBySlug(request.getSlug())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Slug '" + request.getSlug() + "' đã tồn tại trên hệ thống");
         }
-        
 
         Category newCategory = new Category();
         newCategory.setName(request.getName());
@@ -48,20 +45,18 @@ public class CategoryService {
         newCategory.setImage(request.getImage());
         newCategory.setActive(request.isActive()); 
 
-      
         Category savedCategory = categoryRepository.save(newCategory);
         return toResponse(savedCategory);
     }
 
+    @Transactional
     public CategoryReponse updateCategory(Long id, CategoryRequest request) {
-     
-        
         Category exists = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy danh mục với ID: " + id));
         if (categoryRepository.existsByName(request.getName())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tên danh mục '" + request.getName() + "' đã tồn tại trên hệ thống");
         }
-        if( categoryRepository.existsBySlug(request.getSlug())) {
+        if (categoryRepository.existsBySlug(request.getSlug())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Slug '" + request.getSlug() + "' đã tồn tại trên hệ thống");
         }
         exists.setName(request.getName());
@@ -74,7 +69,7 @@ public class CategoryService {
         return toResponse(updatedCategory);
     }
 
-    
+    @Transactional
     public void deleteCategory(Long id) {
         Category exists = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy danh mục với ID: " + id));
@@ -84,7 +79,7 @@ public class CategoryService {
 
     private CategoryReponse toResponse(Category category) {
         CategoryReponse response = new CategoryReponse();
-      response.setId(category.getId());
+        response.setId(category.getId());
         response.setName(category.getName());
         response.setSlug(category.getSlug());
         response.setDescription(category.getDescription());

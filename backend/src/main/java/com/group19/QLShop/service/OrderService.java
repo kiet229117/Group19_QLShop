@@ -33,6 +33,7 @@ import com.group19.QLShop.repository.ProductVariantRepository;
 import com.group19.QLShop.repository.UserRepository;
 
 @Service
+@Transactional(readOnly = true)
 public class OrderService {
 
     private final OrderRepository orderRepository;

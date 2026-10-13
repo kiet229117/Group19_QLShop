@@ -1,7 +1,7 @@
 package com.group19.QLShop.service;
 
 import com.group19.QLShop.entity.Product;
-import com.group19.QLShop.entity.ProductPrice;
+
 import com.group19.QLShop.entity.ProductVariant;
 import com.group19.QLShop.repository.BrandRepository;
 import com.group19.QLShop.repository.CategoryRepository;

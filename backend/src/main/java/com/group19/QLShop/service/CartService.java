@@ -3,7 +3,7 @@ package com.group19.QLShop.service;
 import com.group19.QLShop.entity.Cart;
 import com.group19.QLShop.entity.CartItems;
 import com.group19.QLShop.entity.Product;
-import com.group19.QLShop.entity.ProductPrice;
+
 import com.group19.QLShop.entity.User;
 import com.group19.QLShop.repository.CartItemRepository;
 import com.group19.QLShop.repository.CartRepository;

@@ -5,6 +5,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import com.group19.QLShop.dto.reponse.BrandReponse;
@@ -13,6 +14,7 @@ import com.group19.QLShop.entity.Brand;
 import com.group19.QLShop.repository.BrandRepository;
 
 @Service 
+@Transactional(readOnly = true)
 public class BrandService {
 
     private final BrandRepository brandRepository;
@@ -20,7 +22,6 @@ public class BrandService {
         this.brandRepository = brandRepository;
     }
 
-    
     // Xem tất cả (Chuyển đổi Page sang DTO Response)
     public Page<BrandReponse> getAllBrands(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
@@ -29,6 +30,7 @@ public class BrandService {
     }
 
     // Thêm (Nhận Request DTO -> Lưu và trả về Response DTO)
+    @Transactional
     public BrandReponse addBrand(BrandRequest request) {
         if (brandRepository.existsByName(request.getName())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tên thương hiệu '" + request.getName() + "' đã tồn tại trên hệ thống");
@@ -47,16 +49,16 @@ public class BrandService {
     }
 
     // Sửa (Nhận Request DTO -> Cập nhật và trả về Response DTO)
+    @Transactional
     public BrandReponse updateBrand(Long id, BrandRequest request) {
      
         Brand exists = brandRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy thương hiệu với ID: " + id));
         
-
-        if (brandRepository.existsByName(request.getName())) {
+        if (brandRepository.existsByName(request.getName()) && !exists.getName().equals(request.getName())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tên thương hiệu '" + request.getName() + "' đã tồn tại trên hệ thống");
         }
-        if (brandRepository.existsBySlug(request.getSlug())) {
+        if (brandRepository.existsBySlug(request.getSlug()) && !exists.getSlug().equals(request.getSlug())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Slug '" + request.getSlug() + "' đã tồn tại trên hệ thống");
         }
         exists.setName(request.getName());
@@ -69,6 +71,7 @@ public class BrandService {
     }
 
     // Xóa
+    @Transactional
     public void deleteBrand(Long id) {
         Brand exists = brandRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy thương hiệu với ID: " + id));

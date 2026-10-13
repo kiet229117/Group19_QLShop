@@ -1,20 +1,27 @@
 package com.group19.QLShop.service;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
-import com.group19.QLShop.dto.request.CommentRequest;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.group19.QLShop.dto.reponse.CommentResponse;
+import com.group19.QLShop.dto.request.CommentRequest;
 import com.group19.QLShop.entity.Comment;
 import com.group19.QLShop.repository.CommentRepository;
+
+import lombok.RequiredArgsConstructor;
+
 @Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class CommentService {
 
-    @Autowired
-    private CommentRepository commentRepository;
+    private final CommentRepository commentRepository;
 
+    @Transactional
     public CommentResponse createComment(CommentRequest request) {
         Comment comment = new Comment();
         comment.setUserId(request.getUserId());
@@ -32,6 +39,7 @@ public class CommentService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional
     public CommentResponse updateComment(Long id, String content) {
         Comment comment = commentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy bình luận"));
@@ -41,6 +49,7 @@ public class CommentService {
         return toResponse(updated);
     }
 
+    @Transactional
     public void deleteComment(Long id) {
         Comment comment = commentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy bình luận"));

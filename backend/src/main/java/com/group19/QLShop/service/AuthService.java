@@ -9,6 +9,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.group19.QLShop.dto.reponse.UserResponse;
 import com.group19.QLShop.dto.request.ChangePasswordRequest;
@@ -24,6 +25,7 @@ import com.group19.QLShop.security.JwtUtils;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class AuthService {
 
     private final UserRepository userRepository;
@@ -31,11 +33,11 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtUtils jwtUtils;
     private final EmailService emailService;
-   
-    
+
     // Lớp nội bộ để trả về cả Token (dùng set Cookie) và UserResponse
     public record AuthResult(String token, UserResponse userResponse) {}
 
+    @Transactional
     public AuthResult register(RegisterRequest request) {
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new AppException("Username đã tồn tại");
@@ -79,6 +81,7 @@ public class AuthService {
         return toUserResponse(user);
     }
 
+    @Transactional
     public void changePassword(String username, ChangePasswordRequest request) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new AppException("Không tìm thấy User"));
@@ -91,6 +94,7 @@ public class AuthService {
         userRepository.save(user);
     }
 
+    @Transactional
     public void forgotPassword(ForgotPasswordRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new AppException("Không tìm thấy tài khoản với email này"));
@@ -105,6 +109,7 @@ public class AuthService {
         emailService.sendResetPasswordEmail(user.getEmail(), token);
     }
 
+    @Transactional
     public void resetPassword(ResetPasswordRequest request) {
         User user = userRepository.findByResetPasswordToken(request.getToken())
                 .orElseThrow(() -> new AppException("Mã xác nhận không hợp lệ hoặc đã hết hạn"));
