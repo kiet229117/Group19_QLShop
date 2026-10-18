@@ -1,4 +1,4 @@
-# QLShop Backend
+# Hệ thống quản lý cửa hàng Áo Thun Backend
 
 Backend REST API cho hệ thống bán áo QLShop, xây dựng bằng Spring Boot. Ứng dụng cung cấp các chức năng quản lý sản phẩm và danh mục, tài khoản, giỏ hàng, đơn hàng, voucher, đánh giá, danh sách yêu thích, chat và thống kê quản trị.
 
