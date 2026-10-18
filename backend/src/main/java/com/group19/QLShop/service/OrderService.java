@@ -14,9 +14,11 @@ import org.springframework.web.server.ResponseStatusException;
 
 import com.group19.QLShop.dto.reponse.OrderItemResponse;
 import com.group19.QLShop.dto.reponse.OrderResponse;
+import com.group19.QLShop.dto.reponse.VoucherApplyResponse;
 import com.group19.QLShop.dto.request.OrderItemRequest;
 import com.group19.QLShop.dto.request.OrderRequest;
 import com.group19.QLShop.dto.request.OrderStatusUpdateRequest;
+import com.group19.QLShop.dto.request.VoucherApplyRequest;
 import com.group19.QLShop.entity.Cart;
 import com.group19.QLShop.entity.CartItems;
 import com.group19.QLShop.entity.Order;
@@ -42,6 +44,7 @@ public class OrderService {
     private final UserRepository userRepository;
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
+    private final VoucherService voucherService;
 
     public OrderService(
             OrderRepository orderRepository,
@@ -49,13 +52,15 @@ public class OrderService {
             ProductVariantRepository productVariantRepository,
             UserRepository userRepository,
             CartRepository cartRepository,
-            CartItemRepository cartItemRepository) {
+            CartItemRepository cartItemRepository,
+            VoucherService voucherService) {
         this.orderRepository = orderRepository;
         this.productRepository = productRepository;
         this.productVariantRepository = productVariantRepository;
         this.userRepository = userRepository;
         this.cartRepository = cartRepository;
         this.cartItemRepository = cartItemRepository;
+        this.voucherService = voucherService;
     }
 
     // ==========================================
@@ -152,7 +157,22 @@ public class OrderService {
             cartItemRepository.deleteByCartId(cart.getId());
         }
 
-        order.setTotalAmount(totalAmount);
+        // ---> XỬ LÝ MÃ GIẢM GIÁ (VOUCHER) NẾU CÓ <---
+        double discountAmount = 0.0;
+        String appliedVoucherCode = null;
+        if (request.getVoucherCode() != null && !request.getVoucherCode().trim().isEmpty()) {
+            VoucherApplyResponse voucherResult = voucherService.applyVoucher(
+                    new VoucherApplyRequest(request.getVoucherCode().trim(), totalAmount));
+            discountAmount = voucherResult.getDiscountAmount();
+            appliedVoucherCode = voucherResult.getCode();
+            // Ghi nhận tăng số lượt sử dụng voucher
+            voucherService.recordVoucherUsage(appliedVoucherCode);
+        }
+
+        double finalAmount = Math.max(0.0, totalAmount - discountAmount);
+        order.setTotalAmount(finalAmount);
+        order.setVoucherCode(appliedVoucherCode);
+        order.setDiscountAmount(discountAmount);
         order.setOrderItems(orderItems);
 
         Order savedOrder = orderRepository.save(order);
@@ -285,6 +305,8 @@ public class OrderService {
                 .shippingAddress(order.getShippingAddress())
                 .note(order.getNote())
                 .totalAmount(order.getTotalAmount())
+                .voucherCode(order.getVoucherCode())
+                .discountAmount(order.getDiscountAmount())
                 .status(order.getStatus())
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())

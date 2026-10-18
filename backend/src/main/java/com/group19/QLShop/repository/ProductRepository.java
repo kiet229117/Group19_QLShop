@@ -3,15 +3,16 @@ package com.group19.QLShop.repository;
 
 import com.group19.QLShop.entity.Product;
 
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-
-
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query; 
+import org.springframework.data.repository.query.Param;
 
-public interface ProductRepository extends JpaRepository<Product, Long> {
+public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpecificationExecutor<Product> {
     Optional<Product> findBySlug(String slug);
 
     Page<Product> searchByNameContainingIgnoreCase(String keyword, Pageable pageable);
@@ -48,5 +49,16 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     // Mới nhất
     @Query("SELECT p FROM Product p ORDER BY p.id DESC")
     Page<Product> findNewestProducts(Pageable pageable);
-    
+
+    // ==========================================
+    // GỢI Ý TÌM KIẾM NHANH (SEARCH AUTOCOMPLETE)
+    // ==========================================
+    @Query("SELECT p FROM Product p " +
+           "LEFT JOIN p.category c " +
+           "LEFT JOIN p.brand b " +
+           "WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(c.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "OR LOWER(b.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
+           "ORDER BY COALESCE(p.views, 0) DESC, p.id DESC")
+    List<Product> findSearchSuggestions(@Param("keyword") String keyword, Pageable pageable);
 }

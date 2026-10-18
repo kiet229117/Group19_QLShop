@@ -54,6 +54,12 @@ public class Order {
     @Column(name = "total_amount", nullable = false)
     private double totalAmount;
 
+    @Column(name = "voucher_code", length = 50)
+    private String voucherCode;
+
+    @Column(name = "discount_amount")
+    private Double discountAmount = 0.0;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private OrderStatus status = OrderStatus.PENDING;

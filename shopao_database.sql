@@ -411,6 +411,8 @@ CREATE TABLE `order` (
   `shipping_address` VARCHAR(500) NOT NULL,
   `note` VARCHAR(500) DEFAULT NULL,
   `total_amount` DOUBLE NOT NULL,
+  `voucher_code` VARCHAR(50) DEFAULT NULL,
+  `discount_amount` DOUBLE DEFAULT 0,
   `status` VARCHAR(50) NOT NULL DEFAULT 'PENDING',
   `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -555,10 +557,63 @@ INSERT INTO `messages` (`id`, `conversation_id`, `sender_id`, `content`, `is_rea
 (9, 4, 6, 'Shop ơi nếu mình mua áo về thử không vừa size thì có được hỗ trợ đổi size khác không ạ?', 1, NOW() - INTERVAL 4 DAY),
 (10, 4, 1, 'Dạ shop hỗ trợ đổi size miễn phí tận nhà trong vòng 7 ngày kể từ khi nhận hàng. Shiper sẽ mang áo size mới đến đổi và thu lại áo cũ luôn cho bạn cực kỳ tiện lợi ạ!', 0, NOW() - INTERVAL 10 HOUR);
 
+-- ==============================================================================
+-- 16. BẢNG banners (Banner quảng cáo, sự kiện Flash Sale, Slider trang chủ)
+-- ==============================================================================
+DROP TABLE IF EXISTS `banners`;
+CREATE TABLE `banners` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `title` VARCHAR(255) NOT NULL,
+  `image` VARCHAR(500) NOT NULL,
+  `link_url` VARCHAR(500) DEFAULT NULL,
+  `position` VARCHAR(50) DEFAULT 'HOME_SLIDER',
+  `display_order` INT DEFAULT 1,
+  `active` TINYINT(1) NOT NULL DEFAULT 1,
+  `description` VARCHAR(255) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_banner_pos_active` (`position`, `active`, `display_order`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `banners` (`id`, `title`, `image`, `link_url`, `position`, `display_order`, `active`, `description`) VALUES
+(1, 'Bộ Sưu Tập Áo Thun Mùa Hè 2026', 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=1200', '/products?categoryId=1', 'HOME_SLIDER', 1, 1, 'Chất liệu 100% Cotton Compact thoáng mát, co giãn 4 chiều'),
+(2, 'Đẳng Cấp Áo Polo Công Sở Routine', 'https://images.unsplash.com/photo-1586363104862-3a5e2ab60d99?w=1200', '/products?categoryId=2', 'HOME_SLIDER', 2, 1, 'Lịch lãm, form dáng Regular fit tôn dáng quý ông'),
+(3, 'Siêu Sale Áo Khoác & Hoodie Teelab', 'https://images.unsplash.com/photo-1556905055-8f358a7a47b2?w=1200', '/products?categoryId=5', 'HOME_SLIDER', 3, 1, 'Giảm giá lên đến 40% cho các sản phẩm Streetwear'),
+(4, 'Áo Sơ Mi Oxford Cao Cấp Chống Nhăn', 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?w=1200', '/products?categoryId=3', 'HOME_SLIDER', 4, 1, 'Dòng sơ mi kháng khuẩn, thoáng khí tuyệt đối cho dân văn phòng');
+
+-- ==============================================================================
+-- 17. BẢNG vouchers (Mã giảm giá, khuyến mãi cho khách mua áo)
+-- ==============================================================================
+DROP TABLE IF EXISTS `vouchers`;
+CREATE TABLE `vouchers` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `code` VARCHAR(50) NOT NULL,
+  `name` VARCHAR(255) NOT NULL,
+  `description` VARCHAR(255) DEFAULT NULL,
+  `discount_type` VARCHAR(20) NOT NULL,
+  `discount_value` DOUBLE NOT NULL,
+  `max_discount_amount` DOUBLE DEFAULT NULL,
+  `min_order_value` DOUBLE DEFAULT 0,
+  `start_date` DATETIME NOT NULL,
+  `end_date` DATETIME NOT NULL,
+  `usage_limit` INT DEFAULT 100,
+  `used_count` INT NOT NULL DEFAULT 0,
+  `active` TINYINT(1) NOT NULL DEFAULT 1,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_voucher_code` (`code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `vouchers` (`id`, `code`, `name`, `description`, `discount_type`, `discount_value`, `max_discount_amount`, `min_order_value`, `start_date`, `end_date`, `usage_limit`, `used_count`, `active`) VALUES
+(1, 'WELCOME50K', 'Ưu Đãi Khách Hàng Mới', 'Giảm ngay 50.000đ cho đơn hàng mua áo từ 250.000đ', 'FIXED_AMOUNT', 50000, NULL, 250000, NOW() - INTERVAL 5 DAY, NOW() + INTERVAL 30 DAY, 200, 15, 1),
+(2, 'AOPOLO10', 'Giảm 10% Áo Polo Routine', 'Giảm 10% tối đa 40.000đ cho đơn hàng từ 300.000đ', 'PERCENTAGE', 10, 40000, 300000, NOW() - INTERVAL 3 DAY, NOW() + INTERVAL 20 DAY, 100, 22, 1),
+(3, 'TEELAB20', 'Siêu Sale Áo Thun Teelab', 'Giảm 20% tối đa 60.000đ cho đơn hàng từ 400.000đ', 'PERCENTAGE', 20, 60000, 400000, NOW() - INTERVAL 2 DAY, NOW() + INTERVAL 15 DAY, 50, 8, 1),
+(4, 'HOODIE30K', 'Khuyến Mãi Áo Khoác & Hoodie', 'Giảm ngay 30.000đ cho đơn mua áo khoác mùa đông từ 350.000đ', 'FIXED_AMOUNT', 30000, NULL, 350000, NOW() - INTERVAL 1 DAY, NOW() + INTERVAL 25 DAY, 150, 10, 1);
+
 -- Bật lại kiểm tra khóa ngoại sau khi hoàn tất
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ==============================================================================
 -- HOÀN TẤT: CƠ SỞ DỮ LIỆU ĐÃ ĐƯỢC THIẾT KẾ ĐẶC BIỆT CHUYÊN BIỆT CHO SHOP BÁN ÁO!
--- TỔNG CỘNG: 15/15 BẢNG ĐÃ ĐƯỢC TẠO LẬP VỚI ĐẦY ĐỦ CÁC QUAN HỆ KHÓA NGOẠI & INDEX!
+-- TỔNG CỘNG: 17/17 BẢNG ĐÃ ĐƯỢC TẠO LẬP VỚI ĐẦY ĐỦ CÁC QUAN HỆ KHÓA NGOẠI & INDEX!
 -- ==============================================================================
+
+

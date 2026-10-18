@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.group19.QLShop.dto.reponse.ProductReponse;
+import com.group19.QLShop.dto.reponse.SearchSuggestionResponse;
+import com.group19.QLShop.dto.request.ProductFilterRequest;
 import com.group19.QLShop.dto.request.ProductRequest;
 import com.group19.QLShop.service.ProductService;
 
@@ -141,5 +143,36 @@ public Page<ProductReponse> getNewestProducts(
         @RequestParam(defaultValue = "10") int size) {
         Page<ProductReponse> products = productService.findProductsByPriceRange(minPrice, maxPrice, page, size);
         return ResponseEntity.ok(products);
+    }
+
+    // ==========================================
+    // TÌM KIẾM VÀ LỌC NÂNG CAO ĐA ĐIỀU KIỆN (GET Query Params)
+    // GET /api/products/filter?keyword=polo&brandId=1&size=L&minPrice=200000&sortBy=price_asc
+    // ==========================================
+    @GetMapping("/filter")
+    public ResponseEntity<Page<ProductReponse>> filterProducts(
+            @org.springframework.web.bind.annotation.ModelAttribute ProductFilterRequest filterRequest) {
+        return ResponseEntity.ok(productService.filterProducts(filterRequest));
+    }
+
+    // ==========================================
+    // TÌM KIẾM VÀ LỌC NÂNG CAO ĐA ĐIỀU KIỆN (POST Request Body)
+    // POST /api/products/filter
+    // ==========================================
+    @PostMapping("/filter")
+    public ResponseEntity<Page<ProductReponse>> filterProductsPost(
+            @org.springframework.web.bind.annotation.RequestBody ProductFilterRequest filterRequest) {
+        return ResponseEntity.ok(productService.filterProducts(filterRequest));
+    }
+
+    // ==========================================
+    // GỢI Ý TÌM KIẾM THÔNG MINH KHI GÕ TỪ KHÓA (SEARCH AUTOCOMPLETE)
+    // GET /api/products/suggestions?keyword=áo thun&limit=6
+    // ==========================================
+    @GetMapping("/suggestions")
+    public ResponseEntity<SearchSuggestionResponse> getSearchSuggestions(
+            @RequestParam(required = false, defaultValue = "") String keyword,
+            @RequestParam(defaultValue = "6") int limit) {
+        return ResponseEntity.ok(productService.getSearchSuggestions(keyword, limit));
     }
 }

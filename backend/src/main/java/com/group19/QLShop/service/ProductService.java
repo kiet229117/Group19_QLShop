@@ -15,13 +15,21 @@ import com.group19.QLShop.entity.Category;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.multipart.MultipartFile;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
+import com.group19.QLShop.dto.reponse.ProductSuggestionItem;
+import com.group19.QLShop.dto.reponse.SearchSuggestionResponse;
+import com.group19.QLShop.dto.request.ProductFilterRequest;
+import com.group19.QLShop.specification.ProductSpecification;
 import com.group19.QLShop.entity.ProductImage;
 import com.group19.QLShop.repository.ProductImageRepository;
 
@@ -292,6 +300,108 @@ public Page<ProductReponse> getNewestProducts(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<Product> products = productRepository.findByPriceBetween(minPrice, maxPrice, pageable);
         return products.map(this::toResponse);
+    }
+
+    // ==========================================
+    // TÌM KIẾM VÀ LỌC NÂNG CAO ĐA ĐIỀU KIỆN
+    // ==========================================
+    public Page<ProductReponse> filterProducts(ProductFilterRequest filterRequest) {
+        if (filterRequest == null) {
+            filterRequest = new ProductFilterRequest();
+        }
+
+        int page = Math.max(0, filterRequest.getPage());
+        int size = filterRequest.getPageSize() > 0 ? filterRequest.getPageSize() : 10;
+
+        // Xử lý sắp xếp linh hoạt
+        Sort sort = Sort.by("id").descending(); // Mặc định áo mới nhất
+        if (filterRequest.getSortBy() != null && !filterRequest.getSortBy().trim().isEmpty()) {
+            String s = filterRequest.getSortBy().trim().toLowerCase();
+            switch (s) {
+                case "price_asc", "price-asc" -> sort = Sort.by("price").ascending();
+                case "price_desc", "price-desc" -> sort = Sort.by("price").descending();
+                case "newest" -> sort = Sort.by("id").descending();
+                case "popular", "views" -> sort = Sort.by("views").descending().and(Sort.by("id").descending());
+                case "rating" -> sort = Sort.by("rating").descending().and(Sort.by("id").descending());
+                default -> sort = Sort.by("id").descending();
+            }
+        }
+
+        Pageable pageable = PageRequest.of(page, size, sort);
+        Specification<Product> spec = ProductSpecification.filter(filterRequest);
+
+        return productRepository.findAll(spec, pageable).map(this::toResponse);
+    }
+
+    // ==========================================
+    // GỢI Ý TÌM KIẾM THÔNG MINH KHI GÕ TỪ KHÓA (AUTOCOMPLETE)
+    // ==========================================
+    public SearchSuggestionResponse getSearchSuggestions(String keyword, int limit) {
+        if (limit <= 0 || limit > 20) {
+            limit = 6;
+        }
+
+        String searchKey = (keyword != null) ? keyword.trim() : "";
+        Pageable pageable = PageRequest.of(0, limit);
+        List<Product> matchedProducts;
+
+        if (searchKey.isEmpty()) {
+            // Khi chưa gõ gì: Lấy các mẫu áo Hot / nhiều lượt xem nhất làm gợi ý xu hướng
+            matchedProducts = productRepository.findHotProducts(pageable).getContent();
+        } else {
+            matchedProducts = productRepository.findSearchSuggestions(searchKey, pageable);
+        }
+
+        List<ProductSuggestionItem> productItems = new ArrayList<>();
+        Set<String> keywordSet = new LinkedHashSet<>();
+
+        for (Product product : matchedProducts) {
+            // Tìm ảnh đại diện chính
+            String imageUrl = null;
+            if (product.getImages() != null && !product.getImages().isEmpty()) {
+                imageUrl = product.getImages().stream()
+                        .filter(img -> Boolean.TRUE.equals(img.getIsPrimary()))
+                        .map(ProductImage::getImageUrl)
+                        .findFirst()
+                        .orElse(product.getImages().get(0).getImageUrl());
+            }
+
+            Double salePrice = null;
+            if (product.getProductPrice() != null && product.getProductPrice().getSalePrice() != null && product.getProductPrice().getSalePrice() > 0) {
+                salePrice = product.getProductPrice().getSalePrice();
+            }
+
+            String catName = product.getCategory() != null ? product.getCategory().getName() : null;
+            String brandName = product.getBrand() != null ? product.getBrand().getName() : null;
+
+            productItems.add(ProductSuggestionItem.builder()
+                    .id(product.getId())
+                    .name(product.getName())
+                    .slug(product.getSlug())
+                    .price(product.getPrice())
+                    .salePrice(salePrice)
+                    .image(imageUrl)
+                    .categoryName(catName)
+                    .brandName(brandName)
+                    .build());
+
+            // Tạo các cụm từ gợi ý tự nhiên
+            if (catName != null) {
+                keywordSet.add(catName);
+            }
+            if (brandName != null && !searchKey.isEmpty()) {
+                keywordSet.add(searchKey + " " + brandName);
+            }
+            if (product.getName() != null) {
+                keywordSet.add(product.getName());
+            }
+        }
+
+        return SearchSuggestionResponse.builder()
+                .keyword(searchKey)
+                .keywordSuggestions(keywordSet.stream().limit(6).toList())
+                .products(productItems)
+                .build();
     }
 
     private void validatePagination(int page, int size) {

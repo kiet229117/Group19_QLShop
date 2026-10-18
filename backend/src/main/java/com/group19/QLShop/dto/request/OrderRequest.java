@@ -38,6 +38,9 @@ public class OrderRequest {
 
     private String note;
 
+    // Mã voucher áp dụng cho đơn hàng (nếu có)
+    private String voucherCode;
+
     // Tùy chọn: Nếu người dùng đặt hàng trực tiếp truyền danh sách sản phẩm.
     // Nếu để trống (null hoặc rỗng), hệ thống có thể lấy từ Cart của User
     @Valid

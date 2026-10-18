@@ -32,6 +32,10 @@ public class OrderResponse {
 
     private double totalAmount;
 
+    private String voucherCode;
+
+    private Double discountAmount;
+
     private OrderStatus status;
 
     private LocalDateTime createdAt;

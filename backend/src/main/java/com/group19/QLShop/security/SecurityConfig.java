@@ -74,13 +74,16 @@ public class SecurityConfig {
                     "/api/auth/reset-password",
                     "/error",
                     "/api/seed/**",
-                    "/api/webhook/**"
+                    "/api/webhook/**",
+                    "/api/vouchers/available",
+                    "/api/vouchers/apply"
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET, 
                     "/api/products/**", 
                     "/api/brands/**", 
                     "/api/categories/**", 
-                    "/api/comments/**"
+                    "/api/comments/**",
+                    "/api/banners/**"
                 ).permitAll()
                 .requestMatchers("/uploads/**").permitAll()
 
@@ -91,21 +94,25 @@ public class SecurityConfig {
 
                 // ==========================================
                 // 3. QUẢN LÝ SẢN PHẨM (PRODUCTS)
+                // - Lọc nâng cao (POST filter): Public
                 // - Thêm / Sửa: ADMIN, STAFF
                 // - Xóa: Chỉ ADMIN
                 // ==========================================
+                .requestMatchers(HttpMethod.POST, "/api/products/filter").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/products/**").hasAnyRole("ADMIN", "STAFF")
                 .requestMatchers(HttpMethod.PUT, "/api/products/**").hasAnyRole("ADMIN", "STAFF")
                 .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasRole("ADMIN")
 
                 // ==========================================
-                // 4. QUẢN LÝ THƯƠNG HIỆU & DANH MỤC (BRANDS, CATEGORIES)
+                // 4. QUẢN LÝ THƯƠNG HIỆU, DANH MỤC, BANNER & VOUCHER
                 // - Thêm / Sửa: ADMIN, STAFF
                 // - Xóa: Chỉ ADMIN
                 // ==========================================
-                .requestMatchers(HttpMethod.POST, "/api/brands/**", "/api/categories/**").hasAnyRole("ADMIN", "STAFF")
-                .requestMatchers(HttpMethod.PUT, "/api/brands/**", "/api/categories/**").hasAnyRole("ADMIN", "STAFF")
-                .requestMatchers(HttpMethod.DELETE, "/api/brands/**", "/api/categories/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.GET, "/api/vouchers").hasAnyRole("ADMIN", "STAFF")
+                .requestMatchers(HttpMethod.POST, "/api/brands/**", "/api/categories/**", "/api/banners/**", "/api/vouchers/**").hasAnyRole("ADMIN", "STAFF")
+                .requestMatchers(HttpMethod.PUT, "/api/brands/**", "/api/categories/**", "/api/banners/**", "/api/vouchers/**").hasAnyRole("ADMIN", "STAFF")
+                .requestMatchers(HttpMethod.PATCH, "/api/banners/**").hasAnyRole("ADMIN", "STAFF")
+                .requestMatchers(HttpMethod.DELETE, "/api/brands/**", "/api/categories/**", "/api/banners/**", "/api/vouchers/**").hasRole("ADMIN")
 
                 // ==========================================
                 // 5. QUẢN LÝ NGƯỜI DÙNG (USERS)
@@ -158,9 +165,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/chat/**").authenticated()
 
                 // ==========================================
-                // 11. ĐƯỜNG DẪN QUẢN TRỊ RIÊNG (NẾU CÓ)
+                // 11. ĐƯỜNG DẪN QUẢN TRỊ RIÊNG (DASHBOARD & ADMIN)
                 // ==========================================
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "STAFF")
 
                 // ==========================================
                 // 12. TẤT CẢ CÁC REQUEST KHÁC: Yêu cầu đăng nhập
