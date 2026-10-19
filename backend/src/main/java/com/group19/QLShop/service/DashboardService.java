@@ -32,16 +32,19 @@ public class DashboardService {
     private final OrderItemRepository orderItemRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
+    private final com.group19.QLShop.repository.GoodsReceiptRepository goodsReceiptRepository;
 
     public DashboardService(
             OrderRepository orderRepository,
             OrderItemRepository orderItemRepository,
             ProductRepository productRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            com.group19.QLShop.repository.GoodsReceiptRepository goodsReceiptRepository) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.productRepository = productRepository;
         this.userRepository = userRepository;
+        this.goodsReceiptRepository = goodsReceiptRepository;
     }
 
     // ==========================================
@@ -55,12 +58,40 @@ public class DashboardService {
         LocalDateTime startOfMonth = today.with(TemporalAdjusters.firstDayOfMonth()).atStartOfDay();
         LocalDateTime endOfMonth = today.with(TemporalAdjusters.lastDayOfMonth()).atTime(LocalTime.MAX);
 
-        // Doanh thu
-        Double totalRevenue = orderRepository.sumTotalAmountByStatus(OrderStatus.COMPLETED);
-        Double todayRevenue = orderRepository.sumRevenueByStatusAndDateRange(OrderStatus.COMPLETED, startOfToday, endOfToday);
-        Double thisMonthRevenue = orderRepository.sumRevenueByStatusAndDateRange(OrderStatus.COMPLETED, startOfMonth, endOfMonth);
+        // 1. Doanh thu thuần (Net Revenue từ đơn COMPLETED)
+        Double totalRevRaw = orderRepository.sumTotalAmountByStatus(OrderStatus.COMPLETED);
+        Double todayRevRaw = orderRepository.sumRevenueByStatusAndDateRange(OrderStatus.COMPLETED, startOfToday, endOfToday);
+        Double thisMonthRevRaw = orderRepository.sumRevenueByStatusAndDateRange(OrderStatus.COMPLETED, startOfMonth, endOfMonth);
 
-        // Số lượng đơn theo trạng thái
+        double totalRevenue = totalRevRaw != null ? totalRevRaw : 0.0;
+        double todayRevenue = todayRevRaw != null ? todayRevRaw : 0.0;
+        double thisMonthRevenue = thisMonthRevRaw != null ? thisMonthRevRaw : 0.0;
+
+        // 2. Giá vốn hàng bán (COGS - Cost of Goods Sold từ OrderItem)
+        Double totalCostRaw = orderItemRepository.sumTotalCostByStatus(OrderStatus.COMPLETED);
+        Double todayCostRaw = orderItemRepository.sumCostByStatusAndDateRange(OrderStatus.COMPLETED, startOfToday, endOfToday);
+        Double thisMonthCostRaw = orderItemRepository.sumCostByStatusAndDateRange(OrderStatus.COMPLETED, startOfMonth, endOfMonth);
+
+        double totalCost = totalCostRaw != null ? totalCostRaw : 0.0;
+        double todayCost = todayCostRaw != null ? todayCostRaw : 0.0;
+        double thisMonthCost = thisMonthCostRaw != null ? thisMonthCostRaw : 0.0;
+
+        // 3. Lợi nhuận gộp thực tế (Gross Profit = Revenue - COGS)
+        double totalProfit = Math.round((totalRevenue - totalCost) * 100.0) / 100.0;
+        double todayProfit = Math.round((todayRevenue - todayCost) * 100.0) / 100.0;
+        double thisMonthProfit = Math.round((thisMonthRevenue - thisMonthCost) * 100.0) / 100.0;
+
+        // 4. Tỷ suất lợi nhuận gộp (% Profit Margin)
+        double profitMargin = totalRevenue > 0
+                ? Math.round((totalProfit / totalRevenue) * 1000.0) / 10.0
+                : 0.0;
+
+        // 5. Tổng chi phí đã nhập hàng vào kho (từ các phiếu nhập COMPLETED)
+        Double totalImportExpRaw = goodsReceiptRepository.sumTotalImportExpenseByStatus(
+                com.group19.QLShop.entity.enums.GoodsReceiptStatus.COMPLETED);
+        double totalImportExpense = totalImportExpRaw != null ? totalImportExpRaw : 0.0;
+
+        // 6. Số lượng đơn theo trạng thái
         Long totalOrders = orderRepository.count();
         Long pendingOrders = orderRepository.countByStatus(OrderStatus.PENDING);
         Long confirmedOrders = orderRepository.countByStatus(OrderStatus.CONFIRMED);
@@ -68,14 +99,22 @@ public class DashboardService {
         Long completedOrders = orderRepository.countByStatus(OrderStatus.COMPLETED);
         Long cancelledOrders = orderRepository.countByStatus(OrderStatus.CANCELLED);
 
-        // Tổng số lượng sản phẩm & khách hàng
+        // 7. Tổng số lượng sản phẩm & khách hàng
         Long totalProducts = productRepository.count();
         Long totalUsers = userRepository.count();
 
         return DashboardSummaryResponse.builder()
-                .totalRevenue(totalRevenue != null ? totalRevenue : 0.0)
-                .todayRevenue(todayRevenue != null ? todayRevenue : 0.0)
-                .thisMonthRevenue(thisMonthRevenue != null ? thisMonthRevenue : 0.0)
+                .totalRevenue(totalRevenue)
+                .todayRevenue(todayRevenue)
+                .thisMonthRevenue(thisMonthRevenue)
+                .totalCost(totalCost)
+                .todayCost(todayCost)
+                .thisMonthCost(thisMonthCost)
+                .totalProfit(totalProfit)
+                .todayProfit(todayProfit)
+                .thisMonthProfit(thisMonthProfit)
+                .profitMargin(profitMargin)
+                .totalImportExpense(totalImportExpense)
                 .totalOrders(totalOrders)
                 .pendingOrders(pendingOrders)
                 .confirmedOrders(confirmedOrders)
@@ -88,7 +127,7 @@ public class DashboardService {
     }
 
     // ==========================================
-    // 2. BIỂU ĐỒ DOANH THU THEO NGÀY (REVENUE CHART)
+    // 2. BIỂU ĐỒ DOANH THU & LỢI NHUẬN THEO NGÀY
     // ==========================================
     public List<RevenueChartResponse> getRevenueChart(int days) {
         if (days <= 0 || days > 90) {
@@ -103,12 +142,19 @@ public class DashboardService {
             LocalDateTime startOfDay = targetDate.atStartOfDay();
             LocalDateTime endOfDay = targetDate.atTime(LocalTime.MAX);
 
-            Double revenue = orderRepository.sumRevenueByStatusAndDateRange(OrderStatus.COMPLETED, startOfDay, endOfDay);
+            Double revRaw = orderRepository.sumRevenueByStatusAndDateRange(OrderStatus.COMPLETED, startOfDay, endOfDay);
+            Double costRaw = orderItemRepository.sumCostByStatusAndDateRange(OrderStatus.COMPLETED, startOfDay, endOfDay);
             Long count = orderRepository.countOrdersByStatusAndDateRange(OrderStatus.COMPLETED, startOfDay, endOfDay);
+
+            double dayRevenue = revRaw != null ? revRaw : 0.0;
+            double dayCost = costRaw != null ? costRaw : 0.0;
+            double dayProfit = Math.round((dayRevenue - dayCost) * 100.0) / 100.0;
 
             chartList.add(RevenueChartResponse.builder()
                     .date(targetDate.toString())
-                    .revenue(revenue != null ? revenue : 0.0)
+                    .revenue(dayRevenue)
+                    .cost(dayCost)
+                    .profit(dayProfit)
                     .orderCount(count != null ? count : 0L)
                     .build());
         }

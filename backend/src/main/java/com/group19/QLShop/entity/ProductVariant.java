@@ -36,4 +36,7 @@ public class ProductVariant {
 
     // Tồn kho cho riêng từng size/color
     private int stockQuantity;
+
+    // Giá vốn nhập hàng riêng cho từng phân loại (size/color)
+    private Double costPrice;
 }

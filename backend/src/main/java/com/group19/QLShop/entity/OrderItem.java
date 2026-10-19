@@ -32,9 +32,19 @@ public class OrderItem {
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
+    // Phân loại cụ thể (size, color) khách đã chọn khi mua
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "variant_id")
+    private ProductVariant productVariant;
+
     @Column(nullable = false)
     private int quantity;
 
+    // Giá bán tại thời điểm khách mua
     @Column(nullable = false)
     private double price;
+
+    // GIÁ VỐN (Cost Price) tại thời điểm bán để tính Lợi nhuận & Giá vốn hàng bán (COGS)
+    @Column(name = "cost_price")
+    private Double costPrice = 0.0;
 }

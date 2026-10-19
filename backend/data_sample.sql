@@ -51,18 +51,18 @@ CREATE TABLE `users` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Mật khẩu mặc định cho toàn bộ tài khoản: password123 (Mã hóa chuẩn BCrypt)
--- Hash: $2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2
+-- Hash: $2a$10$8p0Vq/DhgaVKGzBgqtrUg.FEX5sNfm4ISwqH/NvaJ8.0CPaRk4Ory
 INSERT INTO `users` (`id`, `name`, `username`, `phone`, `email`, `gender`, `address`, `password`, `avatar`, `role`, `active`) VALUES
-(1, 'Nguyễn Văn An (Chủ Shop Áo)', 'admin', '0901234567', 'admin@shopao.com', 'Nam', '123 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP.HCM', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde', 'admin', 1),
-(2, 'Trần Thị Bích (Tư Vấn Viên)', 'staff1', '0912345678', 'bich.staff@shopao.com', 'Nữ', '45 Lê Duẩn, Phường Bến Nghé, Quận 1, TP.HCM', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330', 'staff', 1),
-(3, 'Lê Hoàng Cường', 'hoangcuong', '0923456789', 'cuong.le@gmail.com', 'Nam', '78 Hai Bà Trưng, Phường 6, Quận 3, TP.HCM', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61', 'user', 1),
-(4, 'Phạm Thị Dung', 'dungpham', '0934567890', 'dung.pham@gmail.com', 'Nữ', '12 Quang Trung, Phường 10, Gò Vấp, TP.HCM', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80', 'user', 1),
-(5, 'Hoàng Minh Đức', 'minhduc', '0945678901', 'duc.hoang@gmail.com', 'Nam', '56 Cầu Giấy, Quan Hoa, Cầu Giấy, Hà Nội', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d', 'user', 1),
-(6, 'Vũ Thị Hoa', 'hoavu', '0956789012', 'hoa.vu@gmail.com', 'Nữ', '89 Kim Mã, Giảng Võ, Ba Đình, Hà Nội', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', 'https://images.unsplash.com/photo-1544005313-94ddf0286df2', 'user', 1),
-(7, 'Đặng Hữu Hùng', 'huuhung', '0967890123', 'hung.dang@gmail.com', 'Nam', '15 Bạch Đằng, Thạch Thang, Hải Châu, Đà Nẵng', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e', 'user', 1),
-(8, 'Ngô Mỹ Linh', 'mylinh', '0978901234', 'linh.ngo@gmail.com', 'Nữ', '34 Hùng Vương, Lộc Thọ, Nha Trang, Khánh Hòa', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb', 'user', 1),
-(9, 'Bùi Quốc Nam', 'quocnam', '0989012345', 'nam.bui@gmail.com', 'Nam', '102 Nguyễn Văn Cừ, An Khánh, Ninh Kiều, Cần Thơ', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7', 'user', 1),
-(10, 'Đỗ Phương Oanh', 'phuongoanh', '0990123456', 'oanh.do@gmail.com', 'Nữ', '22 Võ Thị Sáu, Thống Nhất, Biên Hòa, Đồng Nai', '$2a$10$7JB720yubVSZvUI0rEqK/.VqGOZTH.ulu33dHOiBE8ByOhJIrdAu2', 'https://images.unsplash.com/photo-1517841905240-472988babdf9', 'user', 1);
+(1, 'Nguyễn Văn An (Chủ Shop Áo)', 'admin', '0901234567', 'admin@shopao.com', 'Nam', '123 Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP.HCM', '$2a$10$8p0Vq/DhgaVKGzBgqtrUg.FEX5sNfm4ISwqH/NvaJ8.0CPaRk4Ory', 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde', 'admin', 1),
+(2, 'Trần Thị Bích (Tư Vấn Viên)', 'staff1', '0912345678', 'bich.staff@shopao.com', 'Nữ', '45 Lê Duẩn, Phường Bến Nghé, Quận 1, TP.HCM', '$2a$10$8p0Vq/DhgaVKGzBgqtrUg.FEX5sNfm4ISwqH/NvaJ8.0CPaRk4Ory', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330', 'staff', 1),
+(3, 'Lê Hoàng Cường', 'hoangcuong', '0923456789', 'cuong.le@gmail.com', 'Nam', '78 Hai Bà Trưng, Phường 6, Quận 3, TP.HCM', '$2a$10$8p0Vq/DhgaVKGzBgqtrUg.FEX5sNfm4ISwqH/NvaJ8.0CPaRk4Ory', 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61', 'user', 1),
+(4, 'Phạm Thị Dung', 'dungpham', '0934567890', 'dung.pham@gmail.com', 'Nữ', '12 Quang Trung, Phường 10, Gò Vấp, TP.HCM', '$2a$10$8p0Vq/DhgaVKGzBgqtrUg.FEX5sNfm4ISwqH/NvaJ8.0CPaRk4Ory', 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80', 'user', 1),
+(5, 'Hoàng Minh Đức', 'minhduc', '0945678901', 'duc.hoang@gmail.com', 'Nam', '56 Cầu Giấy, Quan Hoa, Cầu Giấy, Hà Nội', '$2a$10$8p0Vq/DhgaVKGzBgqtrUg.FEX5sNfm4ISwqH/NvaJ8.0CPaRk4Ory', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d', 'user', 1),
+(6, 'Vũ Thị Hoa', 'hoavu', '0956789012', 'hoa.vu@gmail.com', 'Nữ', '89 Kim Mã, Giảng Võ, Ba Đình, Hà Nội', '$2a$10$8p0Vq/DhgaVKGzBgqtrUg.FEX5sNfm4ISwqH/NvaJ8.0CPaRk4Ory', 'https://images.unsplash.com/photo-1544005313-94ddf0286df2', 'user', 1),
+(7, 'Đặng Hữu Hùng', 'huuhung', '0967890123', 'hung.dang@gmail.com', 'Nam', '15 Bạch Đằng, Thạch Thang, Hải Châu, Đà Nẵng', '$2a$10$8p0Vq/DhgaVKGzBgqtrUg.FEX5sNfm4ISwqH/NvaJ8.0CPaRk4Ory', 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e', 'user', 1),
+(8, 'Ngô Mỹ Linh', 'mylinh', '0978901234', 'linh.ngo@gmail.com', 'Nữ', '34 Hùng Vương, Lộc Thọ, Nha Trang, Khánh Hòa', '$2a$10$8p0Vq/DhgaVKGzBgqtrUg.FEX5sNfm4ISwqH/NvaJ8.0CPaRk4Ory', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb', 'user', 1),
+(9, 'Bùi Quốc Nam', 'quocnam', '0989012345', 'nam.bui@gmail.com', 'Nam', '102 Nguyễn Văn Cừ, An Khánh, Ninh Kiều, Cần Thơ', '$2a$10$8p0Vq/DhgaVKGzBgqtrUg.FEX5sNfm4ISwqH/NvaJ8.0CPaRk4Ory', 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7', 'user', 1),
+(10, 'Đỗ Phương Oanh', 'phuongoanh', '0990123456', 'oanh.do@gmail.com', 'Nữ', '22 Võ Thị Sáu, Thống Nhất, Biên Hòa, Đồng Nai', '$2a$10$8p0Vq/DhgaVKGzBgqtrUg.FEX5sNfm4ISwqH/NvaJ8.0CPaRk4Ory', 'https://images.unsplash.com/photo-1517841905240-472988babdf9', 'user', 1);
 
 -- ==============================================================================
 -- 2. BẢNG brands (10 Thương hiệu chuyên áo hàng đầu)
