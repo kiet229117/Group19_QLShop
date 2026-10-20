@@ -77,9 +77,9 @@ public class DashboardService {
         double thisMonthCost = thisMonthCostRaw != null ? thisMonthCostRaw : 0.0;
 
         // 3. Lợi nhuận gộp thực tế (Gross Profit = Revenue - COGS)
-        double totalProfit = Math.round((totalRevenue - totalCost) * 100.0) / 100.0;
-        double todayProfit = Math.round((todayRevenue - todayCost) * 100.0) / 100.0;
-        double thisMonthProfit = Math.round((thisMonthRevenue - thisMonthCost) * 100.0) / 100.0;
+        double totalProfit = Math.round((totalRevenue - totalCost) * 100.0) / 100.0; // Tổng lợi nhuận từ trước tới nay
+        double todayProfit = Math.round((todayRevenue - todayCost) * 100.0) / 100.0; // Tổng lợi nhuận ngày hôm nay
+        double thisMonthProfit = Math.round((thisMonthRevenue - thisMonthCost) * 100.0) / 100.0; // Lợi nhuận tháng hiện tại
 
         // 4. Tỷ suất lợi nhuận gộp (% Profit Margin)
         double profitMargin = totalRevenue > 0
