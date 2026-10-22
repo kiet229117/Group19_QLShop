@@ -33,8 +33,12 @@ public class Product {
 
     private String name;
     
-    // GIỮ NGUYÊN GIÁ GỐC TẠI ĐÂY
+    // GIỮ NGUYÊN GIÁ BÁN GỐC TẠI ĐÂY
     private double price;
+
+    // GIÁ VỐN NHẬP HÀNG (Cost Price / Giá nhập mặc định)
+    @Column(name = "cost_price")
+    private Double costPrice;
 
     private String description;
     private double rating;

@@ -97,9 +97,10 @@ public class OrderService {
                         .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                                 "Không tìm thấy sản phẩm với ID: " + itemReq.getProductId()));
 
+                ProductVariant variant = null;
                 // ---> KIỂM TRA & TRỪ TỒN KHO VARIANT <---
                 if (itemReq.getVariantId() != null) {
-                    ProductVariant variant = productVariantRepository.findById(itemReq.getVariantId())
+                    variant = productVariantRepository.findById(itemReq.getVariantId())
                             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                                     "Không tìm thấy phân loại sản phẩm với ID: " + itemReq.getVariantId()));
 
@@ -117,12 +118,18 @@ public class OrderService {
                 OrderItem orderItem = new OrderItem();
                 orderItem.setOrder(order);
                 orderItem.setProduct(product);
+                orderItem.setProductVariant(variant);
                 orderItem.setQuantity(itemReq.getQuantity());
                 
-                // Lấy giá áp dụng (ưu tiên salePrice từ ProductPrice, nếu không lấy price gốc từ Product)
+                // Lấy giá bán áp dụng (ưu tiên salePrice từ ProductPrice, nếu không lấy price gốc từ Product)
                 double priceToUse = getEffectivePrice(product);
-                        
                 orderItem.setPrice(priceToUse);
+
+                // Lưu giá vốn (COGS) tại thời điểm bán để tính Lợi Nhuận thực tế
+                Double costPrice = (variant != null && variant.getCostPrice() != null)
+                        ? variant.getCostPrice()
+                        : (product.getCostPrice() != null ? product.getCostPrice() : 0.0);
+                orderItem.setCostPrice(costPrice);
 
                 totalAmount += priceToUse * itemReq.getQuantity();
                 orderItems.add(orderItem);
@@ -146,8 +153,11 @@ public class OrderService {
                 
                 // Lấy giá áp dụng
                 double priceToUse = getEffectivePrice(product);
-
                 orderItem.setPrice(priceToUse);
+
+                // Lưu giá vốn (COGS) tại thời điểm bán
+                Double costPrice = product.getCostPrice() != null ? product.getCostPrice() : 0.0;
+                orderItem.setCostPrice(costPrice);
 
                 totalAmount += priceToUse * cartItem.getQuantity();
                 orderItems.add(orderItem);
