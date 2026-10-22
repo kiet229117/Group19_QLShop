@@ -1,5 +1,9 @@
 import { Fragment, useEffect, useMemo, useState } from 'react';
+<<<<<<< HEAD
 import { Link, useSearchParams } from 'react-router-dom';
+=======
+import { Link } from 'react-router-dom';
+>>>>>>> 4cb118a60ec635bafe84b52100744de1469ea6e3
 import axios from 'axios';
 import {
   Package,
@@ -16,12 +20,15 @@ import {
   Search,
   Flame,
   ImageOff,
+<<<<<<< HEAD
   Plus,
   Pencil,
   Trash2,
   LogIn,
   LogOut,
   CheckCircle2,
+=======
+>>>>>>> 4cb118a60ec635bafe84b52100744de1469ea6e3
 } from 'lucide-react';
 import {
   getProducts,
@@ -34,11 +41,14 @@ import {
   formatNumber,
   formatVND,
 } from '../utils/productMapper';
+<<<<<<< HEAD
 import { getApiErrorMessage as getErrorMessage } from '../utils/apiError';
 import { getMe, logout, canWriteProducts, canDeleteProducts, normalizeRole } from '../../../services/authService';
 import ProductFormModal from '../components/ProductFormModal';
 import ConfirmDeleteModal from '../components/ConfirmDeleteModal';
 import LoginModal from '../components/LoginModal';
+=======
+>>>>>>> 4cb118a60ec635bafe84b52100744de1469ea6e3
 
 // ---------------------------------------------------------------------------
 // Hằng số & helper
@@ -76,6 +86,17 @@ function useDebounce(value, delay = 400) {
   return debounced;
 }
 
+<<<<<<< HEAD
+=======
+function getErrorMessage(err) {
+  if (err?.response?.data?.message) return err.response.data.message;
+  if (err?.code === 'ERR_NETWORK') {
+    return 'Không kết nối được tới máy chủ. Hãy kiểm tra backend (http://localhost:8080) đã chạy chưa.';
+  }
+  return err?.message || 'Đã có lỗi xảy ra khi tải dữ liệu.';
+}
+
+>>>>>>> 4cb118a60ec635bafe84b52100744de1469ea6e3
 // ---------------------------------------------------------------------------
 // Component con
 // ---------------------------------------------------------------------------
@@ -171,6 +192,7 @@ export default function ProductsPage() {
 
   const debouncedFilters = useDebounce(filters, 400);
 
+<<<<<<< HEAD
   // --- Đăng nhập / phân quyền (thêm, sửa: ADMIN + STAFF; xóa: chỉ ADMIN) ---
   const [user, setUser] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -448,7 +470,180 @@ export default function ProductsPage() {
         setUser(null);
         setToast({ type: 'success', text: 'Đã đăng xuất.' });
       });
+=======
+  const updateFilter = (key, value) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+    setPage(0);
+>>>>>>> 4cb118a60ec635bafe84b52100744de1469ea6e3
   };
+
+  const resetFilters = () => {
+    setFilters(INITIAL_FILTERS);
+    setPriceDraft({ min: '', max: '' });
+    setPage(0);
+  };
+
+  // 1. Tải danh mục + thương hiệu (để đổ vào dropdown và hiển thị tên)
+  useEffect(() => {
+    let cancelled = false;
+    Promise.allSettled([getCategories(), getBrands()]).then(([cats, brs]) => {
+      if (cancelled) return;
+      if (cats.status === 'fulfilled') setCategories(cats.value);
+      if (brs.status === 'fulfilled') setBrands(brs.value);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // 2. Tải số liệu thống kê cho 4 thẻ đầu trang
+  useEffect(() => {
+    const controller = new AbortController();
+    getProducts({ page: 0, pageSize: 1000, sortBy: 'newest' }, { signal: controller.signal })
+      .then((data) => setStats(computeStats(data.content ?? [], data.totalElements)))
+      .catch(() => {
+        /* thẻ thống kê không chặn trang nếu lỗi */
+      });
+    return () => controller.abort();
+  }, [reloadKey]);
+
+  // 3. Tải danh sách sản phẩm theo bộ lọc + phân trang
+  const requestKey = JSON.stringify({ ...debouncedFilters, page, pageSize, reloadKey });
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const { page: p, pageSize: size, reloadKey: _r, ...f } = JSON.parse(requestKey);
+    void _r;
+
+    getProducts(
+      {
+        keyword: f.keyword.trim(),
+        categoryId: f.categoryId,
+        brandId: f.brandId,
+        inStock: f.inStock,
+        minPrice: f.minPrice,
+        maxPrice: f.maxPrice,
+        shirtSize: f.shirtSize,
+        color: f.color.trim(),
+        hasSale: f.hasSale,
+        isHot: f.isHot,
+        sortBy: f.sortBy,
+        page: p,
+        pageSize: size,
+      },
+      { signal: controller.signal },
+    )
+      .then((data) => setResult({ key: requestKey, data, error: null }))
+      .catch((err) => {
+        if (axios.isCancel(err)) return;
+        setResult({ key: requestKey, data: null, error: err });
+      });
+
+    return () => controller.abort();
+  }, [requestKey]);
+
+  const loading = result.key !== requestKey;
+  const data = result.data;
+
+  // --- Chuyển dữ liệu backend -> view model ---
+  const brandMap = useMemo(() => Object.fromEntries(brands.map((b) => [b.id, b.name])), [brands]);
+  const categoryMap = useMemo(() => Object.fromEntries(categories.map((c) => [c.id, c.name])), [categories]);
+
+  const products = useMemo(
+    () => (data?.content ?? []).map((p) => toProductView(p, { brandMap, categoryMap })),
+    [data, brandMap, categoryMap],
+  );
+
+  const totalElements = data?.totalElements ?? 0;
+  const totalPages = data?.totalPages ?? 0;
+  const from = products.length ? (data?.number ?? 0) * (data?.size ?? pageSize) + 1 : 0;
+  const to = products.length ? from + products.length - 1 : 0;
+
+  // --- Chọn dòng ---
+  const allOnPageSelected = products.length > 0 && products.every((p) => selectedIds.has(p.id));
+
+  const toggleSelect = (id) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const toggleSelectAll = () =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allOnPageSelected) products.forEach((p) => next.delete(p.id));
+      else products.forEach((p) => next.add(p.id));
+      return next;
+    });
+
+  const toggleExpand = (id) => setExpandedId((cur) => (cur === id ? null : id));
+
+  // --- Tag bộ lọc đang áp dụng ---
+  const activeTags = [];
+  if (filters.keyword.trim()) {
+    activeTags.push({ key: 'keyword', label: 'Từ khóa', value: filters.keyword.trim(), clear: () => updateFilter('keyword', '') });
+  }
+  if (filters.categoryId) {
+    activeTags.push({ key: 'categoryId', label: 'Danh mục', value: categoryMap[filters.categoryId] || `#${filters.categoryId}`, clear: () => updateFilter('categoryId', '') });
+  }
+  if (filters.brandId) {
+    activeTags.push({ key: 'brandId', label: 'Thương hiệu', value: brandMap[filters.brandId] || `#${filters.brandId}`, clear: () => updateFilter('brandId', '') });
+  }
+  if (filters.inStock) {
+    activeTags.push({ key: 'inStock', label: 'Tồn kho', value: 'Còn hàng', clear: () => updateFilter('inStock', false) });
+  }
+  if (filters.minPrice !== '' || filters.maxPrice !== '') {
+    const min = filters.minPrice !== '' ? formatVND(filters.minPrice) : '0đ';
+    const max = filters.maxPrice !== '' ? formatVND(filters.maxPrice) : '∞';
+    activeTags.push({
+      key: 'price',
+      label: 'Giá',
+      value: `${min} – ${max}`,
+      clear: () => {
+        setFilters((prev) => ({ ...prev, minPrice: '', maxPrice: '' }));
+        setPriceDraft({ min: '', max: '' });
+        setPage(0);
+      },
+    });
+  }
+  if (filters.shirtSize) {
+    activeTags.push({ key: 'shirtSize', label: 'Size', value: filters.shirtSize, clear: () => updateFilter('shirtSize', '') });
+  }
+  if (filters.color.trim()) {
+    activeTags.push({ key: 'color', label: 'Màu', value: filters.color.trim(), clear: () => updateFilter('color', '') });
+  }
+  if (filters.hasSale) {
+    activeTags.push({ key: 'hasSale', label: 'Khuyến mãi', value: 'Đang giảm giá', clear: () => updateFilter('hasSale', false) });
+  }
+  if (filters.isHot) {
+    activeTags.push({ key: 'isHot', label: 'Nổi bật', value: 'Sản phẩm hot', clear: () => updateFilter('isHot', false) });
+  }
+  if (filters.sortBy !== 'newest') {
+    const label = SORT_OPTIONS.find((o) => o.value === filters.sortBy)?.label;
+    activeTags.push({ key: 'sortBy', label: 'Sắp xếp', value: label, clear: () => updateFilter('sortBy', 'newest') });
+  }
+
+  const advancedActive = Boolean(
+    filters.shirtSize || filters.color.trim() || filters.hasSale || filters.isHot || filters.sortBy !== 'newest',
+  );
+
+  const applyPrice = () => {
+    setFilters((prev) => ({ ...prev, minPrice: priceDraft.min, maxPrice: priceDraft.max }));
+    setPage(0);
+    setPriceOpen(false);
+  };
+
+  // --- Phân trang: cửa sổ tối đa 5 số trang ---
+  const pageNumbers = useMemo(() => {
+    if (totalPages <= 0) return [];
+    const start = Math.max(0, Math.min(page - 2, totalPages - 5));
+    const end = Math.min(totalPages, start + 5);
+    return Array.from({ length: end - start }, (_, i) => start + i);
+  }, [page, totalPages]);
+
+  const statValue = (v) => (stats ? v : '—');
 
   return (
     <div className="space-y-4 max-w-[1600px] mx-auto text-xs pb-10">
@@ -670,6 +865,7 @@ export default function ProductsPage() {
             </button>
           </div>
 
+<<<<<<< HEAD
           <div className="flex flex-wrap items-center gap-2 text-gray-500">
             {authChecked &&
               (user ? (
@@ -702,6 +898,9 @@ export default function ProductsPage() {
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
               Thêm sản phẩm
             </button>
+=======
+          <div className="flex items-center gap-2 text-gray-500">
+>>>>>>> 4cb118a60ec635bafe84b52100744de1469ea6e3
             <span className="text-[11px]">
               Đã chọn: <strong className="text-gray-900">{selectedIds.size} SP</strong>
             </span>
@@ -833,7 +1032,11 @@ export default function ProductsPage() {
               {/* Trạng thái đang tải lần đầu */}
               {loading && !data && (
                 <tr>
+<<<<<<< HEAD
                   <td colSpan="8" className="py-16 text-center text-gray-400">
+=======
+                  <td colSpan="7" className="py-16 text-center text-gray-400">
+>>>>>>> 4cb118a60ec635bafe84b52100744de1469ea6e3
                     <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
                     Đang tải danh sách sản phẩm...
                   </td>
@@ -843,7 +1046,11 @@ export default function ProductsPage() {
               {/* Không có dữ liệu */}
               {!loading && !result.error && products.length === 0 && (
                 <tr>
+<<<<<<< HEAD
                   <td colSpan="8" className="py-16 text-center text-gray-400">
+=======
+                  <td colSpan="7" className="py-16 text-center text-gray-400">
+>>>>>>> 4cb118a60ec635bafe84b52100744de1469ea6e3
                     <Package className="w-6 h-6 mx-auto mb-2" />
                     Không tìm thấy sản phẩm phù hợp với bộ lọc hiện tại.
                   </td>
@@ -959,6 +1166,7 @@ export default function ProductsPage() {
                       {/* Trạng thái */}
                       <td className="py-3.5 px-4 text-center">
                         <StatusBadge type={p.statusType} label={p.status} />
+<<<<<<< HEAD
                       </td>
 
                       {/* Thao tác: sửa / xóa */}
@@ -987,6 +1195,8 @@ export default function ProductsPage() {
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
+=======
+>>>>>>> 4cb118a60ec635bafe84b52100744de1469ea6e3
                       </td>
                     </tr>
 

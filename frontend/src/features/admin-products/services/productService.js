@@ -47,9 +47,12 @@ export const getProductBySlug = (slug) => api.get(`/products/slug/${slug}`).then
  *                 hot, variants: [{ color, size, stockQuantity, costPrice }] }
  * Lưu ý: field boolean `isHot` của backend được Jackson map thành `hot`.
  */
+<<<<<<< HEAD
 // Khai báo rõ multipart để axios không chuyển FormData thành JSON (trình duyệt tự thêm boundary)
 const MULTIPART = { headers: { 'Content-Type': 'multipart/form-data' } };
 
+=======
+>>>>>>> 4cb118a60ec635bafe84b52100744de1469ea6e3
 function buildMultipart(product, images) {
   const form = new FormData();
   // Phần "product" phải là JSON part để @RequestPart đọc được
@@ -61,14 +64,22 @@ function buildMultipart(product, images) {
 // POST /api/products  (JSON nếu không có ảnh, multipart nếu có ảnh)
 export const createProduct = (product, images = []) => {
   if (images && images.length > 0) {
+<<<<<<< HEAD
     return api.post('/products', buildMultipart(product, images), MULTIPART).then(unwrap);
+=======
+    return api.post('/products', buildMultipart(product, images)).then(unwrap);
+>>>>>>> 4cb118a60ec635bafe84b52100744de1469ea6e3
   }
   return api.post('/products', product).then(unwrap);
 };
 
 // PUT /api/products/{id}  (backend chỉ nhận multipart/form-data)
 export const updateProduct = (id, product, images = []) =>
+<<<<<<< HEAD
   api.put(`/products/${id}`, buildMultipart(product, images), MULTIPART).then(unwrap);
+=======
+  api.put(`/products/${id}`, buildMultipart(product, images)).then(unwrap);
+>>>>>>> 4cb118a60ec635bafe84b52100744de1469ea6e3
 
 // DELETE /api/products/{id}  (chỉ ADMIN)
 export const deleteProduct = (id) => api.delete(`/products/${id}`).then(unwrap);

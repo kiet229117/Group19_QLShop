@@ -117,7 +117,10 @@ export function toProductView(p, { brandMap = {}, categoryMap = {} } = {}) {
   else if (statusType === 'warning') stockSub = 'Dưới ngưỡng cảnh báo';
 
   return {
+<<<<<<< HEAD
     raw: p, // dữ liệu gốc từ backend (dùng cho form Sửa)
+=======
+>>>>>>> 4cb118a60ec635bafe84b52100744de1469ea6e3
     id: p.id,
     name: p.name,
     slug: p.slug,
