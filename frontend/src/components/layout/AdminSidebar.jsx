@@ -52,7 +52,7 @@ export default function AdminSidebar() {
       {/* 2. Nút tạo sản phẩm nhanh: + New Product */}
       <div className="p-3">
         <Link
-          to="/admin/products"
+          to="/admin/products?new=1"
           className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition active:scale-98 shadow-sm"
         >
           <Plus className="w-3.5 h-3.5 stroke-[2.5]" />

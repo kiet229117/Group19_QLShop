@@ -1,14 +1,17 @@
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Search, Download, Plus, Bell, MessageSquare } from 'lucide-react';
 
 export default function AdminHeader() {
   const location = useLocation();
+  const navigate = useNavigate();
 
   let breadcrumb = {
     group: 'Sản phẩm & Kho',
     page: 'Danh sách sản phẩm & biến thể',
     searchPlaceholder: 'Tìm theo Tên, SKU, Barcode, S... [⌘K]',
     addBtnLabel: 'Thêm sản phẩm mới',
+    // Mở form thêm sản phẩm trên trang Sản phẩm & Biến thể
+    addTo: '/admin/products?new=1',
   };
 
   if (location.pathname.includes('/categories')) {
@@ -81,6 +84,7 @@ export default function AdminHeader() {
         {/* Nút Thêm mới */}
         <button
           type="button"
+          onClick={() => breadcrumb.addTo && navigate(breadcrumb.addTo)}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-800 hover:bg-emerald-900 text-xs font-bold text-white transition active:scale-95 shadow-sm"
         >
           <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
