@@ -193,13 +193,33 @@ public Page<ProductReponse> getNewestProducts(int page, int size) {
         existingProduct.setCategory(category);
         existingProduct.setHot(request.isHot());
 
-        // Cập nhật biến thể
+        // Cập nhật biến thể: giữ nguyên bản ghi cũ theo id (không làm mất liên kết với
+        // đơn hàng / phiếu nhập), chỉ thêm biến thể mới (chưa có id) và xóa biến thể bị loại bỏ.
         if (request.getVariants() != null) {
-            existingProduct.getVariants().clear();
-            for (ProductVariant variant : request.getVariants()) {
-                variant.setProduct(existingProduct);
-                existingProduct.getVariants().add(variant);
+            java.util.Map<Long, ProductVariant> existingById = new java.util.HashMap<>();
+            for (ProductVariant oldVariant : existingProduct.getVariants()) {
+                existingById.put(oldVariant.getId(), oldVariant);
             }
+
+            Set<Long> keptIds = new java.util.HashSet<>();
+            List<ProductVariant> addedVariants = new ArrayList<>();
+            for (ProductVariant incoming : request.getVariants()) {
+                ProductVariant target = incoming.getId() != null ? existingById.get(incoming.getId()) : null;
+                if (target != null) {
+                    target.setColor(incoming.getColor());
+                    target.setSize(incoming.getSize());
+                    target.setStockQuantity(incoming.getStockQuantity());
+                    target.setCostPrice(incoming.getCostPrice());
+                    keptIds.add(target.getId());
+                } else {
+                    incoming.setId(null);
+                    incoming.setProduct(existingProduct);
+                    addedVariants.add(incoming);
+                }
+            }
+
+            existingProduct.getVariants().removeIf(v -> v.getId() != null && !keptIds.contains(v.getId()));
+            existingProduct.getVariants().addAll(addedVariants);
         }
 
         Product updatedProduct = productRepository.save(existingProduct);
