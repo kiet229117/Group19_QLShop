@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import api from '../../../services/api';
 import { Link } from 'react-router-dom';
 import {
   TrendingUp,
@@ -23,6 +24,21 @@ import {
 
 export default function DashboardPage() {
   const [timeRange, setTimeRange] = useState('Tháng này');
+  const [summary, setSummary] = useState(null);
+  const [loadingSummary, setLoadingSummary] = useState(true);
+
+  useEffect(() => {
+    api.get('/admin/dashboard/summary')
+      .then((res) => {
+        setSummary(res.data || res);
+      })
+      .catch((err) => {
+        console.warn('Dashboard summary error:', err);
+      })
+      .finally(() => {
+        setLoadingSummary(false);
+      });
+  }, []);
 
   // Dữ liệu mockup đơn hàng mới nhất
   const recentOrders = [
@@ -187,7 +203,9 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="text-2xl font-black text-gray-900 tracking-tight">
-            1.428.500.000 đ
+            {summary?.totalRevenue != null
+              ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(summary.totalRevenue)
+              : (loadingSummary ? 'Đang tải...' : '0 đ')}
           </div>
           <div className="mt-3 flex items-center justify-between text-xs">
             <span className="text-emerald-600 font-semibold flex items-center gap-0.5">
@@ -206,15 +224,15 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="text-2xl font-black text-gray-900 tracking-tight">
-            1,248 đơn
+            {summary?.totalOrders != null ? `${summary.totalOrders} đơn` : (loadingSummary ? 'Đang tải...' : '0 đơn')}
           </div>
           <div className="mt-3 flex items-center gap-2 text-xs">
             <span className="text-emerald-600 font-semibold">+8.2%</span>
             <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-semibold">
-              42 chờ duyệt
+              {summary?.pendingOrders || 0} chờ duyệt
             </span>
             <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-semibold">
-              115 đang giao
+              {summary?.shippingOrders || 0} đang giao
             </span>
           </div>
         </div>
@@ -249,11 +267,11 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="text-2xl font-black text-gray-900 tracking-tight">
-            3,890 Users
+            {summary?.totalUsers != null ? `${summary.totalUsers} Người dùng` : (loadingSummary ? 'Đang tải...' : '0 Người dùng')}
           </div>
           <div className="mt-3 flex items-center justify-between text-xs">
             <span className="text-amber-700 font-semibold flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> 24 hội thoại mới
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> {summary?.totalConversations || 0} hội thoại CSKH
             </span>
             <Link to="/admin/chats" className="text-emerald-700 hover:underline font-medium text-xs">
               Mở chat &rarr;
@@ -558,7 +576,7 @@ export default function DashboardPage() {
 
           {/* Phân trang dưới bảng */}
           <div className="p-4 bg-gray-50/50 border-t border-gray-100 flex flex-col sm:flex-row items-center justify-between text-xs text-gray-500 gap-2">
-            <div>Hiển thị 4 trong tổng số 1,248 đơn hàng (Order)</div>
+            <div>Hiển thị {recentOrders.length} trong tổng số {summary?.totalOrders || recentOrders.length} đơn hàng (Order)</div>
             <div className="flex items-center gap-1 font-medium">
               <button className="px-2.5 py-1 rounded border border-gray-200 bg-white hover:bg-gray-100 transition">
                 Trang trước

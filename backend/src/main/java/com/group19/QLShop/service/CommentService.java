@@ -11,6 +11,8 @@ import com.group19.QLShop.dto.reponse.CommentResponse;
 import com.group19.QLShop.dto.request.CommentRequest;
 import com.group19.QLShop.entity.Comment;
 import com.group19.QLShop.repository.CommentRepository;
+import com.group19.QLShop.repository.ProductRepository;
+import com.group19.QLShop.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -20,6 +22,8 @@ import lombok.RequiredArgsConstructor;
 public class CommentService {
 
     private final CommentRepository commentRepository;
+    private final UserRepository userRepository;
+    private final ProductRepository productRepository;
 
     @Transactional
     public CommentResponse createComment(CommentRequest request) {
@@ -34,6 +38,13 @@ public class CommentService {
 
     public List<CommentResponse> getCommentsByProduct(Long productId) {
         return commentRepository.findActiveCommentsByProductId(productId)
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+
+    public List<CommentResponse> getAllComments() {
+        return commentRepository.findAllActiveComments()
                 .stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
@@ -67,6 +78,24 @@ public class CommentService {
         dto.setContent(comment.getContent());
         dto.setCreatedAt(comment.getCreatedAt());
         dto.setUpdatedAt(comment.getUpdatedAt());
+
+        if (comment.getUserId() != null) {
+            userRepository.findById(comment.getUserId()).ifPresent(user -> {
+                String name = user.getName();
+                if (name == null || name.isBlank()) {
+                    name = user.getUsername();
+                }
+                dto.setUserName(name != null ? name : "Người dùng #" + user.getId());
+                dto.setUserAvatar(user.getAvatar());
+            });
+        }
+
+        if (comment.getProductId() != null) {
+            productRepository.findById(comment.getProductId()).ifPresent(product -> {
+                dto.setProductName(product.getName());
+            });
+        }
+
         return dto;
     }
 }

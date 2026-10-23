@@ -23,6 +23,8 @@ public interface GoodsReceiptRepository extends JpaRepository<GoodsReceipt, Long
 
     Page<GoodsReceipt> findByStatus(GoodsReceiptStatus status, Pageable pageable);
 
+    boolean existsBySupplierId(Long supplierId);
+
     // ==========================================
     // THỐNG KÊ CHI PHÍ NHẬP HÀNG KHO
     // ==========================================

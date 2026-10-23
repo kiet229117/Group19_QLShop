@@ -85,7 +85,8 @@ public class SecurityConfig {
                     "/api/comments/**",
                     "/api/banners/**"
                 ).permitAll()
-                .requestMatchers("/uploads/**").permitAll()
+                .requestMatchers("/uploads/**", "/api/upload/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/goods-receipts/**", "/api/suppliers/**").permitAll()
 
                 // ==========================================
                 // 2. AUTH: Thông tin cá nhân, đổi mật khẩu, đăng xuất (Đã đăng nhập)

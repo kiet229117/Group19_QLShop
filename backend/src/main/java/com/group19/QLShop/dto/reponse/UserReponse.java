@@ -1,10 +1,12 @@
 package com.group19.QLShop.dto.reponse;
+
 import com.group19.QLShop.entity.enums.Role;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
 @Data 
 @Builder                  
 @NoArgsConstructor       
@@ -19,6 +21,6 @@ public class UserReponse {
     private String address;
     private String avatar;
     private Role role;
+    private Boolean active;
     private Long cartId;
 }
-

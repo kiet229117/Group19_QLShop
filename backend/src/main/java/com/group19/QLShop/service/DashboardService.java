@@ -19,6 +19,10 @@ import com.group19.QLShop.dto.reponse.TopSellingProductResponse;
 import com.group19.QLShop.entity.Product;
 import com.group19.QLShop.entity.ProductImage;
 import com.group19.QLShop.entity.enums.OrderStatus;
+import com.group19.QLShop.repository.BannerRepository;
+import com.group19.QLShop.repository.CommentRepository;
+import com.group19.QLShop.repository.ConversationRepository;
+import com.group19.QLShop.repository.GoodsReceiptRepository;
 import com.group19.QLShop.repository.OrderItemRepository;
 import com.group19.QLShop.repository.OrderRepository;
 import com.group19.QLShop.repository.ProductRepository;
@@ -32,19 +36,28 @@ public class DashboardService {
     private final OrderItemRepository orderItemRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
-    private final com.group19.QLShop.repository.GoodsReceiptRepository goodsReceiptRepository;
+    private final GoodsReceiptRepository goodsReceiptRepository;
+    private final ConversationRepository conversationRepository;
+    private final CommentRepository commentRepository;
+    private final BannerRepository bannerRepository;
 
     public DashboardService(
             OrderRepository orderRepository,
             OrderItemRepository orderItemRepository,
             ProductRepository productRepository,
             UserRepository userRepository,
-            com.group19.QLShop.repository.GoodsReceiptRepository goodsReceiptRepository) {
+            GoodsReceiptRepository goodsReceiptRepository,
+            ConversationRepository conversationRepository,
+            CommentRepository commentRepository,
+            BannerRepository bannerRepository) {
         this.orderRepository = orderRepository;
         this.orderItemRepository = orderItemRepository;
         this.productRepository = productRepository;
         this.userRepository = userRepository;
         this.goodsReceiptRepository = goodsReceiptRepository;
+        this.conversationRepository = conversationRepository;
+        this.commentRepository = commentRepository;
+        this.bannerRepository = bannerRepository;
     }
 
     // ==========================================
@@ -77,9 +90,9 @@ public class DashboardService {
         double thisMonthCost = thisMonthCostRaw != null ? thisMonthCostRaw : 0.0;
 
         // 3. Lợi nhuận gộp thực tế (Gross Profit = Revenue - COGS)
-        double totalProfit = Math.round((totalRevenue - totalCost) * 100.0) / 100.0; // Tổng lợi nhuận từ trước tới nay
-        double todayProfit = Math.round((todayRevenue - todayCost) * 100.0) / 100.0; // Tổng lợi nhuận ngày hôm nay
-        double thisMonthProfit = Math.round((thisMonthRevenue - thisMonthCost) * 100.0) / 100.0; // Lợi nhuận tháng hiện tại
+        double totalProfit = Math.round((totalRevenue - totalCost) * 100.0) / 100.0;
+        double todayProfit = Math.round((todayRevenue - todayCost) * 100.0) / 100.0;
+        double thisMonthProfit = Math.round((thisMonthRevenue - thisMonthCost) * 100.0) / 100.0;
 
         // 4. Tỷ suất lợi nhuận gộp (% Profit Margin)
         double profitMargin = totalRevenue > 0
@@ -99,9 +112,12 @@ public class DashboardService {
         Long completedOrders = orderRepository.countByStatus(OrderStatus.COMPLETED);
         Long cancelledOrders = orderRepository.countByStatus(OrderStatus.CANCELLED);
 
-        // 7. Tổng số lượng sản phẩm & khách hàng
+        // 7. Số lượng tài nguyên hệ thống
         Long totalProducts = productRepository.count();
         Long totalUsers = userRepository.count();
+        Long totalConversations = conversationRepository.count();
+        Long totalComments = commentRepository.count();
+        Long totalBanners = bannerRepository.count();
 
         return DashboardSummaryResponse.builder()
                 .totalRevenue(totalRevenue)
@@ -123,6 +139,9 @@ public class DashboardService {
                 .cancelledOrders(cancelledOrders)
                 .totalProducts(totalProducts)
                 .totalUsers(totalUsers)
+                .totalConversations(totalConversations)
+                .totalComments(totalComments)
+                .totalBanners(totalBanners)
                 .build();
     }
 
@@ -131,7 +150,7 @@ public class DashboardService {
     // ==========================================
     public List<RevenueChartResponse> getRevenueChart(int days) {
         if (days <= 0 || days > 90) {
-            days = 7; // Mặc định 7 ngày gần nhất
+            days = 7;
         }
 
         List<RevenueChartResponse> chartList = new ArrayList<>();
@@ -227,7 +246,6 @@ public class DashboardService {
             OrderStatus status = (OrderStatus) row[0];
             Long count = ((Number) row[1]).longValue();
             double percentage = totalOrders > 0 ? (count * 100.0 / totalOrders) : 0.0;
-            // Làm tròn 1 chữ số thập phân
             percentage = Math.round(percentage * 10.0) / 10.0;
 
             String displayName = switch (status) {
@@ -249,4 +267,3 @@ public class DashboardService {
         return list;
     }
 }
-

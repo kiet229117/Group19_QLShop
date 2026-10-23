@@ -7,7 +7,10 @@ import java.time.LocalDateTime;
 public class CommentResponse {
     private Long id;
     private Long userId;
+    private String userName;
+    private String userAvatar;
     private Long productId;
+    private String productName;
     private String content;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

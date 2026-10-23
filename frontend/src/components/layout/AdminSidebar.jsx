@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import api from '../../services/api';
 import {
   LayoutDashboard,
   Box,
@@ -15,24 +16,90 @@ import {
 
 export default function AdminSidebar() {
   const location = useLocation();
+
+  // Nhóm 1: Sản phẩm & Kho
+  const inventoryItems = [
+    { to: '/admin/products', label: 'Sản phẩm & Biến thể' },
+    { to: '/admin/categories', label: 'Danh mục (Category)' },
+    { to: '/admin/brands', label: 'Thương hiệu (Brand)' },
+    { to: '/admin/goods-receipts', label: 'Nhập kho (Goods Receipt)' },
+    { to: '/admin/suppliers', label: 'Nhà cung cấp (Supplier)' }
+  ];
+
+  // Nhóm 2: Bán hàng (Sales)
+  const salesItems = [
+    { to: '/admin/orders', label: 'Đơn hàng (Order)' },
+    { to: '/admin/vouchers', label: 'Voucher & Giảm giá' },
+    { to: '/admin/returns', label: 'Đổi trả & Hoàn tiền' }
+  ];
+
+  // Nhóm 3: Khách hàng & Marketing
+  const marketingItems = [
+    { to: '/admin/users', label: 'Khách hàng (User)' },
+    { to: '/admin/chats', label: 'Tin nhắn CSKH (Chat)' },
+    { to: '/admin/comments', label: 'Đánh giá & Bình luận' },
+    { to: '/admin/banners', label: 'Banner & Chiến dịch' }
+  ];
+
+  // Nhóm 4: Cấu hình Hệ thống
+  const settingsItems = [
+    { to: '/admin/settings/general', label: 'Cấu hình Chung' },
+    { to: '/admin/settings/access', label: 'Phân quyền & Tài khoản' },
+    { to: '/admin/settings/payments', label: 'Thanh toán & Tiền tệ' },
+    { to: '/admin/settings/shipping', label: 'Vận chuyển & Kho hàng' },
+    { to: '/admin/settings/notifications', label: 'Email & Thông báo' },
+    { to: '/admin/settings/integrations', label: 'API & Tích hợp' }
+  ];
+
+  // Kiểm tra active chính xác theo URL hiện tại
+  const isDashboardActive = location.pathname === '/admin' || location.pathname === '/admin/dashboard';
+  const isInventoryActive = inventoryItems.some(i => location.pathname === i.to || location.pathname.startsWith(i.to + '/'));
+  const isSalesActive = salesItems.some(i => location.pathname === i.to || location.pathname.startsWith(i.to + '/'));
+  const isMarketingActive = marketingItems.some(i => location.pathname === i.to || location.pathname.startsWith(i.to + '/'));
+  const isSettingsActive = location.pathname.startsWith('/admin/settings');
+
+  // Trạng thái mở accordion
   const [openInventory, setOpenInventory] = useState(true);
   const [openSales, setOpenSales] = useState(true);
   const [openMarketing, setOpenMarketing] = useState(true);
-  const [openSettings, setOpenSettings] = useState(() => location.pathname.startsWith('/admin/settings'));
+  const [openSettings, setOpenSettings] = useState(() => isSettingsActive);
 
-  const isProductsActive = location.pathname.includes('/admin/products');
-  const isDashboardActive = location.pathname === '/admin' || location.pathname === '/admin/dashboard';
-  const salesItems = [
-    { to: '/admin/orders', label: 'Đơn hàng (Order)', badge: '1,248' },
-    { to: '/admin/vouchers', label: 'Voucher & Giảm giá (Voucher)', badge: '18' },
-    { to: '/admin/returns', label: 'Đổi trả & Hoàn tiền' }
-  ];
-  const marketingItems = [
-    { to: '/admin/users', label: 'Khách hàng (User)', badge: '3,890' },
-    { to: '/admin/chats', label: 'Tin nhắn CSKH (Conversation & Message)', badge: '24 mới', isNew: true },
-    { to: '/admin/comments', label: 'Đánh giá & Bình luận (Comment)' },
-    { to: '/admin/banners', label: 'Banner & Chiến dịch (Banner)' }
-  ];
+  // Số liệu badge chuẩn đồng bộ thời gian thực từ Database
+  const [stats, setStats] = useState({
+    orders: 0,
+    users: 0,
+    chats: 0,
+    comments: 0,
+    banners: 0,
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    api.get('/admin/dashboard/summary')
+      .then((res) => {
+        if (!isMounted) return;
+        const d = res.data || res;
+        setStats({
+          orders: d.totalOrders || 0,
+          users: d.totalUsers || 0,
+          chats: d.totalConversations || 0,
+          comments: d.totalComments || 0,
+          banners: d.totalBanners || 0,
+        });
+      })
+      .catch((err) => {
+        console.warn('Sidebar stats error:', err);
+      });
+    return () => { isMounted = false; };
+  }, [location.pathname]);
+
+  // Tự động mở accordion khi điều hướng vào nhóm tương ứng
+  useEffect(() => {
+    if (isInventoryActive) setOpenInventory(true);
+    if (isSalesActive) setOpenSales(true);
+    if (isMarketingActive) setOpenMarketing(true);
+    if (isSettingsActive) setOpenSettings(true);
+  }, [location.pathname, isInventoryActive, isSalesActive, isMarketingActive, isSettingsActive]);
 
   return (
     <aside className="w-60 bg-[#0d1612] text-gray-300 flex flex-col h-screen sticky top-0 shrink-0 border-r border-[#192b22] select-none text-xs no-scrollbar">
@@ -44,7 +111,7 @@ export default function AdminSidebar() {
           </svg>
         </div>
         <div>
-          <div className="font-bold text-white text-sm tracking-tight leading-none">NovaCommerce</div>
+          <div className="font-bold text-white text-sm tracking-tight leading-none">SHOP3AE</div>
           <p className="text-[10px] text-emerald-400/80 font-semibold tracking-wider uppercase mt-1">ENTERPRISE ADMIN</p>
         </div>
       </div>
@@ -71,7 +138,7 @@ export default function AdminSidebar() {
           to="/admin/dashboard"
           className={`flex items-center gap-2.5 px-3 py-2 rounded-lg font-medium transition ${
             isDashboardActive
-              ? 'bg-[#153424] text-white font-semibold border border-emerald-500/30'
+              ? 'bg-[#153424] text-emerald-300 font-semibold border border-emerald-500/30'
               : 'text-gray-400 hover:text-gray-200 hover:bg-[#12221a]'
           }`}
         >
@@ -79,14 +146,17 @@ export default function AdminSidebar() {
           <span>Dashboard</span>
         </Link>
 
-        {/* Nhóm: Sản phẩm & Kho */}
+        {/* Nhóm 1: Sản phẩm & Kho */}
         <div>
           <button
+            type="button"
             onClick={() => setOpenInventory(!openInventory)}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-lg font-medium text-gray-300 hover:bg-[#12221a] transition"
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-medium transition ${
+              isInventoryActive ? 'text-white font-semibold bg-[#12221a]' : 'text-gray-400 hover:text-gray-200 hover:bg-[#12221a]'
+            }`}
           >
             <div className="flex items-center gap-2.5">
-              <Box className="w-4 h-4 text-emerald-500" />
+              <Box className={`w-4 h-4 ${isInventoryActive ? 'text-emerald-400' : 'text-gray-400'}`} />
               <span>Sản phẩm & Kho</span>
             </div>
             {openInventory ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />}
@@ -94,79 +164,73 @@ export default function AdminSidebar() {
 
           {openInventory && (
             <div className="mt-1 ml-4 pl-3 border-l border-[#1c3327] space-y-0.5">
-              <Link
-                to="/admin/products"
-                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md transition ${
-                  isProductsActive
-                    ? 'bg-[#153424] text-emerald-300 font-semibold border border-emerald-500/30'
-                    : 'text-gray-400 hover:text-gray-200 hover:bg-[#13241b]'
-                }`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                <span>Sản phẩm & Biến thể</span>
-              </Link>
-              <Link
-                to="/admin/categories"
-                className="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-gray-400 hover:text-gray-200 hover:bg-[#13241b] transition"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-500"></span>
-                <span>Danh mục (Category)</span>
-              </Link>
-              <Link
-                to="/admin/brands"
-                className="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-gray-400 hover:text-gray-200 hover:bg-[#13241b] transition"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-500"></span>
-                <span>Thương hiệu (Brand)</span>
-              </Link>
-              <Link
-                to="/admin/goods-receipts"
-                className="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-gray-400 hover:text-gray-200 hover:bg-[#13241b] transition"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-500"></span>
-                <span>Nhập kho (Goods Receipt)</span>
-              </Link>
-              <Link
-                to="/admin/suppliers"
-                className="flex items-center gap-2 px-2.5 py-1.5 rounded-md text-gray-400 hover:text-gray-200 hover:bg-[#13241b] transition"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-gray-500"></span>
-                <span>Nhà cung cấp</span>
-              </Link>
+              {inventoryItems.map(({ to, label }) => {
+                const isActive = location.pathname === to || location.pathname.startsWith(to + '/');
+                return (
+                  <Link
+                    key={to}
+                    to={to}
+                    className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md transition ${
+                      isActive
+                        ? 'bg-[#153424] text-emerald-300 font-semibold border border-emerald-500/30'
+                        : 'text-gray-400 hover:text-emerald-200 hover:bg-[#13241b]'
+                    }`}
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full transition-colors ${
+                        isActive
+                          ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]'
+                          : 'bg-gray-500'
+                      }`}
+                    ></span>
+                    <span>{label}</span>
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>
 
-        {/* Nhóm: Bán hàng (Sales) */}
+        {/* Nhóm 2: Bán hàng (Sales) */}
         <div>
           <button
+            type="button"
             onClick={() => setOpenSales(!openSales)}
             aria-expanded={openSales}
             aria-controls="admin-sales-menu"
-            className="w-full flex items-center justify-between px-3 py-2 rounded-lg font-medium text-gray-400 hover:text-gray-200 hover:bg-[#12221a] transition"
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-medium transition ${
+              isSalesActive ? 'text-white font-semibold bg-[#12221a]' : 'text-gray-400 hover:text-gray-200 hover:bg-[#12221a]'
+            }`}
           >
             <div className="flex items-center gap-2.5">
-              <ShoppingCart className="w-4 h-4 text-gray-400" />
+              <ShoppingCart className={`w-4 h-4 ${isSalesActive ? 'text-emerald-400' : 'text-gray-400'}`} />
               <span>Bán hàng (Sales)</span>
             </div>
             {openSales ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />}
           </button>
           {openSales && (
             <div id="admin-sales-menu" className="mt-1 ml-4 pl-3 border-l border-[#1c3327] space-y-0.5">
-              {salesItems.map(({ to, label, badge }) => {
-                const isActive = location.pathname === to;
+              {salesItems.map(({ to, label }) => {
+                const isActive = location.pathname === to || location.pathname.startsWith(to + '/');
+                const badge = to === '/admin/orders' && stats.orders > 0 ? String(stats.orders) : null;
                 return (
                   <Link
                     key={to}
                     to={to}
                     className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md transition ${
                       isActive
-                        ? 'bg-[#153424] text-emerald-300 font-semibold'
-                        : 'text-gray-400 hover:text-gray-200 hover:bg-[#13241b]'
+                        ? 'bg-[#153424] text-emerald-300 font-semibold border border-emerald-500/30'
+                        : 'text-gray-400 hover:text-emerald-200 hover:bg-[#13241b]'
                     }`}
                   >
                     <span className="flex min-w-0 items-start gap-2">
-                      <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${isActive ? 'bg-emerald-400' : 'bg-gray-500'}`} />
+                      <span
+                        className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full transition-colors ${
+                          isActive
+                            ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]'
+                            : 'bg-gray-500'
+                        }`}
+                      />
                       <span>{label}</span>
                     </span>
                     {badge && (
@@ -181,42 +245,63 @@ export default function AdminSidebar() {
           )}
         </div>
 
-        {/* Nhóm: Khách hàng & Marketing */}
+        {/* Nhóm 3: Khách hàng & Marketing */}
         <div>
           <button
+            type="button"
             onClick={() => setOpenMarketing(!openMarketing)}
             aria-expanded={openMarketing}
             aria-controls="admin-marketing-menu"
-            className="w-full flex items-center justify-between px-3 py-2 rounded-lg font-medium text-gray-400 hover:text-gray-200 hover:bg-[#12221a] transition"
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-medium transition ${
+              isMarketingActive ? 'text-white font-semibold bg-[#12221a]' : 'text-gray-400 hover:text-gray-200 hover:bg-[#12221a]'
+            }`}
           >
             <div className="flex items-center gap-2.5">
-              <Users className="w-4 h-4 text-gray-400" />
+              <Users className={`w-4 h-4 ${isMarketingActive ? 'text-emerald-400' : 'text-gray-400'}`} />
               <span>Khách hàng & Marketing</span>
             </div>
             {openMarketing ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />}
           </button>
           {openMarketing && (
             <div id="admin-marketing-menu" className="mt-1 ml-4 pl-3 border-l border-[#1c3327] space-y-0.5">
-              {marketingItems.map(({ to, label, badge, isNew }) => {
-                const isActive = location.pathname === to;
+              {marketingItems.map(({ to, label }) => {
+                const isActive = location.pathname === to || location.pathname.startsWith(to + '/');
+                let badge = null;
+                let isNew = false;
+                if (to === '/admin/users' && stats.users > 0) badge = String(stats.users);
+                if (to === '/admin/chats' && stats.chats > 0) {
+                  badge = `${stats.chats} phiên`;
+                  isNew = true;
+                }
+                if (to === '/admin/comments' && stats.comments > 0) badge = String(stats.comments);
+                if (to === '/admin/banners' && stats.banners > 0) badge = String(stats.banners);
+
                 return (
                   <Link
                     key={to}
                     to={to}
                     className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md transition ${
                       isActive
-                        ? 'bg-[#153424] text-emerald-300 font-semibold'
-                        : 'text-gray-400 hover:text-gray-200 hover:bg-[#13241b]'
+                        ? 'bg-[#153424] text-emerald-300 font-semibold border border-emerald-500/30'
+                        : 'text-gray-400 hover:text-emerald-200 hover:bg-[#13241b]'
                     }`}
                   >
                     <span className="flex min-w-0 items-start gap-2">
-                      <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${isActive ? 'bg-emerald-400' : 'bg-gray-500'}`} />
+                      <span
+                        className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full transition-colors ${
+                          isActive
+                            ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]'
+                            : 'bg-gray-500'
+                        }`}
+                      />
                       <span>{label}</span>
                     </span>
                     {badge && (
                       <span
                         className={`shrink-0 rounded-sm px-1 py-0.5 text-[10px] font-semibold ${
-                          isNew ? 'bg-emerald-700 text-emerald-100' : 'bg-[#263a31] text-emerald-400'
+                          isNew
+                            ? 'bg-emerald-700 text-emerald-100'
+                            : 'bg-[#263a31] text-emerald-400'
                         }`}
                       >
                         {badge}
@@ -229,30 +314,26 @@ export default function AdminSidebar() {
           )}
         </div>
 
-        {/* Nhóm: Cấu hình Hệ thống */}
+        {/* Nhóm 4: Cấu hình Hệ thống */}
         <div>
           <button
+            type="button"
             onClick={() => setOpenSettings(!openSettings)}
             aria-expanded={openSettings}
             aria-controls="admin-settings-menu"
-            className="w-full flex items-center justify-between px-3 py-2 rounded-lg font-medium text-gray-400 hover:text-gray-200 hover:bg-[#12221a] transition"
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg font-medium transition ${
+              isSettingsActive ? 'text-white font-semibold bg-[#12221a]' : 'text-gray-400 hover:text-gray-200 hover:bg-[#12221a]'
+            }`}
           >
             <div className="flex items-center gap-2.5">
-              <Settings className="w-4 h-4 text-gray-400" />
+              <Settings className={`w-4 h-4 ${isSettingsActive ? 'text-emerald-400' : 'text-gray-400'}`} />
               <span>Cấu hình Hệ thống</span>
             </div>
             {openSettings ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />}
           </button>
           {openSettings && (
             <div id="admin-settings-menu" className="mt-1 ml-4 pl-3 border-l border-[#1c3327] space-y-0.5">
-              {[
-                { to: '/admin/settings/general', label: 'Cấu hình Chung' },
-                { to: '/admin/settings/access', label: 'Phân quyền & Tài khoản' },
-                { to: '/admin/settings/payments', label: 'Thanh toán & Tiền tệ' },
-                { to: '/admin/settings/shipping', label: 'Vận chuyển & Kho hàng' },
-                { to: '/admin/settings/notifications', label: 'Email & Thông báo' },
-                { to: '/admin/settings/integrations', label: 'API & Tích hợp' }
-              ].map(({ to, label }) => {
+              {settingsItems.map(({ to, label }) => {
                 const isActive = location.pathname === to || (to.endsWith('/general') && location.pathname === '/admin/settings');
                 return (
                   <Link
@@ -260,11 +341,17 @@ export default function AdminSidebar() {
                     to={to}
                     className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md transition ${
                       isActive
-                        ? 'bg-[#153424] text-emerald-300 font-semibold'
-                        : 'text-gray-400 hover:text-gray-200 hover:bg-[#13241b]'
+                        ? 'bg-[#153424] text-emerald-300 font-semibold border border-emerald-500/30'
+                        : 'text-gray-400 hover:text-emerald-200 hover:bg-[#13241b]'
                     }`}
                   >
-                    <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isActive ? 'bg-emerald-400' : 'bg-gray-500'}`} />
+                    <span
+                      className={`h-1.5 w-1.5 shrink-0 rounded-full transition-colors ${
+                        isActive
+                          ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]'
+                          : 'bg-gray-500'
+                      }`}
+                    />
                     <span>{label}</span>
                   </Link>
                 );
@@ -276,11 +363,11 @@ export default function AdminSidebar() {
 
       {/* 4. Footer Sidebar */}
       <div className="p-3 border-t border-[#16271f] space-y-1.5 text-[11px] text-gray-400">
-        <Link to="/admin/docs" className="flex items-center gap-2 px-2 py-1 rounded hover:text-white transition">
+        <Link to="/admin/docs" className="flex items-center gap-2 px-2 py-1 rounded hover:text-emerald-300 hover:bg-[#13241b] transition">
           <FileCode className="w-3.5 h-3.5 text-gray-500" />
           <span>Docs & API</span>
         </Link>
-        <Link to="/admin/support" className="flex items-center gap-2 px-2 py-1 rounded hover:text-white transition">
+        <Link to="/admin/support" className="flex items-center gap-2 px-2 py-1 rounded hover:text-emerald-300 hover:bg-[#13241b] transition">
           <LifeBuoy className="w-3.5 h-3.5 text-gray-500" />
           <span>Trung tâm hỗ trợ</span>
         </Link>
@@ -288,7 +375,7 @@ export default function AdminSidebar() {
           <span>v2.4.8 Enterprise</span>
           <span className="flex items-center gap-1 text-emerald-400">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            Đồng bộ
+            Đồng bộ DB
           </span>
         </div>
       </div>

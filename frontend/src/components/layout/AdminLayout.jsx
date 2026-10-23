@@ -19,7 +19,7 @@ export default function AdminLayout() {
 
         {/* Footer của trang quản trị */}
         <footer className="px-6 py-4 bg-white border-t border-gray-200/80 text-center text-xs text-gray-500">
-          Bản quyền © 2026 NovaCommerce Corp. Thiết kế cho bộ phận vận hành e-commerce.
+          Bản quyền © 2026 SHOP3AE Corp. Thiết kế cho bộ phận vận hành e-commerce.
         </footer>
       </div>
     </div>
