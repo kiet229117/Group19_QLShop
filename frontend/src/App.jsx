@@ -17,6 +17,9 @@ import CategoriesPage from './features/admin-categories/pages/CategoriesPage';
 import BrandsPage from './features/admin-brands/pages/BrandsPage';
 import GoodsReceiptsPage from './features/admin-goods-receipts/pages/GoodsReceiptsPage';
 import SupplierPage from './features/admin-suppliers/pages/SupplierPage';
+import OrdersPage from './features/admin-orders/pages/OrdersPage';
+import VouchersPage from './features/admin-vouchers/pages/VouchersPage';
+import ReturnsPage from './features/admin-orders/pages/ReturnsPage';
 import UsersPage from './features/admin-users/pages/UsersPage';
 import ChatsPage from './features/admin-chats/pages/ChatsPage';
 import BannersPage from './features/admin-banners/pages/BannersPage';
@@ -73,7 +76,7 @@ function App() {
                 </ProtectedRoute>
               }
             >
-              {/* Mặc định /admin chuyển thẳng vào màn hình Sản phẩm & Biến thể gọn gàng theo thiết kế mới */}
+              {/* Mặc định /admin chuyển thẳng vào màn hình Sản phẩm & Biến thể */}
               <Route index element={<ProductsPage />} />
               <Route path="products" element={<ProductsPage />} />
               <Route path="dashboard" element={<DashboardPage />} />
@@ -81,13 +84,16 @@ function App() {
               <Route path="brands" element={<BrandsPage />} />
               <Route path="goods-receipts" element={<GoodsReceiptsPage />} />
               <Route path="suppliers" element={<SupplierPage />} />
+              <Route path="orders" element={<OrdersPage />} />
+              <Route path="vouchers" element={<VouchersPage />} />
+              <Route path="returns" element={<ReturnsPage />} />
               <Route path="users" element={<UsersPage />} />
               <Route path="chats" element={<ChatsPage />} />
               <Route path="banners" element={<BannersPage />} />
               <Route path="comments" element={<CommentsPage />} />
               <Route path="settings/*" element={<SettingsPage />} />
               
-              {/* Các route phụ tạm thời trỏ về products */}
+              {/* Các route phụ fallback về products */}
               <Route path="*" element={<Navigate to="/admin/products" replace />} />
             </Route>
 

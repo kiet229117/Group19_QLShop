@@ -35,10 +35,10 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
            "WHERE oi.order.status = :status")
     Double sumTotalCostByStatus(@org.springframework.data.repository.query.Param("status") com.group19.QLShop.entity.enums.OrderStatus status);
 
-    // Giá vốn hàng bán theo trạng thái trong khoảng thời gian cụ thể
+    // Giá vốn hàng bán theo trạng thái trong khoảng thời gian cụ thể (theo thời điểm cập nhật hoặc tạo)
     @Query("SELECT COALESCE(SUM(COALESCE(oi.costPrice, 0.0) * oi.quantity), 0.0) " +
            "FROM OrderItem oi " +
-           "WHERE oi.order.status = :status AND oi.order.createdAt >= :startDate AND oi.order.createdAt <= :endDate")
+           "WHERE oi.order.status = :status AND (COALESCE(oi.order.updatedAt, oi.order.createdAt) >= :startDate AND COALESCE(oi.order.updatedAt, oi.order.createdAt) <= :endDate)")
     Double sumCostByStatusAndDateRange(
             @org.springframework.data.repository.query.Param("status") com.group19.QLShop.entity.enums.OrderStatus status,
             @org.springframework.data.repository.query.Param("startDate") java.time.LocalDateTime startDate,

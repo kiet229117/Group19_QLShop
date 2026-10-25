@@ -36,15 +36,15 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query("SELECT COALESCE(SUM(o.totalAmount), 0.0) FROM Order o WHERE o.status = :status")
     Double sumTotalAmountByStatus(@Param("status") OrderStatus status);
 
-    // Doanh thu theo trạng thái trong khoảng thời gian cụ thể
-    @Query("SELECT COALESCE(SUM(o.totalAmount), 0.0) FROM Order o WHERE o.status = :status AND o.createdAt >= :startDate AND o.createdAt <= :endDate")
+    // Doanh thu theo trạng thái trong khoảng thời gian cụ thể (theo thời điểm cập nhật hoặc tạo)
+    @Query("SELECT COALESCE(SUM(o.totalAmount), 0.0) FROM Order o WHERE o.status = :status AND (COALESCE(o.updatedAt, o.createdAt) >= :startDate AND COALESCE(o.updatedAt, o.createdAt) <= :endDate)")
     Double sumRevenueByStatusAndDateRange(
             @Param("status") OrderStatus status,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
 
     // Số lượng đơn hàng theo trạng thái trong khoảng thời gian cụ thể
-    @Query("SELECT COUNT(o) FROM Order o WHERE o.status = :status AND o.createdAt >= :startDate AND o.createdAt <= :endDate")
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.status = :status AND (COALESCE(o.updatedAt, o.createdAt) >= :startDate AND COALESCE(o.updatedAt, o.createdAt) <= :endDate)")
     Long countOrdersByStatusAndDateRange(
             @Param("status") OrderStatus status,
             @Param("startDate") LocalDateTime startDate,
