@@ -6,7 +6,6 @@ import lombok.Data;
 
 @Data
 public class CommentRequest {
-    @NotNull(message = "UserId không được để trống")
     private Long userId;
 
     @NotNull(message = "ProductId không được để trống")

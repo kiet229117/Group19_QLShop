@@ -27,7 +27,7 @@ export default function OrderCard({ order, onReorder }) {
           </span>
           {order.isSimulated && (
             <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800">
-              Vừa đặt (Mô phỏng)
+              Đơn hàng mới
             </span>
           )}
         </div>

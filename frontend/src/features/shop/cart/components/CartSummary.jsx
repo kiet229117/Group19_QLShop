@@ -74,7 +74,7 @@ export default function CartSummary({
       <div className="space-y-3 border-t border-zinc-100 pt-4">
         <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-500">
           <Ticket className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
-          Mã giảm giá / Voucher (Mô phỏng)
+          Mã giảm giá / Voucher QLShop
         </label>
 
         <form onSubmit={handleApplyCode} className="flex gap-2">

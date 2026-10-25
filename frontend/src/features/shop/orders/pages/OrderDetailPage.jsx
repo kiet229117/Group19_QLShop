@@ -32,7 +32,7 @@ import OrderTimeline from '../components/OrderTimeline';
 export default function OrderDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { orders, cancelOrderSimulated, reorderToCart } = useShopState();
+  const { orders, cancelOrder, reorderToCart } = useShopState();
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [actionBanner, setActionBanner] = useState('');
 
@@ -281,13 +281,14 @@ export default function OrderDetailPage() {
 
       <ConfirmDialog
         open={confirmCancel}
-        title="Hủy đơn hàng (Mô phỏng giao diện)"
-        description={`Bạn có chắc muốn chuyển trạng thái đơn hàng #${order.code || order.id} sang "Đã hủy" trên giao diện?`}
+        title="Xác nhận hủy đơn hàng"
+        description={`Bạn có chắc muốn hủy đơn hàng #${order.code || order.id}?`}
         confirmLabel="Xác nhận hủy đơn"
         onConfirm={() => {
-          cancelOrderSimulated(order.id);
+          cancelOrder(order.id);
+          setConfirmCancel(false);
           setActionBanner(
-            `Đơn hàng #${order.code || order.id} đã được chuyển sang trạng thái Đã hủy (trạng thái mô phỏng trên giao diện).`
+            `Đơn hàng #${order.code || order.id} đã được hủy thành công.`
           );
         }}
         onClose={() => setConfirmCancel(false)}

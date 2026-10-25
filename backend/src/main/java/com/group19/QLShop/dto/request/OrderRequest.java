@@ -20,7 +20,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class OrderRequest {
 
-    @NotNull(message = "User ID không được để trống")
     private Long userId;
 
     @NotBlank(message = "Tên người nhận không được để trống")

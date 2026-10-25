@@ -157,7 +157,7 @@ public class SecurityConfig {
                 // 9. DANH SÁCH YÊU THÍCH (WISHLISTS)
                 // - Thao tác danh sách yêu thích: Mọi user đã đăng nhập
                 // ==========================================
-                .requestMatchers("/api/wishlists/**").authenticated()
+                .requestMatchers("/api/wishlists/**").permitAll()
 
                 // ==========================================
                 // 10. TRÒ CHUYỆN / CHAT (CHATS & MESSAGES)

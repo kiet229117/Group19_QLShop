@@ -1,10 +1,13 @@
 import { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Check, ShoppingBag } from 'lucide-react';
 import ShopButton from './ShopButton';
 import { useShopState } from '../../../features/shop/shared/context/ShopStateContext';
+import { useAuth } from '../../../features/auth/context/AuthContext';
+import { toast } from '../../common/Toast';
 
 /**
- * Nút Thêm vào giỏ hàng dùng chung (chỉ cập nhật state cục bộ trên giao diện, không gọi API).
+ * Nút Thêm vào giỏ hàng dùng chung (Yêu cầu đăng nhập tài khoản)
  */
 export default function AddToCartButton({
   product,
@@ -20,6 +23,9 @@ export default function AddToCartButton({
   className = '',
 }) {
   const { addToCart } = useShopState();
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [justAdded, setJustAdded] = useState(false);
 
   const handleClick = (e) => {
@@ -27,15 +33,24 @@ export default function AddToCartButton({
     e.stopPropagation();
     if (!product || disabled) return;
 
+    // Chưa đăng nhập -> chặn và điều hướng đăng nhập
+    if (!isAuthenticated) {
+      toast.warning('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng!');
+      navigate('/login', { state: { from: location } });
+      return;
+    }
+
     const selectedSize =
       size || product?.variants?.[0]?.size || 'L';
     const selectedColor =
       color || product?.variants?.[0]?.color || 'Đen';
 
-    addToCart(product, { size: selectedSize, color: selectedColor, quantity });
-    setJustAdded(true);
-    onAdded?.();
-    setTimeout(() => setJustAdded(false), 1600);
+    const res = addToCart(product, { size: selectedSize, color: selectedColor, quantity });
+    if (res !== false) {
+      setJustAdded(true);
+      onAdded?.();
+      setTimeout(() => setJustAdded(false), 1600);
+    }
   };
 
   return (
@@ -50,7 +65,7 @@ export default function AddToCartButton({
       {justAdded ? (
         <>
           <Check className="h-4 w-4" aria-hidden="true" />
-          Đã thêm vào giỏ (Mô phỏng)
+          Đã thêm vào giỏ hàng
         </>
       ) : (
         <>

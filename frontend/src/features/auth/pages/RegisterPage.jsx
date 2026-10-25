@@ -104,7 +104,7 @@ export default function RegisterPage() {
       setSuccessMessage('Đăng ký tài khoản thành công! Đang kích hoạt gói quà 500.000đ...');
       toast.success('Đăng ký tài khoản thành công! Chào mừng bạn gia nhập hệ thống.');
       setTimeout(() => {
-        navigate('/admin/products', { replace: true });
+        navigate('/shop', { replace: true });
       }, 800);
     } catch (err) {
       console.error('Registration error:', err);

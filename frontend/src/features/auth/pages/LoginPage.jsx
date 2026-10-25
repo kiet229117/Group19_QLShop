@@ -22,6 +22,7 @@ import {
 import { useAuth, isStaffOrAdmin } from '../context/AuthContext';
 import { toast } from '../../../components/common/Toast';
 import { getFriendlyErrorMessage } from '../../../utils/errorHandler';
+import ForgotPasswordModal from '../components/ForgotPasswordModal';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -29,7 +30,7 @@ export default function LoginPage() {
   const { login } = useAuth();
 
   // Form states
-  const [roleMode, setRoleMode] = useState('ADMIN'); // 'ADMIN' or 'CLIENT'
+  const [roleMode, setRoleMode] = useState('CLIENT'); // 'ADMIN' or 'CLIENT'
   const [usernameOrEmail, setUsernameOrEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
@@ -37,6 +38,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [showForgotModal, setShowForgotModal] = useState(false);
 
   // Xử lý gửi đăng nhập
   const handleSubmit = async (e) => {
@@ -521,6 +523,7 @@ export default function LoginPage() {
           <a href="#" className="hover:text-emerald-700">CHÍNH SÁCH BẢO MẬT</a>
         </div>
       </footer>
+      <ForgotPasswordModal isOpen={showForgotModal} onClose={() => setShowForgotModal(false)} />
     </div>
   );
 }
