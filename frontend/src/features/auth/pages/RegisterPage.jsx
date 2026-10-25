@@ -70,6 +70,10 @@ export default function RegisterPage() {
     setSuccessMessage('');
 
     // Client-side validations
+    if (!formData.fullname.trim()) {
+      setErrorMessage('Họ và tên không được để trống.');
+      return;
+    }
     if (!formData.username.trim()) {
       setErrorMessage('Tên đăng nhập không được để trống.');
       return;
@@ -78,6 +82,26 @@ export default function RegisterPage() {
       setErrorMessage('Email không được để trống.');
       return;
     }
+
+    // --- KIỂM TRA SỐ ĐIỆN THOẠI ---
+    const phoneInput = formData.phone.trim();
+    if (!phoneInput) {
+      setErrorMessage('Số điện thoại không được để trống.');
+      return;
+    }
+    // Nếu có chứa bất kỳ ký tự nào không phải là số (0-9)
+    if (/\D/.test(phoneInput)) {
+      setErrorMessage('Số điện thoại không hợp lệ: Không được chứa chữ cái hoặc ký tự đặc biệt.');
+      return;
+    }
+    // Nếu độ dài nhỏ hơn 10 hoặc lớn hơn 11
+    if (phoneInput.length < 10 || phoneInput.length > 11) {
+      setErrorMessage(
+        `Số điện thoại phải từ 10 đến 11 chữ số (hiện tại bạn nhập ${phoneInput.length} số).`
+      );
+      return;
+    }
+
     if (formData.password.length < 8) {
       setErrorMessage('Mật khẩu phải chứa ít nhất 8 ký tự.');
       return;
@@ -98,7 +122,7 @@ export default function RegisterPage() {
         email: formData.email.trim(),
         password: formData.password,
         fullname: formData.fullname.trim(),
-        phone: formData.phone.trim(),
+        phone: phoneInput,
       });
 
       setSuccessMessage('Đăng ký tài khoản thành công! Đang kích hoạt gói quà 500.000đ...');
@@ -390,11 +414,11 @@ export default function RegisterPage() {
                       <span className="text-gray-400">+84</span>
                     </span>
                     <input
-                      type="tel"
+                      type="text"
                       required
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      placeholder="0901 234 567"
+                      placeholder="0901234567"
                       className="flex-1 text-xs px-3 py-2 focus:outline-hidden font-medium text-slate-800"
                     />
                   </div>
@@ -541,7 +565,7 @@ export default function RegisterPage() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full py-3 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs tracking-wide uppercase transition shadow-md flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50 mt-2"
+                  className="w-full py-3 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-bold text-xs tracking-wide uppercase transition shadow-md flex items-center justify-center gap-2 active:scale-98 disabled:opacity-50 mt-2 cursor-pointer"
                 >
                   {isLoading ? (
                     <>
@@ -584,4 +608,3 @@ export default function RegisterPage() {
     </div>
   );
 }
-
