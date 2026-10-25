@@ -33,6 +33,7 @@ import com.group19.QLShop.repository.OrderRepository;
 import com.group19.QLShop.repository.ProductRepository;
 import com.group19.QLShop.repository.ProductVariantRepository;
 import com.group19.QLShop.repository.UserRepository;
+import java.time.LocalDateTime;
 
 @Service
 @Transactional(readOnly = true)
@@ -235,6 +236,7 @@ public class OrderService {
         }
 
         order.setStatus(request.getStatus());
+        order.setUpdatedAt(LocalDateTime.now());
         Order updated = orderRepository.save(order);
         return toOrderResponse(updated);
     }
@@ -258,6 +260,7 @@ public class OrderService {
         }
 
         order.setStatus(OrderStatus.CANCELLED);
+        order.setUpdatedAt(LocalDateTime.now());
         Order updated = orderRepository.save(order);
         return toOrderResponse(updated);
     }

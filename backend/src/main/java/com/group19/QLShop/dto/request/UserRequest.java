@@ -20,21 +20,18 @@ public class UserRequest {
     @Email(message = "Email không hợp lệ")
     private String email;
 
-    @NotBlank(message = "Mật khẩu không được để trống")
-    @Size(min = 8, message = "Mật khẩu phải có ít nhất 8 ký tự")
     private String password;
 
     private String phone;
 
     private String gender;
 
-    @NotBlank(message = "Địa chỉ không được để trống")
-    @Size(max = 255, message = "Địa chỉ không được vượt quá 255 ký tự")
     private String address;
 
     private String avatar;
- private String oldPassword;
+    private String oldPassword;
     private String newPassword;
 
-    
+    private String role;
+    private Boolean active;
 }

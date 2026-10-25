@@ -49,8 +49,11 @@ public class DashboardSummaryResponse {
     private Long cancelledOrders;      // Đã hủy
 
     // ==========================================
-    // 6. TÀI NGUYÊN KHÁC
+    // 6. TÀI NGUYÊN KHÁC (LIVE DATABASE STATS)
     // ==========================================
-    private Long totalProducts;        // Tổng số mẫu áo đang bán
+    private Long totalProducts;        // Tổng số sản phẩm đang bán
     private Long totalUsers;           // Tổng số khách hàng đã đăng ký
+    private Long totalConversations;   // Tổng số cuộc hội thoại CSKH
+    private Long totalComments;        // Tổng số bình luận & đánh giá
+    private Long totalBanners;         // Tổng số banner & chiến dịch
 }
