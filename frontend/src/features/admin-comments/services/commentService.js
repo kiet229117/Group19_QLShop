@@ -18,12 +18,12 @@ export const commentService = {
       const res = await api.get(`/comments/product/${productId}`);
       return res.data || res;
     } catch (err) {
-      console.warn('API getCommentsByProduct error, using mock:', err);
+      console.warn('API getCommentsByProduct error:', err);
       return null;
     }
   },
 
-  // Tạo bình luận mới
+  // Tạo bình luận mới (hoặc phản hồi có parentId)
   createComment: async (data) => {
     const res = await api.post('/comments', data);
     return res.data || res;
@@ -31,7 +31,16 @@ export const commentService = {
 
   // Cập nhật bình luận
   updateComment: async (id, content) => {
-    const res = await api.put(`/comments/${id}?content=${encodeURIComponent(content)}`);
+    const res = await api.put(`/comments/${id}`, { content });
+    return res.data || res;
+  },
+
+  // Phản hồi bình luận (PUT /api/comments/{id}/reply)
+  replyComment: async (id, replyContent, replyAuthor = 'QLShop CSKH') => {
+    const res = await api.put(`/comments/${id}/reply`, {
+      replyContent,
+      replyAuthor,
+    });
     return res.data || res;
   },
 
@@ -43,4 +52,3 @@ export const commentService = {
 };
 
 export default commentService;
-

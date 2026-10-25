@@ -1,5 +1,7 @@
 package com.group19.QLShop.security;
 
+import com.group19.QLShop.entity.User;
+import com.group19.QLShop.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
@@ -27,6 +29,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtils jwtUtils;
     private final CustomUserDetailsService customUserDetailsService;
+    private final UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -40,14 +43,30 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                     if (!jwtUtils.isTokenExpired(jwt)) {
+                        // Kiểm tra trực tiếp trạng thái hoạt động (active) của tài khoản trong DB
+                        User dbUser = userRepository.findByUsername(username).orElse(null);
+                        if (dbUser != null && Boolean.FALSE.equals(dbUser.getActive())) {
+                            String reason = (dbUser.getLockReason() != null && !dbUser.getLockReason().isBlank())
+                                    ? dbUser.getLockReason()
+                                    : "Vi phạm quy định hoạt động của hệ thống QLShop.";
+                            String fullMsg = "Tài khoản của bạn đã bị khóa do: " + reason;
+
+                            response.setContentType("application/json;charset=UTF-8");
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            response.getWriter().write(String.format(
+                                    "{\"status\":403,\"code\":\"ACCOUNT_LOCKED\",\"locked\":true,\"lockReason\":\"%s\",\"message\":\"%s\"}",
+                                    reason.replace("\\", "\\\\").replace("\"", "\\\""),
+                                    fullMsg.replace("\\", "\\\\").replace("\"", "\\\"")
+                            ));
+                            return;
+                        }
+
                         String role = jwtUtils.extractRole(jwt);
                         List<GrantedAuthority> authorities;
 
                         if (StringUtils.hasText(role)) {
-                            // TỐI ƯU SIÊU TỐC (<0.1ms): Trích xuất trực tiếp quyền từ token đã ký số an toàn (KHÔNG CẦN QUERY DB)
                             authorities = Collections.singletonList(new SimpleGrantedAuthority(role));
                         } else {
-                            // Dự phòng cho token cũ chưa nhúng claim role: nạp qua database
                             UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);
                             authorities = new ArrayList<>(userDetails.getAuthorities());
                         }
@@ -66,7 +85,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
             }
         } catch (Exception ex) {
-            // Không spam stack trace lỗi khi token hết hạn thông thường
             logger.debug("Token không hợp lệ hoặc đã hết hạn: " + ex.getMessage());
         }
 
@@ -74,7 +92,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private String getJwtFromRequest(HttpServletRequest request) {
-        // 1. Ưu tiên trích xuất JWT từ HttpOnly Cookie
+        // 1. Ưu tiên đọc từ Header Authorization: Bearer <token> để mỗi tab (Client / Admin) giữ đúng phiên riêng biệt
+        String bearerToken = request.getHeader("Authorization");
+        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+
+        // 2. Dự phòng: Trích xuất JWT từ HttpOnly Cookie
         String targetCookieName = jwtUtils.getCookieName();
         if (request.getCookies() != null) {
             for (Cookie cookie : request.getCookies()) {
@@ -82,12 +106,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     return cookie.getValue();
                 }
             }
-        }
-
-        // 2. Dự phòng: Đọc từ Header Authorization: Bearer <token> (hữu ích cho Postman / API test)
-        String bearerToken = request.getHeader("Authorization");
-        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
-            return bearerToken.substring(7);
         }
 
         return null;

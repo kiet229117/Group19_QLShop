@@ -19,4 +19,12 @@ public class VoucherApplyRequest {
     @NotNull(message = "Tổng tiền đơn hàng không được để trống")
     @Positive(message = "Tổng tiền đơn hàng phải lớn hơn 0")
     private Double orderAmount;
+
+    // ID người dùng (tùy chọn, dùng để kiểm tra ví voucher cá nhân)
+    private Long userId;
+
+    public VoucherApplyRequest(String code, Double orderAmount) {
+        this.code = code;
+        this.orderAmount = orderAmount;
+    }
 }

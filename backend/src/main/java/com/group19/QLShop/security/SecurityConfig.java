@@ -68,9 +68,10 @@ public class SecurityConfig {
                 // 1. PUBLIC: Không cần đăng nhập
                 // ==========================================
                 .requestMatchers(
-                    "/api/auth/login", 
-                    "/api/auth/register", 
-                    "/api/auth/forgot-password", 
+                    "/api/auth/login",
+                    "/api/auth/register",
+                    "/api/auth/check-role",
+                    "/api/auth/forgot-password",
                     "/api/auth/reset-password",
                     "/error",
                     "/api/seed/**",
@@ -78,10 +79,10 @@ public class SecurityConfig {
                     "/api/vouchers/available",
                     "/api/vouchers/apply"
                 ).permitAll()
-                .requestMatchers(HttpMethod.GET, 
-                    "/api/products/**", 
-                    "/api/brands/**", 
-                    "/api/categories/**", 
+                .requestMatchers(HttpMethod.GET,
+                    "/api/products/**",
+                    "/api/brands/**",
+                    "/api/categories/**",
                     "/api/comments/**",
                     "/api/banners/**"
                 ).permitAll()
@@ -95,9 +96,6 @@ public class SecurityConfig {
 
                 // ==========================================
                 // 3. QUẢN LÝ SẢN PHẨM (PRODUCTS)
-                // - Lọc nâng cao (POST filter): Public
-                // - Thêm / Sửa: ADMIN, STAFF
-                // - Xóa: Chỉ ADMIN
                 // ==========================================
                 .requestMatchers(HttpMethod.POST, "/api/products/filter").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/products/**").hasAnyRole("ADMIN", "STAFF")
@@ -106,8 +104,6 @@ public class SecurityConfig {
 
                 // ==========================================
                 // 4. QUẢN LÝ THƯƠNG HIỆU, DANH MỤC, BANNER & VOUCHER
-                // - Thêm / Sửa: ADMIN, STAFF
-                // - Xóa: Chỉ ADMIN
                 // ==========================================
                 .requestMatchers(HttpMethod.GET, "/api/vouchers").hasAnyRole("ADMIN", "STAFF")
                 .requestMatchers(HttpMethod.POST, "/api/brands/**", "/api/categories/**", "/api/banners/**", "/api/vouchers/**").hasAnyRole("ADMIN", "STAFF")
@@ -117,10 +113,6 @@ public class SecurityConfig {
 
                 // ==========================================
                 // 5. QUẢN LÝ NGƯỜI DÙNG (USERS)
-                // - Xem danh sách tất cả users: ADMIN, STAFF
-                // - Tạo user trực tiếp từ Admin: Chỉ ADMIN
-                // - Xóa user: Chỉ ADMIN
-                // - Xem / sửa / upload avatar cá nhân: User đã đăng nhập
                 // ==========================================
                 .requestMatchers(HttpMethod.GET, "/api/users").hasAnyRole("ADMIN", "STAFF")
                 .requestMatchers(HttpMethod.POST, "/api/users").hasRole("ADMIN")
@@ -129,10 +121,6 @@ public class SecurityConfig {
 
                 // ==========================================
                 // 6. QUẢN LÝ ĐƠN HÀNG (ORDERS)
-                // - Xem tất cả đơn hàng (quản trị): ADMIN, STAFF
-                // - Cập nhật trạng thái đơn (duyệt, giao): ADMIN, STAFF
-                // - Xóa đơn hàng: Chỉ ADMIN
-                // - Đặt hàng, xem đơn cá nhân, hủy đơn: Mọi user đã đăng nhập
                 // ==========================================
                 .requestMatchers(HttpMethod.GET, "/api/orders").hasAnyRole("ADMIN", "STAFF")
                 .requestMatchers(HttpMethod.PUT, "/api/orders/*/status").hasAnyRole("ADMIN", "STAFF")
@@ -141,27 +129,22 @@ public class SecurityConfig {
 
                 // ==========================================
                 // 7. QUẢN LÝ GIỎ HÀNG (CARTS)
-                // - Xem tất cả giỏ hàng hệ thống: ADMIN, STAFF
-                // - Thao tác giỏ hàng cá nhân: Mọi user đã đăng nhập
                 // ==========================================
                 .requestMatchers(HttpMethod.GET, "/api/carts").hasAnyRole("ADMIN", "STAFF")
                 .requestMatchers("/api/carts/**").authenticated()
 
                 // ==========================================
                 // 8. BÌNH LUẬN (COMMENTS)
-                // - Gửi / sửa / xóa bình luận: Mọi user đã đăng nhập
                 // ==========================================
                 .requestMatchers("/api/comments/**").authenticated()
 
                 // ==========================================
                 // 9. DANH SÁCH YÊU THÍCH (WISHLISTS)
-                // - Thao tác danh sách yêu thích: Mọi user đã đăng nhập
                 // ==========================================
                 .requestMatchers("/api/wishlists/**").permitAll()
 
                 // ==========================================
                 // 10. TRÒ CHUYỆN / CHAT (CHATS & MESSAGES)
-                // - Nhắn tin giữa người mua và shop: Mọi user đã đăng nhập
                 // ==========================================
                 .requestMatchers("/api/chat/**").authenticated()
 

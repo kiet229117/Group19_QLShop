@@ -87,6 +87,18 @@ export default function UsersPage() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
 
+  // Modal khóa tài khoản kèm lý do gửi tới Client
+  const PRESET_LOCK_REASONS = [
+    'Bom hàng / Hủy đơn hàng nhiều lần không có lý do chính đáng',
+    'Spam bình luận / Sử dụng ngôn từ vi phạm tiêu chuẩn cộng đồng',
+    'Phát hiện hành vi gian lận khuyến mãi / lạm dụng voucher',
+    'Đăng nhập bất thường cần xác minh bảo mật tài khoản',
+    'Vi phạm điều khoản sử dụng dịch vụ của cửa hàng',
+  ];
+  const [lockingUser, setLockingUser] = useState(null);
+  const [lockReasonInput, setLockReasonInput] = useState(PRESET_LOCK_REASONS[0]);
+  const [submittingLock, setSubmittingLock] = useState(false);
+
   // Lọc tìm kiếm Real-time bằng useMemo (Zero-latency)
   const filteredUsers = useMemo(() => {
     return users.filter((u) => {
@@ -169,6 +181,7 @@ export default function UsersPage() {
       address: user.address === 'Chưa cập nhật địa chỉ' ? '' : user.address,
       role: (user.role || 'USER').toUpperCase(),
       active: user.active !== false,
+      lockReason: user.lockReason || '',
       password: '',
     });
     setIsEditModalOpen(true);
@@ -189,6 +202,9 @@ export default function UsersPage() {
         address: editingUser.address,
         role: editingUser.role.toLowerCase(),
         active: editingUser.active,
+        lockReason: editingUser.active
+          ? ''
+          : (editingUser.lockReason || '').trim() || 'Vi phạm chính sách hoạt động của hệ thống.',
       };
       if (editingUser.password && editingUser.password.trim().length >= 8) {
         payload.password = editingUser.password.trim();
@@ -229,12 +245,36 @@ export default function UsersPage() {
   };
 
   // Khóa / Mở khóa tài khoản
-  const handleToggleStatus = async (id) => {
+  const handleToggleStatus = async (targetUser) => {
+    if (!targetUser) return;
+    // Nếu đang bị khóa -> mở khóa ngay
+    if (targetUser.active === false) {
+      try {
+        await toggleStatus(targetUser.id, '');
+        toast.success(`Đã mở khóa tài khoản "${targetUser.name}" thành công!`);
+      } catch (err) {
+        toast.error(getFriendlyErrorMessage(err, 'Lỗi khi mở khóa tài khoản'));
+      }
+      return;
+    }
+    // Nếu đang hoạt động -> mở Modal nhập lý do khóa để báo tới Client
+    setLockingUser(targetUser);
+    setLockReasonInput(targetUser.lockReason || PRESET_LOCK_REASONS[0]);
+  };
+
+  const handleConfirmLock = async (e) => {
+    e.preventDefault();
+    if (!lockingUser) return;
+    const reason = lockReasonInput.trim() || PRESET_LOCK_REASONS[0];
+    setSubmittingLock(true);
     try {
-      await toggleStatus(id);
-      toast.info('Đã cập nhật trạng thái hoạt động của tài khoản!');
+      await toggleStatus(lockingUser.id, reason);
+      toast.warning(`Đã khóa tài khoản "${lockingUser.name}". Đã gửi thông báo lý do khóa tới Client!`);
+      setLockingUser(null);
     } catch (err) {
-      toast.error(getFriendlyErrorMessage(err, 'Lỗi cập nhật trạng thái tài khoản'));
+      toast.error(getFriendlyErrorMessage(err, 'Lỗi khi khóa tài khoản'));
+    } finally {
+      setSubmittingLock(false);
     }
   };
 
@@ -588,7 +628,7 @@ export default function UsersPage() {
                             </span>
                           </td>
 
-                          {/* Thao tác SỬA & XÓA */}
+                          {/* Thao tác SỬA, KHÓA/MỞ KHÓA & XÓA */}
                           <td className="py-3 px-3 text-center">
                             <div className="flex items-center justify-center gap-1">
                               <button
@@ -607,22 +647,44 @@ export default function UsersPage() {
                                 (currentUser?.email && u.email && u.email.toLowerCase() === currentUser.email.toLowerCase())) ? (
                                 <span
                                   className="px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold"
-                                  title="Tài khoản của bạn đang đăng nhập (Không thể tự xóa)"
+                                  title="Tài khoản của bạn đang đăng nhập (Không thể tự khóa/xóa)"
                                 >
                                   (Bạn)
                                 </span>
                               ) : (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteUser(u.id, u.name);
-                                  }}
-                                  title="Xóa tài khoản"
-                                  className="p-1.5 rounded-lg border border-gray-200 bg-white hover:bg-rose-50 text-gray-600 hover:text-rose-600 transition shadow-2xs"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedUserId(u.id);
+                                      handleToggleStatus(u);
+                                    }}
+                                    title={u.active === false ? 'Mở khóa tài khoản' : 'Khóa tài khoản'}
+                                    className={`p-1.5 rounded-lg border transition shadow-2xs ${
+                                      u.active === false
+                                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                                        : 'border-amber-200 bg-white hover:bg-amber-50 text-gray-600 hover:text-amber-700'
+                                    }`}
+                                  >
+                                    {u.active === false ? (
+                                      <Unlock className="w-3.5 h-3.5" />
+                                    ) : (
+                                      <Lock className="w-3.5 h-3.5" />
+                                    )}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteUser(u.id, u.name);
+                                    }}
+                                    title="Xóa tài khoản"
+                                    className="p-1.5 rounded-lg border border-gray-200 bg-white hover:bg-rose-50 text-gray-600 hover:text-rose-600 transition shadow-2xs"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </>
                               )}
                             </div>
                           </td>
@@ -781,6 +843,19 @@ export default function UsersPage() {
               </div>
             </div>
 
+            {selectedUser.active === false && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-[11px] space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-rose-800">
+                  <Lock className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                  <span>Tài khoản đang bị khóa</span>
+                </div>
+                <p className="text-rose-700 leading-relaxed">
+                  <strong>Lý do khóa:</strong>{' '}
+                  {selectedUser.lockReason || 'Vi phạm chính sách hoạt động của hệ thống.'}
+                </p>
+              </div>
+            )}
+
             {/* Thông tin liên hệ & địa chỉ */}
             <div className="space-y-2 text-[11px]">
               <div className="flex items-center justify-between py-1 border-b border-gray-100">
@@ -882,7 +957,7 @@ export default function UsersPage() {
                     toast.warning('Bạn không thể tự khóa tài khoản đang đăng nhập của mình!');
                     return;
                   }
-                  handleToggleStatus(selectedUser.id);
+                  handleToggleStatus(selectedUser);
                 }}
                 className={`flex items-center justify-center gap-1.5 py-2 rounded-lg border font-bold text-xs transition ${
                   ((currentUser?.id && String(selectedUser.id) === String(currentUser.id)) ||
@@ -1032,6 +1107,22 @@ export default function UsersPage() {
                   </select>
                 </div>
               </div>
+
+              {!editingUser.active && (
+                <div className="p-3 rounded-lg bg-rose-50/70 border border-rose-200 space-y-1.5">
+                  <label className="block text-[11px] font-bold text-rose-800">
+                    Lý do khóa tài khoản (hiển thị cho Client) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required={!editingUser.active}
+                    value={editingUser.lockReason || ''}
+                    onChange={(e) => setEditingUser({ ...editingUser, lockReason: e.target.value })}
+                    placeholder="Nhập lý do khóa tài khoản..."
+                    className="w-full px-3 py-1.5 bg-white border border-rose-200 rounded-md text-xs focus:outline-none focus:border-rose-500"
+                  />
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -1246,6 +1337,99 @@ export default function UsersPage() {
                 >
                   {creatingUser ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                   <span>{creatingUser ? 'Đang lưu...' : 'Lưu khách hàng'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          MODAL 3: XÁC NHẬN KHÓA TÀI KHOẢN & NHẬP LÝ DO BÁO TỚI CLIENT
+          ========================================================================= */}
+      {lockingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl border border-rose-100 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 text-sm">Khóa tài khoản người dùng</h3>
+                  <p className="text-[11px] text-gray-500">
+                    {lockingUser.name} (@{lockingUser.username})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLockingUser(null)}
+                className="p-1 rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmLock} className="mt-4 space-y-3">
+              <div>
+                <label className="block text-[11px] font-bold text-gray-700 mb-1.5">
+                  Chọn nhanh lý do phổ biến:
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {PRESET_LOCK_REASONS.map((reason, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => setLockReasonInput(reason)}
+                      className={`text-left px-2.5 py-1.5 rounded-lg border text-[11px] font-medium transition ${
+                        lockReasonInput === reason
+                          ? 'bg-rose-50 border-rose-300 text-rose-800 font-bold'
+                          : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      {reason}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-gray-700 mb-1">
+                  Lý do khóa gửi tới Client <span className="text-rose-500">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  required
+                  value={lockReasonInput}
+                  onChange={(e) => setLockReasonInput(e.target.value)}
+                  placeholder="Nhập lý do khóa tài khoản..."
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs focus:bg-white focus:outline-none focus:border-rose-500"
+                />
+                <p className="text-[10px] text-gray-500 mt-1">
+                  Client đang đăng nhập bằng tài khoản này sẽ ngay lập tức nhận thông báo:{' '}
+                  <strong className="text-rose-700">
+                    &quot;Tài khoản của bạn đã bị khóa do: {lockReasonInput || '...'}&quot;
+                  </strong>{' '}
+                  và tự động đăng xuất.
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setLockingUser(null)}
+                  className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 text-xs"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingLock}
+                  className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm flex items-center gap-1.5"
+                >
+                  {submittingLock ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lock className="w-3.5 h-3.5" />}
+                  <span>{submittingLock ? 'Đang khóa...' : 'Xác nhận khóa & Báo tới Client'}</span>
                 </button>
               </div>
             </form>

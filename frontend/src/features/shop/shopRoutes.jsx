@@ -13,12 +13,13 @@ import OrderSuccessPage from './checkout/pages/OrderSuccessPage';
 import OrdersPage from './orders/pages/OrdersPage';
 import OrderDetailPage from './orders/pages/OrderDetailPage';
 import ProfilePage from './users/pages/ProfilePage';
+import ChangePasswordPage from './users/pages/ChangePasswordPage';
 import WishlistPage from './wishlist/pages/WishlistPage';
 import { SHOP_BASE_PATH } from './shopPaths';
 
 /**
  * Module định tuyến của Client Shop (hoàn chỉnh các trang khám phá sản phẩm, giỏ hàng,
- * thanh toán, xác nhận đặt hàng, danh sách & chi tiết đơn hàng, hồ sơ cá nhân).
+ * thanh toán, xác nhận đặt hàng, danh sách & chi tiết đơn hàng, hồ sơ cá nhân & đổi mật khẩu).
  */
 export const shopRoutes = (
   <Route path={SHOP_BASE_PATH} element={<ShopLayout />}>
@@ -36,6 +37,7 @@ export const shopRoutes = (
     <Route path="orders/:id" element={<OrderDetailPage />} />
     <Route path="wishlist" element={<WishlistPage />} />
     <Route path="profile" element={<ProfilePage />} />
+    <Route path="change-password" element={<ChangePasswordPage />} />
     <Route path="*" element={<Navigate to={SHOP_BASE_PATH} replace />} />
   </Route>
 );

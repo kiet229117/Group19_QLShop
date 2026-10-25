@@ -1,5 +1,6 @@
 package com.group19.QLShop.service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -15,6 +16,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.group19.QLShop.dto.reponse.OrderItemResponse;
 import com.group19.QLShop.dto.reponse.OrderResponse;
 import com.group19.QLShop.dto.reponse.VoucherApplyResponse;
+import com.group19.QLShop.dto.reponse.VoucherResponse;
 import com.group19.QLShop.dto.request.OrderItemRequest;
 import com.group19.QLShop.dto.request.OrderRequest;
 import com.group19.QLShop.dto.request.OrderStatusUpdateRequest;
@@ -33,7 +35,6 @@ import com.group19.QLShop.repository.OrderRepository;
 import com.group19.QLShop.repository.ProductRepository;
 import com.group19.QLShop.repository.ProductVariantRepository;
 import com.group19.QLShop.repository.UserRepository;
-import java.time.LocalDateTime;
 
 @Service
 @Transactional(readOnly = true)
@@ -65,7 +66,7 @@ public class OrderService {
     }
 
     // ==========================================
-    // 1. TẠO ĐƠN HÀNG (Có Trừ Tồn Kho Variant)
+    // 1. TẠO ĐƠN HÀNG (Có Trừ Tồn Kho Variant & Tặng Voucher Tự Động)
     // ==========================================
     @Transactional(rollbackFor = Exception.class)
     public OrderResponse createOrder(OrderRequest request) {
@@ -107,7 +108,7 @@ public class OrderService {
 
                     if (variant.getStockQuantity() < itemReq.getQuantity()) {
                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                                "Sản phẩm " + product.getName() + " (" + variant.getColor() + " - " + variant.getSize() + 
+                                "Sản phẩm " + product.getName() + " (" + variant.getColor() + " - " + variant.getSize() +
                                 ") chỉ còn " + variant.getStockQuantity() + " chiếc trong kho!");
                     }
 
@@ -121,12 +122,12 @@ public class OrderService {
                 orderItem.setProduct(product);
                 orderItem.setProductVariant(variant);
                 orderItem.setQuantity(itemReq.getQuantity());
-                
-                // Lấy giá bán áp dụng (ưu tiên salePrice từ ProductPrice, nếu không lấy price gốc từ Product)
+
+                // Lấy giá bán áp dụng
                 double priceToUse = getEffectivePrice(product);
                 orderItem.setPrice(priceToUse);
 
-                // Lưu giá vốn (COGS) tại thời điểm bán để tính Lợi Nhuận thực tế
+                // Lưu giá vốn (COGS)
                 Double costPrice = (variant != null && variant.getCostPrice() != null)
                         ? variant.getCostPrice()
                         : (product.getCostPrice() != null ? product.getCostPrice() : 0.0);
@@ -151,12 +152,10 @@ public class OrderService {
                 orderItem.setOrder(order);
                 orderItem.setProduct(product);
                 orderItem.setQuantity(cartItem.getQuantity());
-                
-                // Lấy giá áp dụng
+
                 double priceToUse = getEffectivePrice(product);
                 orderItem.setPrice(priceToUse);
 
-                // Lưu giá vốn (COGS) tại thời điểm bán
                 Double costPrice = product.getCostPrice() != null ? product.getCostPrice() : 0.0;
                 orderItem.setCostPrice(costPrice);
 
@@ -164,7 +163,6 @@ public class OrderService {
                 orderItems.add(orderItem);
             }
 
-            // Xóa giỏ hàng sau khi đặt
             cartItemRepository.deleteByCartId(cart.getId());
         }
 
@@ -172,11 +170,14 @@ public class OrderService {
         double discountAmount = 0.0;
         String appliedVoucherCode = null;
         if (request.getVoucherCode() != null && !request.getVoucherCode().trim().isEmpty()) {
-            VoucherApplyResponse voucherResult = voucherService.applyVoucher(
-                    new VoucherApplyRequest(request.getVoucherCode().trim(), totalAmount));
+            VoucherApplyRequest applyReq = VoucherApplyRequest.builder()
+                    .code(request.getVoucherCode().trim())
+                    .orderAmount(totalAmount)
+                    .userId(user.getId())
+                    .build();
+            VoucherApplyResponse voucherResult = voucherService.applyVoucher(applyReq, user.getUsername());
             discountAmount = voucherResult.getDiscountAmount();
             appliedVoucherCode = voucherResult.getCode();
-            // Ghi nhận tăng số lượt sử dụng voucher
             voucherService.recordVoucherUsage(appliedVoucherCode);
         }
 
@@ -187,7 +188,17 @@ public class OrderService {
         order.setOrderItems(orderItems);
 
         Order savedOrder = orderRepository.save(order);
-        return toOrderResponse(savedOrder);
+
+        // ---> ĐÁNH GIÁ & TẶNG VOUCHER MỚI CHO KHÁCH HÀNG SAU KHI ĐẶT ĐƠN <---
+        // - Đơn từ 99.000đ -> Tặng HOODIE30K
+        // - Đơn có Áo Polo -> Tặng POLO10
+        // - Đơn từ 2 SP hoặc Áo Thun -> Tặng TEELAB20
+        List<VoucherResponse> newlyUnlockedVouchers = voucherService.evaluateAndUnlockVouchersForOrder(
+                user, orderItems, totalAmount, appliedVoucherCode);
+
+        OrderResponse response = toOrderResponse(savedOrder);
+        response.setNewlyUnlockedVouchers(newlyUnlockedVouchers);
+        return response;
     }
 
     // ==========================================
@@ -282,16 +293,12 @@ public class OrderService {
         if (product == null) {
             return 0.0;
         }
-
-        // 1. Kiểm tra nếu có bảng ProductPrice và có salePrice > 0 thì dùng giá sale
         if (product.getProductPrice() != null) {
             Double salePrice = product.getProductPrice().getSalePrice();
             if (salePrice != null && salePrice > 0) {
                 return salePrice;
             }
         }
-
-        // 2. Nếu không có sale hoặc không có ProductPrice, lấy giá gốc từ Product
         return product.getPrice();
     }
 

@@ -82,12 +82,10 @@ public class UserService {
     // =========================
     @Transactional
     public UserReponse createUser(UserRequest request) {
-        // Kiểm tra username đã tồn tại
         if (userRepository.findByUsername(request.getUsername()).isPresent()) {
             throw new AppException("Tên đăng nhập (username) đã được sử dụng. Vui lòng chọn tên khác!");
         }
 
-        // Kiểm tra email đã tồn tại
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new AppException("Địa chỉ Email đã được đăng ký. Vui lòng sử dụng email khác!");
         }
@@ -113,18 +111,25 @@ public class UserService {
         }
 
         user.setActive(request.getActive() != null ? request.getActive() : true);
+        if (Boolean.FALSE.equals(user.getActive())) {
+            user.setLockReason(
+                    request.getLockReason() != null && !request.getLockReason().isBlank()
+                            ? request.getLockReason().trim()
+                            : "Tài khoản đang tạm khóa bởi Quản trị viên"
+            );
+        }
 
         return toResponse(userRepository.save(user));
     }
 
     // =========================
-    // CẬP NHẬT USER
+    // CẬP NHẬT USER (HỖ TRỢ LƯU LÝ DO KHÓA TÀI KHOẢN)
     // =========================
     @Transactional
     public UserReponse updateUser(Long id, UserRequest request) {
         User existingUser = userRepository.findById(id)
                 .orElseThrow(() -> new AppException("Không tìm thấy người dùng với ID: " + id));
-        
+
         if (request.getUsername() != null && !request.getUsername().isBlank()) {
             existingUser.setUsername(request.getUsername());
         }
@@ -156,6 +161,20 @@ public class UserService {
         }
         if (request.getActive() != null) {
             existingUser.setActive(request.getActive());
+            if (Boolean.FALSE.equals(request.getActive())) {
+                String reason = request.getLockReason();
+                if (reason == null || reason.isBlank()) {
+                    reason = existingUser.getLockReason();
+                }
+                if (reason == null || reason.isBlank()) {
+                    reason = "Vi phạm chính sách hoạt động hoặc theo quyết định của Quản trị viên.";
+                }
+                existingUser.setLockReason(reason.trim());
+            } else {
+                existingUser.setLockReason(null);
+            }
+        } else if (request.getLockReason() != null) {
+            existingUser.setLockReason(request.getLockReason().trim());
         }
 
         return toResponse(userRepository.save(existingUser));
@@ -170,7 +189,6 @@ public class UserService {
             String oldPassword,
             String newPassword
     ) {
-        // Kiểm tra dữ liệu gửi lên
         if (oldPassword == null || oldPassword.isBlank()) {
             throw new AppException("Mật khẩu cũ không được để trống");
         }
@@ -182,12 +200,10 @@ public class UserService {
         }
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new AppException("Không tìm thấy người dùng"));
-        
-        // Kiểm tra mật khẩu cũ
+
         if (!user.getPassword().equals(oldPassword)) {
             throw new AppException("Mật khẩu hiện tại không chính xác");
         }
-        // Mật khẩu mới không được trùng mật khẩu cũ
         if (newPassword.equals(oldPassword)) {
             throw new AppException("Mật khẩu mới phải khác mật khẩu hiện tại");
         }
@@ -203,7 +219,6 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new AppException("Không tìm thấy người dùng với ID: " + id));
 
-        // 0. Không cho phép xóa chính tài khoản đang đăng nhập
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.isAuthenticated() && auth.getName() != null) {
             String currentUsername = auth.getName();
@@ -212,22 +227,20 @@ public class UserService {
             }
         }
 
-        // 1. Kiểm tra nếu người dùng đã có lịch sử đơn hàng
         if (orderRepository.existsByUserId(id)) {
             user.setActive(false);
+            user.setLockReason("Tài khoản đã phát sinh đơn hàng nên được hệ thống chuyển sang trạng thái tạm khóa để bảo toàn lịch sử giao dịch.");
             userRepository.save(user);
             throw new AppException("Tài khoản này đã phát sinh đơn hàng nên không thể xóa vĩnh viễn khỏi hệ thống. Tài khoản đã được tự động chuyển sang trạng thái \"Tạm khóa\".");
         }
 
         try {
-            // 2. Dọn giỏ hàng liên kết nếu có
             cartRepository.findByUserId(id).ifPresent(cartRepository::delete);
-
-            // 3. Thực hiện xóa và flush ngay lập tức
             userRepository.delete(user);
             userRepository.flush();
         } catch (DataIntegrityViolationException e) {
             user.setActive(false);
+            user.setLockReason("Tài khoản có dữ liệu liên kết nên được chuyển sang trạng thái tạm khóa.");
             userRepository.save(user);
             throw new AppException("Không thể xóa vĩnh viễn do tài khoản có dữ liệu liên kết. Hệ thống đã tự động chuyển sang trạng thái \"Tạm khóa\".");
         }
@@ -238,12 +251,10 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new AppException("Không tìm thấy người dùng với ID: " + userId));
 
-        // Xóa avatar cũ nếu có để tiết kiệm bộ nhớ server
         if (user.getAvatar() != null && !user.getAvatar().startsWith("http")) {
             fileStorageService.deleteFile(user.getAvatar());
         }
 
-        // Lưu avatar mới vào thư mục uploads/avatars
         String avatarUrl = fileStorageService.storeFile(file, "avatars");
         user.setAvatar(avatarUrl);
         userRepository.save(user);
@@ -255,7 +266,6 @@ public class UserService {
     // CHUYỂN USER -> USER REPONSE
     // =========================
     private UserReponse toResponse(User user) {
-        // Lấy id giỏ hàng của User (chưa có giỏ thì null)
         Long cartId = cartRepository.findByUserId(user.getId())
                 .map(Cart::getId)
                 .orElse(null);
@@ -271,6 +281,7 @@ public class UserService {
                 .avatar(user.getAvatar())
                 .role(user.getRole())
                 .active(user.getActive() != null ? user.getActive() : true)
+                .lockReason(user.getLockReason())
                 .cartId(cartId)
                 .build();
     }

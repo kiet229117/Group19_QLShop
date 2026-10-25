@@ -4,6 +4,7 @@ import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import com.group19.QLShop.dto.reponse.VoucherApplyResponse;
@@ -24,18 +25,28 @@ public class VoucherController {
         this.voucherService = voucherService;
     }
 
-    // 1. PUBLIC: Khách hàng lấy danh sách voucher đang có hiệu lực
-    // GET /api/vouchers/available
+    // 1. CLIENT: Lấy danh sách voucher HIỆN CÓ trong Ví Voucher của tài khoản đang đăng nhập
+    // GET /api/vouchers/available?userId=...
     @GetMapping("/available")
-    public ResponseEntity<List<VoucherResponse>> getAvailableVouchers() {
-        return ResponseEntity.ok(voucherService.getAvailableVouchers());
+    public ResponseEntity<List<VoucherResponse>> getAvailableVouchers(
+            @RequestParam(value = "userId", required = false) Long userId,
+            Authentication authentication) {
+        String username = (authentication != null && authentication.isAuthenticated())
+                ? authentication.getName()
+                : null;
+        return ResponseEntity.ok(voucherService.getAvailableVouchersForUser(userId, username));
     }
 
-    // 2. USER: Nhập mã để kiểm tra và tính số tiền được giảm
+    // 2. USER: Nhập mã để kiểm tra quyền sở hữu trong Ví và tính số tiền được giảm
     // POST /api/vouchers/apply
     @PostMapping("/apply")
-    public ResponseEntity<VoucherApplyResponse> applyVoucher(@Valid @RequestBody VoucherApplyRequest request) {
-        return ResponseEntity.ok(voucherService.applyVoucher(request));
+    public ResponseEntity<VoucherApplyResponse> applyVoucher(
+            @Valid @RequestBody VoucherApplyRequest request,
+            Authentication authentication) {
+        String username = (authentication != null && authentication.isAuthenticated())
+                ? authentication.getName()
+                : null;
+        return ResponseEntity.ok(voucherService.applyVoucher(request, username));
     }
 
     // 3. ADMIN: Xem toàn bộ voucher hệ thống (phân trang)

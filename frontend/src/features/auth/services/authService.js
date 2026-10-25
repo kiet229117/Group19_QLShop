@@ -4,9 +4,21 @@ import api from '../../../services/api';
  * Service kết nối toàn bộ hệ thống API Authentication (/api/auth)
  */
 export const authService = {
+  // 0. Kiểm tra nhanh phân quyền và trạng thái tài khoản ngay khi chọn ô Phân hệ trên trang Login
+  checkRole: async (identifier) => {
+    const res = await api.get('/auth/check-role', {
+      params: { identifier },
+    });
+    return res.data || res;
+  },
+
   // 1. Đăng nhập hệ thống (nhận cookie HttpOnly & Bearer token)
-  login: async (usernameOrEmail, password) => {
-    const res = await api.post('/auth/login', { usernameOrEmail, password });
+  login: async (usernameOrEmail, password, roleMode = 'CLIENT') => {
+    const res = await api.post('/auth/login', {
+      usernameOrEmail,
+      password,
+      roleMode,
+    });
     return res.data || res;
   },
 

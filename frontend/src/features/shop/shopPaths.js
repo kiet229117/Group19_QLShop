@@ -26,11 +26,13 @@ export const shopPaths = {
   orderDetail: (id) => withBase(`/orders/${encodeURIComponent(id)}`),
   wishlist: () => withBase('/wishlist'),
   profile: (tab) => withBase(`/profile${tab ? `?tab=${encodeURIComponent(tab)}` : ''}`),
+  changePassword: () => withBase('/change-password'),
 };
 
 /** Các route xác thực hiện có trong ứng dụng (App.jsx) – tái sử dụng, không tạo mới. */
 export const authPaths = {
   login: '/login',
   register: '/register',
+  forgotPassword: '/forgot-password',
   admin: '/admin',
 };

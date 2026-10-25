@@ -8,6 +8,7 @@ import { ToastProvider } from './components/common/Toast';
 // Auth Pages & Route Guard
 import LoginPage from './features/auth/pages/LoginPage';
 import RegisterPage from './features/auth/pages/RegisterPage';
+import ForgotPasswordPage from './features/auth/pages/ForgotPasswordPage';
 import ProtectedRoute from './features/auth/components/ProtectedRoute';
 
 // Admin Pages
@@ -25,28 +26,6 @@ import ChatsPage from './features/admin-chats/pages/ChatsPage';
 import BannersPage from './features/admin-banners/pages/BannersPage';
 import CommentsPage from './features/admin-comments/pages/CommentsPage';
 import SettingsPage from './features/admin-settings/pages/SettingsPage';
-// Client Placeholder / Trang chủ người dùng
-function ClientHome() {
-  return (
-    <div className="max-w-5xl mx-auto py-16 px-6 text-center">
-      <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4 font-black text-2xl">
-        QL
-      </div>
-      <h1 className="text-3xl font-black text-gray-900 tracking-tight">Cửa hàng Quần Áo QLShop</h1>
-      <p className="text-gray-500 mt-2 max-w-md mx-auto text-sm">
-        Giao diện Khách hàng (Client Storefront). Bạn có thể truy cập hệ thống quản trị bằng nút bên dưới:
-      </p>
-      <div className="mt-6 flex justify-center gap-3">
-        <a
-          href="/admin"
-          className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm shadow-md transition"
-        >
-          Truy cập Admin Portal &rarr;
-        </a>
-      </div>
-    </div>
-  );
-}
 
 function App() {
   return (
@@ -55,16 +34,18 @@ function App() {
         <ToastProvider>
           <Routes>
             {/* =========================================================================
-                1. GIAO DIỆN XÁC THỰC (AUTHENTICATION: LOGIN / REGISTER)
+                1. GIAO DIỆN XÁC THỰC (AUTHENTICATION: LOGIN / REGISTER / FORGOT PASSWORD)
                 ========================================================================= */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
             {/* =========================================================================
                 2. GIAO DIỆN KHÁCH HÀNG (CLIENT STOREFRONT)
                 ========================================================================= */}
-<Route path="/" element={<Navigate to="/shop" replace />} />
+            <Route path="/" element={<Navigate to="/shop" replace />} />
             {shopRoutes}
+
             {/* =========================================================================
                 3. GIAO DIỆN QUẢN TRỊ VIÊN (ADMIN PORTAL) - YÊU CẦU ĐĂNG NHẬP
                 ========================================================================= */}
@@ -92,7 +73,7 @@ function App() {
               <Route path="banners" element={<BannersPage />} />
               <Route path="comments" element={<CommentsPage />} />
               <Route path="settings/*" element={<SettingsPage />} />
-              
+
               {/* Các route phụ fallback về products */}
               <Route path="*" element={<Navigate to="/admin/products" replace />} />
             </Route>

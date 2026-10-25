@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Ticket, CheckCircle2, ArrowRight, Truck, Sparkles, X } from 'lucide-react';
+import { Ticket, CheckCircle2, ArrowRight, Truck, Sparkles, X, Gift } from 'lucide-react';
 import ShopButton from '../../../../components/shop/common/ShopButton';
 import { formatCurrency } from '../../shared/utils/formatters';
 import { shopPaths } from '../../shopPaths';
 
 /**
- * Tóm tắt đơn hàng và áp dụng voucher mô phỏng trên trang Giỏ hàng.
+ * Tóm tắt đơn hàng và áp dụng voucher cá nhân của từng tài khoản trên trang Giỏ hàng.
  */
 export default function CartSummary({
   summary,
@@ -29,16 +29,16 @@ export default function CartSummary({
 
   const remainingForFreeShip = Math.max(0, freeShippingThreshold - subtotal);
 
-  const handleApplyCode = (e) => {
+  const handleApplyCode = async (e) => {
     e.preventDefault();
-    const res = onApplyVoucher?.(codeInput);
+    const res = await onApplyVoucher?.(codeInput);
     if (res) setFeedback(res);
   };
 
-  const handleSelectSuggestedVoucher = (code) => {
+  const handleSelectSuggestedVoucher = async (code) => {
     const nextCode = appliedVoucherCode === code ? '' : code;
     setCodeInput(nextCode);
-    const res = onApplyVoucher?.(nextCode);
+    const res = await onApplyVoucher?.(nextCode);
     if (res) setFeedback(res);
   };
 
@@ -53,7 +53,7 @@ export default function CartSummary({
         </span>
       </div>
 
-      {/* Thanh tiến độ miễn phí vận chuyển minh họa */}
+      {/* Thanh tiến độ miễn phí vận chuyển */}
       <div className="rounded-2xl bg-emerald-50/70 p-3.5 text-xs text-emerald-900 ring-1 ring-emerald-100">
         <div className="flex items-center gap-2 font-semibold">
           <Truck className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
@@ -70,19 +70,21 @@ export default function CartSummary({
         </div>
       </div>
 
-      {/* Nhập hoặc chọn voucher */}
+      {/* Nhập hoặc chọn voucher cá nhân hiện có */}
       <div className="space-y-3 border-t border-zinc-100 pt-4">
-        <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-500">
-          <Ticket className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
-          Mã giảm giá / Voucher QLShop
-        </label>
+        <div className="flex items-center justify-between">
+          <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-500">
+            <Ticket className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
+            Voucher hiện có của bạn ({vouchers.length})
+          </label>
+        </div>
 
         <form onSubmit={handleApplyCode} className="flex gap-2">
           <input
             type="text"
             value={codeInput}
             onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
-            placeholder="Nhập mã (VD: QLSHOP50)"
+            placeholder="Nhập mã (VD: WELCOME50K, POLO10)"
             className="h-10 flex-1 rounded-xl border border-zinc-200 px-3.5 text-sm font-semibold uppercase text-zinc-900 placeholder:normal-case placeholder:font-normal placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none"
           />
           <ShopButton type="submit" variant="outline" size="sm">
@@ -100,12 +102,14 @@ export default function CartSummary({
           </p>
         )}
 
-        {/* Danh sách voucher mẫu có thể bấm chọn ngay */}
-        {vouchers.length > 0 && (
+        {/* Chỉ hiển thị các voucher mà tài khoản đang sở hữu */}
+        {vouchers.length > 0 ? (
           <div className="space-y-2 pt-1">
             {vouchers.map((v) => {
               const isSelected = appliedVoucherCode === v.code;
-              const eligible = subtotal >= v.minOrder;
+              const minOrderVal = Number(v.minOrderValue ?? v.minOrderAmount ?? v.minOrder ?? 0);
+              const eligible = subtotal >= minOrderVal;
+              const voucherTitle = v.name || v.title || v.description || `Mã ưu đãi ${v.code}`;
               return (
                 <button
                   key={v.code}
@@ -113,22 +117,30 @@ export default function CartSummary({
                   onClick={() => handleSelectSuggestedVoucher(v.code)}
                   className={`flex w-full items-center justify-between gap-2 rounded-2xl border p-3 text-left transition ${
                     isSelected
-                      ? 'border-emerald-600 bg-emerald-50/60'
+                      ? 'border-emerald-600 bg-emerald-50/60 ring-1 ring-emerald-500/20'
                       : 'border-zinc-200/80 bg-zinc-50/50 hover:border-zinc-300'
                   }`}
                 >
                   <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <span className="rounded bg-zinc-900 px-2 py-0.5 text-[11px] font-bold text-white">
                         {v.code}
                       </span>
-                      {!eligible && subtotal > 0 && (
-                        <span className="text-[11px] text-amber-600">
-                          (Đơn tối thiểu {formatCurrency(v.minOrder)})
+                      {v.badgeText && (
+                        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-extrabold text-amber-800">
+                          {v.badgeText}
+                        </span>
+                      )}
+                      {!eligible && subtotal > 0 && minOrderVal > 0 && (
+                        <span className="text-[11px] text-amber-600 font-medium">
+                          (Đơn tối thiểu {formatCurrency(minOrderVal)})
                         </span>
                       )}
                     </div>
-                    <p className="mt-1 truncate text-xs text-zinc-600">{v.title}</p>
+                    <p className="mt-1 truncate text-xs font-semibold text-zinc-800">{voucherTitle}</p>
+                    {v.description && (
+                      <p className="truncate text-[11px] text-zinc-500">{v.description}</p>
+                    )}
                   </div>
                   {isSelected ? (
                     <X className="h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" />
@@ -139,7 +151,33 @@ export default function CartSummary({
               );
             })}
           </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/60 p-3 text-xs text-zinc-500">
+            Bạn hiện chưa có voucher khả dụng nào trong ví. Đặt đơn từ 99K hoặc mua Áo Polo để nhận ngay mã mới!
+          </div>
         )}
+
+        {/* Gợi ý nhiệm vụ nhận thêm Voucher chuẩn theo 4 mã hệ thống */}
+        <div className="rounded-2xl border border-amber-200/80 bg-amber-50/60 p-3 text-[11px] text-amber-900 space-y-1">
+          <div className="flex items-center gap-1.5 font-bold text-amber-800">
+            <Gift className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+            <span>Cách nhận đủ 4 Voucher ưu đãi:</span>
+          </div>
+          <ul className="list-disc pl-4 space-y-0.5 text-amber-800/90">
+            <li>
+              <strong>WELCOME50K</strong>: Giảm 50.000đ (Đơn từ 250.000đ) — <em>Tặng khi đăng ký tài khoản mới</em>
+            </li>
+            <li>
+              <strong>POLO10</strong>: Giảm 10% tối đa 40.000đ (Đơn từ 300.000đ) — <em>Tặng khi đặt mua Áo Polo Routine (hoặc đơn từ 300.000đ)</em>
+            </li>
+            <li>
+              <strong>HOODIE30K</strong>: Giảm 30.000đ (Đơn từ 350.000đ) — <em>Tặng khi đặt mua Áo Khoác &amp; Hoodie (hoặc đơn từ 350.000đ)</em>
+            </li>
+            <li>
+              <strong>TEELAB20</strong>: Giảm 20% tối đa 60.000đ (Đơn từ 400.000đ) — <em>Tặng khi đặt mua Áo Thun Teelab (hoặc đơn từ 400.000đ)</em>
+            </li>
+          </ul>
+        </div>
       </div>
 
       {/* Chi tiết tiền */}
@@ -155,15 +193,15 @@ export default function CartSummary({
             {activeVoucher && discount > 0 ? ` (${activeVoucher.code})` : ''}
           </dt>
           <dd className="font-semibold text-emerald-600">
-            {discount > 0 ? `-${formatCurrency(discount)}` : '0 ₫'}
+            {discount > 0 ? `-${formatCurrency(discount)}` : '0 ₫'}
           </dd>
         </div>
 
         <div className="flex items-center justify-between text-zinc-600">
-          <dt>Phí vận chuyển (Minh họa)</dt>
+          <dt>Phí vận chuyển</dt>
           <dd className="font-semibold text-zinc-900">
             {subtotal === 0
-              ? '0 ₫'
+              ? '0 ₫'
               : shippingFee === 0
                 ? 'Miễn phí'
                 : formatCurrency(shippingFee)}
@@ -197,7 +235,7 @@ export default function CartSummary({
 
       <p className="flex items-center justify-center gap-1.5 text-center text-[11px] text-zinc-400">
         <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-        Chế độ giao diện mô phỏng — số liệu tính trực tiếp trên trình duyệt
+        Ví Voucher tự động tích lũy theo lịch sử mua sắm của tài khoản bạn
       </p>
     </aside>
   );

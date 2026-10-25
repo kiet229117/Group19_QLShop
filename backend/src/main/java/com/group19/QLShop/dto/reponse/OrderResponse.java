@@ -43,5 +43,7 @@ public class OrderResponse {
     private LocalDateTime updatedAt;
 
     private List<OrderItemResponse> items;
-}
 
+    // Danh sách các Voucher mới vừa được mở khóa từ đơn hàng này (để Frontend hiển thị Toast/Popup thưởng)
+    private List<VoucherResponse> newlyUnlockedVouchers;
+}

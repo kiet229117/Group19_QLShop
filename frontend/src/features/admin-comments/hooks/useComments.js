@@ -9,7 +9,7 @@ export default function useComments() {
   const [loading, setLoading] = useState(true);
 
   // Bộ lọc
-  const [starFilter, setStarFilter] = useState('ALL'); // ALL, 5, 4, 3, 2, 1
+  const [starFilter, setStarFilter] = useState('ALL');
   const [onlyMedia, setOnlyMedia] = useState(false);
   const [moderationStatus, setModerationStatus] = useState('ALL');
   const [sortBy, setSortBy] = useState('NEWEST');
@@ -18,10 +18,11 @@ export default function useComments() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(5);
 
-  // Modals
+  // Modal Phản hồi bình luận
   const [isReplyModalOpen, setIsReplyModalOpen] = useState(false);
   const [activeReviewForReply, setActiveReviewForReply] = useState(null);
   const [replyText, setReplyText] = useState('');
+  const [savingReply, setSavingReply] = useState(false);
 
   // Modal Sửa nội dung bình luận
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -59,9 +60,16 @@ export default function useComments() {
       if (Array.isArray(data) && data.length > 0) {
         const mapped = data.map((c) => {
           const userObj = userMap[c.userId];
-          const userName = c.userName || userObj?.name || userObj?.username || (c.userId ? `Khách hàng #${c.userId}` : 'Khách vãng lai');
+          const userName =
+            c.userName ||
+            userObj?.name ||
+            userObj?.username ||
+            (c.userId ? `Khách hàng #${c.userId}` : 'Khách vãng lai');
           const username = userObj?.username || '';
-          const userAvatar = c.userAvatar || userObj?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=0d9488&color=fff`;
+          const userAvatar =
+            c.userAvatar ||
+            userObj?.avatar ||
+            `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=0d9488&color=fff`;
           const productName = c.productName || `Sản phẩm thời trang #${c.productId}`;
 
           return {
@@ -69,6 +77,7 @@ export default function useComments() {
             backendId: c.id,
             userId: c.userId,
             productId: c.productId,
+            parentId: c.parentId || null,
             user: {
               name: userName,
               username: username,
@@ -80,7 +89,12 @@ export default function useComments() {
             },
             orderId: `NV-${String(c.id).padStart(5, '0')}`,
             timeAgo: c.createdAt
-              ? new Date(c.createdAt).toLocaleDateString('vi-VN') + ' ' + new Date(c.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+              ? new Date(c.createdAt).toLocaleDateString('vi-VN') +
+                ' ' +
+                new Date(c.createdAt).toLocaleTimeString('vi-VN', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
               : 'Vừa xong',
             productSpecs: `Sản phẩm: ${productName}`,
             product: {
@@ -92,7 +106,21 @@ export default function useComments() {
             rating: 5,
             content: c.content || '',
             images: [],
-            officialReply: null,
+            officialReply: c.replyContent
+              ? {
+                  author: c.replyAuthor || 'QLShop CSKH',
+                  role: 'Admin CSKH',
+                  timeAgo: c.repliedAt
+                    ? new Date(c.repliedAt).toLocaleDateString('vi-VN') +
+                      ' ' +
+                      new Date(c.repliedAt).toLocaleTimeString('vi-VN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    : 'Đã phản hồi',
+                  content: c.replyContent,
+                }
+              : null,
             helpfulCount: 0,
             aiSentiment: {
               score: '98.5%',
@@ -198,27 +226,36 @@ export default function useComments() {
     setIsReplyModalOpen(true);
   };
 
-  // Lưu phản hồi
-  const handleSaveReply = () => {
-    if (!activeReviewForReply || !replyText.trim()) return;
-    setReviews((prev) =>
-      prev.map((r) =>
-        r.id === activeReviewForReply.id
-          ? {
-              ...r,
-              officialReply: {
-                author: 'QLShop CSKH',
-                role: 'Admin CSKH',
-                timeAgo: 'vừa phản hồi',
-                content: replyText.trim(),
-              },
-            }
-          : r
-      )
-    );
-    setIsReplyModalOpen(false);
-    setActiveReviewForReply(null);
-    setReplyText('');
+  // Lưu phản hồi lên Database (PUT /api/comments/{id}/reply)
+  const handleSaveReply = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!activeReviewForReply || !replyText.trim()) {
+      toast.warning('Vui lòng nhập nội dung phản hồi!');
+      return;
+    }
+
+    setSavingReply(true);
+    try {
+      await commentService.replyComment(
+        activeReviewForReply.backendId,
+        replyText.trim(),
+        'QLShop CSKH'
+      );
+      toast.success(
+        `Đã lưu phản hồi cho bình luận #${activeReviewForReply.backendId} thành công!`
+      );
+      setIsReplyModalOpen(false);
+      setActiveReviewForReply(null);
+      setReplyText('');
+      await fetchReviews(true);
+    } catch (err) {
+      console.error('Lỗi khi lưu phản hồi bình luận:', err);
+      toast.error(
+        getFriendlyErrorMessage(err, 'Không thể gửi phản hồi bình luận lúc này.')
+      );
+    } finally {
+      setSavingReply(false);
+    }
   };
 
   const handleAddKeyword = (e) => {
@@ -255,6 +292,7 @@ export default function useComments() {
     setActiveReviewForReply,
     replyText,
     setReplyText,
+    savingReply,
     isEditModalOpen,
     setIsEditModalOpen,
     editingComment,
@@ -288,7 +326,6 @@ export default function useComments() {
     handleOpenReplyModal,
     handleSaveReply,
     handleAddKeyword,
-    handleRemoveKeyword
+    handleRemoveKeyword,
   };
 }
-

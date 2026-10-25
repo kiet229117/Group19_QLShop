@@ -44,6 +44,7 @@ const enrichUserData = (u, idx = 0) => {
     status: isActive ? 'Đang hoạt động' : 'Tạm khóa',
     statusType: isActive ? 'active' : 'blocked',
     active: isActive,
+    lockReason: u.lockReason || '',
     points: 0,
     pointValue: '0 đ',
     vouchers: 0,
@@ -53,6 +54,28 @@ const enrichUserData = (u, idx = 0) => {
     ordersList: [],
   };
 };
+
+// Phát tín hiệu khóa tài khoản sang các tab Client đang mở cùng trình duyệt
+function broadcastAccountLock(user, lockReason) {
+  try {
+    const reason =
+      (lockReason && lockReason.trim()) ||
+      'Vi phạm chính sách hoạt động của hệ thống.';
+    localStorage.setItem(
+      'qlshop_locked_notice',
+      JSON.stringify({
+        userId: user.id,
+        username: user.username,
+        email: user.email,
+        lockReason: reason,
+        message: `Tài khoản của bạn đã bị khóa do: ${reason}`,
+        timestamp: Date.now(),
+      })
+    );
+  } catch (e) {
+    console.warn('Không thể gửi thông báo khóa tài khoản qua storage:', e);
+  }
+}
 
 export default function useUser() {
   const [users, setUsers] = useState([]);
@@ -75,7 +98,9 @@ export default function useUser() {
         const enrichedList = data.map((u, idx) => enrichUserData(u, idx));
         setUsers(enrichedList);
         setSelectedUserId((prev) => {
-          if (prev && enrichedList.some((u) => u.id === prev)) return prev;
+          if (prev != null && enrichedList.some((u) => String(u.id) === String(prev))) {
+            return prev;
+          }
           return enrichedList[0]?.id || null;
         });
       } else {
@@ -95,8 +120,11 @@ export default function useUser() {
     fetchUsers(false);
   }, [fetchUsers]);
 
-  // Khách hàng đang được chọn xem hồ sơ chi tiết
-  const selectedUser = users.find((u) => u.id === selectedUserId) || users[0] || null;
+  // Khách hàng đang được chọn xem hồ sơ chi tiết (giữ đúng user theo ID, không tự nhảy sang Admin)
+  const selectedUser =
+    users.find((u) => String(u.id) === String(selectedUserId)) ||
+    users[0] ||
+    null;
 
   // 2. Tải đơn hàng thực tế của User đã chọn từ Database (GET /api/orders/user/{id})
   useEffect(() => {
@@ -163,7 +191,15 @@ export default function useUser() {
 
   // 4. Cập nhật thông tin khách hàng (PUT /api/users/{id})
   const updateUser = async (id, userData) => {
+    const target = users.find((u) => String(u.id) === String(id));
     const res = await userService.updateUser(id, userData);
+    setSelectedUserId(id);
+    if (userData.active === false && target) {
+      broadcastAccountLock(
+        { id, username: userData.username || target.username, email: userData.email || target.email },
+        userData.lockReason
+      );
+    }
     await fetchUsers(true);
     return res;
   };
@@ -175,20 +211,50 @@ export default function useUser() {
     await fetchUsers(true);
   };
 
-  // 6. Khóa / Mở khóa tài khoản khách hàng
-  const toggleStatus = async (id) => {
-    const target = users.find((u) => u.id === id);
+  // 6. Khóa / Mở khóa tài khoản khách hàng kèm lý do khóa
+  const toggleStatus = async (id, lockReason = '') => {
+    const target = users.find((u) => String(u.id) === String(id));
     if (!target) return;
     const newActive = target.active === false;
+    const reasonToSave = newActive
+      ? ''
+      : (lockReason && lockReason.trim()) ||
+        'Vi phạm chính sách hoạt động của hệ thống.';
+
+    // Cập nhật ngay trên UI để phản hồi tức thì
+    setUsers((prev) =>
+      prev.map((u) =>
+        String(u.id) === String(id)
+          ? {
+              ...u,
+              active: newActive,
+              status: newActive ? 'Đang hoạt động' : 'Tạm khóa',
+              statusType: newActive ? 'active' : 'blocked',
+              lockReason: reasonToSave,
+            }
+          : u
+      )
+    );
+
+    // Giữ nguyên focus vào tài khoản vừa khóa/mở khóa, không nhảy về tài khoản đầu tiên (Admin)
+    setSelectedUserId(id);
+
+    if (!newActive) {
+      broadcastAccountLock(target, reasonToSave);
+    }
+
     await userService.updateUser(id, {
       name: target.name,
       username: target.username,
       email: target.email,
-      phone: target.phone,
-      address: target.address,
-      role: target.role,
+      phone: target.phone === 'Chưa cập nhật' ? '' : target.phone,
+      address: target.address === 'Chưa cập nhật địa chỉ' ? '' : target.address,
+      gender: target.gender,
+      role: (target.role || 'USER').toLowerCase(),
       active: newActive,
+      lockReason: reasonToSave,
     });
+
     await fetchUsers(true);
   };
 

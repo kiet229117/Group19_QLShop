@@ -1,6 +1,8 @@
 package com.group19.QLShop.service;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 import lombok.RequiredArgsConstructor;
@@ -34,7 +36,6 @@ public class AuthService {
     private final JwtUtils jwtUtils;
     private final EmailService emailService;
 
-    // Lớp nội bộ để trả về cả Token (dùng set Cookie) và UserResponse
     public record AuthResult(String token, UserResponse userResponse) {}
 
     @Transactional
@@ -54,6 +55,8 @@ public class AuthService {
         user.setPhone(request.getPhone());
         user.setRole(Role.user);
         user.setActive(true);
+        user.setUnlockedVouchers("WELCOME50K");
+        user.setUsedVouchers("");
 
         User savedUser = userRepository.save(user);
 
@@ -61,14 +64,75 @@ public class AuthService {
         return new AuthResult(token, toUserResponse(savedUser));
     }
 
+    /**
+     * Kiểm tra nhanh phân quyền và trạng thái tài khoản ngay khi người dùng nhấp chọn ô Phân hệ trên trang Login
+     */
+    public Map<String, Object> checkAccountRole(String identifier) {
+        Map<String, Object> result = new HashMap<>();
+        if (identifier == null || identifier.trim().isEmpty()) {
+            result.put("exists", false);
+            return result;
+        }
+        String clean = identifier.trim();
+        User user = userRepository.findByUsername(clean)
+                .orElseGet(() -> userRepository.findByEmail(clean).orElse(null));
+
+        if (user == null) {
+            result.put("exists", false);
+            return result;
+        }
+
+        Role role = user.getRole() != null ? user.getRole() : Role.user;
+        boolean isAdminOrStaff = (role == Role.admin || role == Role.staff);
+        boolean isActive = !Boolean.FALSE.equals(user.getActive());
+
+        result.put("exists", true);
+        result.put("username", user.getUsername());
+        result.put("name", user.getName() != null ? user.getName() : user.getUsername());
+        result.put("role", role.name().toUpperCase());
+        result.put("isAdminOrStaff", isAdminOrStaff);
+        result.put("active", isActive);
+        result.put("lockReason", user.getLockReason() != null ? user.getLockReason() : "");
+        return result;
+    }
+
     public AuthResult login(LoginRequest request) {
+        String identifier = request.getUsernameOrEmail() != null ? request.getUsernameOrEmail().trim() : "";
+        User user = userRepository.findByUsername(identifier)
+                .orElseGet(() -> userRepository.findByEmail(identifier).orElse(null));
+
+        // 1. Kiểm tra trạng thái khóa tài khoản trước tiên để báo đúng lý do bị khóa cho Client
+        if (user != null && Boolean.FALSE.equals(user.getActive())) {
+            String reason = (user.getLockReason() != null && !user.getLockReason().isBlank())
+                    ? user.getLockReason()
+                    : "Vi phạm quy định hoạt động của hệ thống QLShop.";
+            throw new AppException("Tài khoản của bạn đã bị khóa do: " + reason);
+        }
+
+        // 2. Nếu người dùng chọn ô "Quản trị & Vận hành" (ADMIN) nhưng tài khoản là USER -> Báo lỗi phân quyền ngay
+        if (user != null && "ADMIN".equalsIgnoreCase(request.getRoleMode())) {
+            Role role = user.getRole() != null ? user.getRole() : Role.user;
+            if (role != Role.admin && role != Role.staff) {
+                throw new AppException("Tài khoản của bạn là Khách hàng (USER), không có quyền truy cập vào phân hệ Quản trị & Vận hành (ADMIN/STAFF)!");
+            }
+        }
+
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getUsernameOrEmail(), request.getPassword())
+                new UsernamePasswordAuthenticationToken(identifier, request.getPassword())
         );
 
-        User user = userRepository.findByUsername(request.getUsernameOrEmail())
-                .orElseGet(() -> userRepository.findByEmail(request.getUsernameOrEmail())
-                        .orElseThrow(() -> new AppException("Không tìm thấy User")));
+        if (user == null) {
+            user = userRepository.findByUsername(authentication.getName())
+                    .orElseThrow(() -> new AppException("Không tìm thấy User"));
+        }
+
+        // Kiểm tra lại một lần nữa sau khi xác thực mật khẩu
+        if ("ADMIN".equalsIgnoreCase(request.getRoleMode())) {
+            Role role = user.getRole() != null ? user.getRole() : Role.user;
+            if (role != Role.admin && role != Role.staff) {
+                throw new AppException("Tài khoản của bạn là Khách hàng (USER), không có quyền truy cập vào phân hệ Quản trị & Vận hành (ADMIN/STAFF)!");
+            }
+        }
 
         String token = jwtUtils.generateToken(user);
 
@@ -78,6 +142,14 @@ public class AuthService {
     public UserResponse getCurrentUser(String username) {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new AppException("Không tìm thấy người dùng hiện tại"));
+
+        if (Boolean.FALSE.equals(user.getActive())) {
+            String reason = (user.getLockReason() != null && !user.getLockReason().isBlank())
+                    ? user.getLockReason()
+                    : "Vi phạm quy định hoạt động của hệ thống QLShop.";
+            throw new AppException("Tài khoản của bạn đã bị khóa do: " + reason);
+        }
+
         return toUserResponse(user);
     }
 
@@ -99,11 +171,11 @@ public class AuthService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new AppException("Không tìm thấy tài khoản với email này"));
 
-        String token = UUID.randomUUID().toString().substring(0, 6).toUpperCase(); // Sinh mã 6 ký tự
-        
+        String token = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+
         user.setResetPasswordToken(token);
         user.setResetPasswordTokenExpiry(LocalDateTime.now().plusMinutes(15));
-        
+
         userRepository.save(user);
 
         emailService.sendResetPasswordEmail(user.getEmail(), token);
@@ -121,7 +193,7 @@ public class AuthService {
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         user.setResetPasswordToken(null);
         user.setResetPasswordTokenExpiry(null);
-        
+
         userRepository.save(user);
     }
 
@@ -138,6 +210,9 @@ public class AuthService {
                 .gender(user.getGender())
                 .address(user.getAddress())
                 .active(user.getActive())
+                .lockReason(user.getLockReason())
+                .unlockedVouchers(user.getUnlockedVouchers() != null ? user.getUnlockedVouchers() : "WELCOME50K")
+                .usedVouchers(user.getUsedVouchers() != null ? user.getUsedVouchers() : "")
                 .cartId(user.getCart() != null ? user.getCart().getId() : null)
                 .build();
     }

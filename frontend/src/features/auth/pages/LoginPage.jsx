@@ -1,25 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
   ShieldCheck,
+  ShieldAlert,
   Eye,
   EyeOff,
   Lock,
   Mail,
   User,
   ArrowRight,
-  Sparkles,
   ShoppingBag,
   RefreshCw,
   AlertCircle,
   CheckCircle2,
-  Check,
   Shirt,
   Layers,
   Zap,
-  Globe
+  KeyRound,
 } from 'lucide-react';
 import { useAuth, isStaffOrAdmin } from '../context/AuthContext';
+import authService from '../services/authService';
 import { toast } from '../../../components/common/Toast';
 import { getFriendlyErrorMessage } from '../../../utils/errorHandler';
 import ForgotPasswordModal from '../components/ForgotPasswordModal';
@@ -27,7 +27,7 @@ import ForgotPasswordModal from '../components/ForgotPasswordModal';
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  const { login, logout, user: currentLoggedUser } = useAuth();
 
   // Form states
   const [roleMode, setRoleMode] = useState('CLIENT'); // 'ADMIN' or 'CLIENT'
@@ -36,52 +36,266 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [checkingRole, setCheckingRole] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [roleWarning, setRoleWarning] = useState('');
+  const [roleVerifiedMsg, setRoleVerifiedMsg] = useState('');
   const [showForgotModal, setShowForgotModal] = useState(false);
 
-  // Xử lý gửi đăng nhập
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  // Hàm thực thi đăng nhập dùng chung cho cả Submit Form và khi nhấp trực tiếp vào 2 ô Phân hệ
+  const executeLogin = useCallback(
+    async (targetMode = roleMode, customIdentifier = usernameOrEmail, customPassword = password) => {
+      setErrorMessage('');
+      setSuccessMessage('');
+      setRoleWarning('');
+
+      const cleanIdentifier = customIdentifier.trim();
+      if (!cleanIdentifier) {
+        setErrorMessage('Vui lòng nhập Email hoặc Tên đăng nhập');
+        return;
+      }
+      if (!customPassword) {
+        setErrorMessage('Vui lòng nhập Mật khẩu truy cập');
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        // Nếu chọn ô Quản trị & Vận hành, kiểm tra nhanh quyền trước khi đăng nhập
+        if (targetMode === 'ADMIN') {
+          const roleCheck = await authService.checkRole(cleanIdentifier);
+          if (roleCheck?.exists && roleCheck.active === false) {
+            const lockedMsg = `Tài khoản của bạn đã bị khóa do: ${
+              roleCheck.lockReason || 'Vi phạm chính sách hoạt động của hệ thống.'
+            }`;
+            setErrorMessage(lockedMsg);
+            toast.error(lockedMsg);
+            setIsLoading(false);
+            return;
+          }
+          if (roleCheck?.exists && !roleCheck.isAdminOrStaff) {
+            const denyMsg = `Tài khoản "${
+              roleCheck.name || cleanIdentifier
+            }" là Khách hàng (USER), không có quyền truy cập vào phân hệ Quản trị & Vận hành (ADMIN / STAFF)!`;
+            setRoleWarning(denyMsg);
+            setErrorMessage(denyMsg);
+            setRoleMode('CLIENT');
+            toast.error(denyMsg);
+            setIsLoading(false);
+            return;
+          }
+        }
+
+        const result = await login(cleanIdentifier, customPassword, targetMode);
+        const loggedInUser = result?.user;
+
+        // Xác thực lại role trả về từ token/user
+        if (targetMode === 'ADMIN' && !isStaffOrAdmin(loggedInUser)) {
+          await logout();
+          const denyMsg =
+            'Tài khoản của bạn là Khách hàng (USER), không có quyền truy cập vào phân hệ Quản trị & Vận hành (ADMIN / STAFF)!';
+          setRoleWarning(denyMsg);
+          setErrorMessage(denyMsg);
+          setRoleMode('CLIENT');
+          toast.error(denyMsg);
+          return;
+        }
+
+        setSuccessMessage('Đăng nhập thành công! Đang chuyển hướng...');
+        toast.success(`Chào mừng ${loggedInUser?.name || 'bạn'} đã đăng nhập thành công!`);
+
+        setTimeout(() => {
+          if (targetMode === 'ADMIN' && isStaffOrAdmin(loggedInUser)) {
+            const fromLocation = location.state?.from;
+            const fromPath =
+              typeof fromLocation === 'string'
+                ? fromLocation
+                : fromLocation?.pathname
+                ? `${fromLocation.pathname}${fromLocation.search || ''}`
+                : '';
+            const adminRedirect =
+              fromPath && fromPath.startsWith('/admin') ? fromPath : '/admin/products';
+            navigate(adminRedirect, { replace: true });
+            return;
+          }
+
+          // Nếu đăng nhập ở phân hệ Khách hàng (hoặc mặc định), giữ nguyên trang khách đang đứng hoặc về /shop
+          const fromLocation = location.state?.from;
+          let redirectPath = '/shop';
+          if (typeof fromLocation === 'string' && fromLocation.trim()) {
+            redirectPath = fromLocation;
+          } else if (fromLocation && typeof fromLocation === 'object' && fromLocation.pathname) {
+            redirectPath = `${fromLocation.pathname}${fromLocation.search || ''}${
+              fromLocation.hash || ''
+            }`;
+          }
+          if (redirectPath === '/login' || redirectPath === '/register') {
+            redirectPath = '/shop';
+          }
+          navigate(redirectPath, { replace: true });
+        }, 500);
+      } catch (err) {
+        console.error('Login error:', err);
+        const friendlyMsg = getFriendlyErrorMessage(
+          err,
+          'Tên đăng nhập hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại!'
+        );
+        setErrorMessage(friendlyMsg);
+        toast.error(friendlyMsg);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [roleMode, usernameOrEmail, password, login, logout, location.state, navigate]
+  );
+
+  // Xử lý ngay lập tức khi người dùng nhấp vào 1 trong 2 ô Phân hệ ("Quản trị & Vận hành" hoặc "Khách hàng / Thành viên")
+  const handleSelectRoleBox = async (targetMode) => {
     setErrorMessage('');
     setSuccessMessage('');
+    setRoleWarning('');
+    setRoleVerifiedMsg('');
 
-    if (!usernameOrEmail.trim()) {
-      setErrorMessage('Vui lòng nhập Email hoặc Tên đăng nhập');
+    const cleanIdentifier = usernameOrEmail.trim();
+
+    if (targetMode === 'CLIENT') {
+      setRoleMode('CLIENT');
+      if (cleanIdentifier && password) {
+        await executeLogin('CLIENT', cleanIdentifier, password);
+      }
       return;
     }
-    if (!password) {
-      setErrorMessage('Vui lòng nhập Mật khẩu truy cập');
+
+    // Khi người dùng nhấp vào ô "Quản trị & Vận hành" (ADMIN)
+    setRoleMode('ADMIN');
+
+    // Trường hợp 1: Đã nhập Email/Username trong ô input -> kiểm tra quyền ngay lập tức
+    if (cleanIdentifier) {
+      setCheckingRole(true);
+      try {
+        const info = await authService.checkRole(cleanIdentifier);
+        if (!info?.exists) {
+          const notFoundMsg = `Không tìm thấy tài khoản "${cleanIdentifier}" trong hệ thống!`;
+          setRoleWarning(notFoundMsg);
+          toast.error(notFoundMsg);
+          return;
+        }
+
+        if (info.active === false) {
+          const lockedMsg = `Tài khoản của bạn đã bị khóa do: ${
+            info.lockReason || 'Vi phạm chính sách hoạt động của hệ thống.'
+          }`;
+          setRoleWarning(lockedMsg);
+          setErrorMessage(lockedMsg);
+          toast.error(lockedMsg);
+          return;
+        }
+
+        if (!info.isAdminOrStaff) {
+          // Là tài khoản USER nhưng click qua ô Admin -> Báo ngay lập tức và chuyển về ô Khách hàng!
+          const denyMsg = `Tài khoản "${
+            info.name || cleanIdentifier
+          }" là tài khoản Khách hàng (USER), không có quyền truy cập phân hệ Quản trị & Vận hành (ADMIN / STAFF)!`;
+          setRoleWarning(denyMsg);
+          setRoleMode('CLIENT');
+          toast.error(denyMsg);
+          return;
+        }
+
+        // Nếu đúng tài khoản ADMIN/STAFF:
+        if (password) {
+          // Đã nhập cả mật khẩu -> xác thực và cho vào trang Admin ngay lập tức!
+          await executeLogin('ADMIN', cleanIdentifier, password);
+        } else {
+          const okMsg = `Xác thực quyền thành công: Tài khoản "${
+            info.name || cleanIdentifier
+          }" thuộc nhóm ${info.role}. Vui lòng nhập mật khẩu để vào hệ thống Quản trị!`;
+          setRoleVerifiedMsg(okMsg);
+          toast.success(`Đã xác nhận tài khoản ${info.role}: ${info.name || cleanIdentifier}`);
+        }
+      } catch (err) {
+        console.warn('Không thể kiểm tra nhanh phân quyền:', err);
+      } finally {
+        setCheckingRole(false);
+      }
       return;
     }
 
-    setIsLoading(true);
-    try {
-      const result = await login(usernameOrEmail.trim(), password);
-      setSuccessMessage('Đăng nhập thành công! Đang chuyển hướng...');
-      toast.success(`Chào mừng ${result?.user?.name || 'bạn'} đã đăng nhập thành công!`);
-
-      // Chuyển hướng theo role hoặc trang trước đó
-      setTimeout(() => {
-        const user = result?.user;
-        const isPrivileged = isStaffOrAdmin(user) || roleMode === 'ADMIN';
-        const redirectPath =
-          location.state?.from?.pathname ||
-          (isPrivileged ? '/admin/products' : '/');
-        navigate(redirectPath, { replace: true });
-      }, 600);
-    } catch (err) {
-      console.error('Login error:', err);
-      const friendlyMsg = getFriendlyErrorMessage(err, 'Tên đăng nhập hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại!');
-      setErrorMessage(friendlyMsg);
-      toast.error(friendlyMsg);
-    } finally {
-      setIsLoading(false);
+    // Trường hợp 2: Chưa nhập ô input nhưng đang có phiên đăng nhập sẵn trên trình duyệt
+    if (currentLoggedUser) {
+      if (isStaffOrAdmin(currentLoggedUser)) {
+        toast.success(`Xin chào Quản trị viên ${currentLoggedUser.name}! Đang vào trang Quản trị...`);
+        navigate('/admin/products', { replace: true });
+        return;
+      } else {
+        const denyCurrentMsg = `Tài khoản đang đăng nhập (${
+          currentLoggedUser.name || currentLoggedUser.username
+        }) là Khách hàng (USER), không có quyền truy cập phân hệ Quản trị & Vận hành!`;
+        setRoleWarning(denyCurrentMsg);
+        setRoleMode('CLIENT');
+        toast.error(denyCurrentMsg);
+        return;
+      }
     }
+  };
+
+  // Tự động kiểm tra ngay khi người dùng đang chọn ô "Quản trị & Vận hành" và gõ/nhập tài khoản USER vào ô input
+  useEffect(() => {
+    const cleanIdentifier = usernameOrEmail.trim();
+    if (roleMode !== 'ADMIN' || !cleanIdentifier || cleanIdentifier.length < 3) {
+      setRoleVerifiedMsg('');
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        const info = await authService.checkRole(cleanIdentifier);
+        if (!info?.exists) {
+          setRoleVerifiedMsg('');
+          return;
+        }
+        if (info.active === false) {
+          const lockedMsg = `Tài khoản của bạn đã bị khóa do: ${
+            info.lockReason || 'Vi phạm chính sách hoạt động của hệ thống.'
+          }`;
+          setRoleWarning(lockedMsg);
+          setRoleVerifiedMsg('');
+          return;
+        }
+        if (!info.isAdminOrStaff) {
+          const denyMsg = `Tài khoản "${
+            info.name || cleanIdentifier
+          }" là tài khoản Khách hàng (USER), không có quyền truy cập phân hệ Quản trị & Vận hành (ADMIN / STAFF)!`;
+          setRoleWarning(denyMsg);
+          setRoleVerifiedMsg('');
+          setRoleMode('CLIENT');
+          toast.error(denyMsg);
+        } else {
+          setRoleWarning('');
+          setRoleVerifiedMsg(
+            `Tài khoản hợp lệ (${info.role}: ${info.name || cleanIdentifier}) — Được phép truy cập Quản trị & Vận hành.`
+          );
+        }
+      } catch {
+        // Bỏ qua lỗi mạng tạm thời khi đang gõ
+      }
+    }, 450);
+
+    return () => clearTimeout(timer);
+  }, [usernameOrEmail, roleMode]);
+
+  // Xử lý gửi đăng nhập từ nút Submit
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    await executeLogin(roleMode, usernameOrEmail, password);
   };
 
   // Nạp nhanh tài khoản demo tiện lợi khi kiểm thử
   const fillQuickDemo = (type) => {
+    setErrorMessage('');
+    setRoleWarning('');
+    setRoleVerifiedMsg('');
     if (type === 'admin') {
       setRoleMode('ADMIN');
       setUsernameOrEmail('admin@novacommerce.vn');
@@ -97,7 +311,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#f3f5f7] flex flex-col justify-between text-slate-800">
       {/* Top Header Bar */}
       <header className="px-6 py-3.5 bg-white border-b border-gray-200/80 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <Link to="/shop" className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-black text-sm shadow-xs">
             QL
           </div>
@@ -107,7 +321,7 @@ export default function LoginPage() {
               Fashion IAM Portal
             </span>
           </div>
-        </div>
+        </Link>
 
         <div className="flex items-center gap-4 text-xs font-semibold text-gray-500">
           <a href="#" className="hover:text-emerald-700 transition flex items-center gap-1">
@@ -256,7 +470,7 @@ export default function LoginPage() {
                 </span>
               </div>
 
-              {/* Tab Switch: Đăng nhập vs Đăng ký */}
+              {/* Tab Switch: Đăng nhập vs Đăng ký vs Quên mật khẩu */}
               <div className="mt-6 flex border-b border-gray-200">
                 <button
                   type="button"
@@ -272,17 +486,33 @@ export default function LoginPage() {
                   <User className="w-3.5 h-3.5" />
                   <span>Đăng ký tài khoản</span>
                 </Link>
+                <Link
+                  to="/forgot-password"
+                  className="pb-2.5 px-4 font-semibold text-xs text-gray-500 hover:text-slate-900 transition flex items-center gap-1.5"
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                  <span>Quên mật khẩu</span>
+                </Link>
               </div>
 
-              {/* Sub-Target Selector Tabs (Quản trị & Bán hàng vs Khách hàng) */}
+              {/* Sub-Target Selector Tabs (Quản trị & Vận hành vs Khách hàng) */}
               <div className="mt-4">
-                <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
-                  PHÂN HỆ TRUY CẬP HỆ THỐNG
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                    PHÂN HỆ TRUY CẬP HỆ THỐNG
+                  </span>
+                  {checkingRole && (
+                    <span className="text-[10px] font-semibold text-emerald-700 flex items-center gap-1">
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                      Đang kiểm tra phân quyền...
+                    </span>
+                  )}
                 </div>
+
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => setRoleMode('ADMIN')}
+                    onClick={() => handleSelectRoleBox('ADMIN')}
                     className={`p-2.5 rounded-xl border text-left transition ${
                       roleMode === 'ADMIN'
                         ? 'border-emerald-600 bg-emerald-50/60 ring-1 ring-emerald-500/20'
@@ -304,7 +534,7 @@ export default function LoginPage() {
 
                   <button
                     type="button"
-                    onClick={() => setRoleMode('CLIENT')}
+                    onClick={() => handleSelectRoleBox('CLIENT')}
                     className={`p-2.5 rounded-xl border text-left transition ${
                       roleMode === 'CLIENT'
                         ? 'border-emerald-600 bg-emerald-50/60 ring-1 ring-emerald-500/20'
@@ -324,20 +554,39 @@ export default function LoginPage() {
                     </div>
                   </button>
                 </div>
+
+                {/* Cảnh báo ngay tại chỗ khi tài khoản USER nhấp vào ô Quản trị & Vận hành */}
+                {roleWarning && (
+                  <div className="mt-2.5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-start gap-2 animate-in fade-in duration-150">
+                    <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    <div className="leading-relaxed">
+                      <span className="font-bold">Từ chối truy cập Quản trị: </span>
+                      <span>{roleWarning}</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Thông báo xác thực quyền ADMIN/STAFF hợp lệ ngay tại chỗ */}
+                {roleVerifiedMsg && !roleWarning && (
+                  <div className="mt-2.5 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-start gap-2 animate-in fade-in duration-150">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <span className="font-medium leading-relaxed">{roleVerifiedMsg}</span>
+                  </div>
+                )}
               </div>
 
               {/* Redirect Notice if requested protected page */}
-              {location.state?.from && !errorMessage && (
+              {location.state?.from && !errorMessage && !roleWarning && (
                 <div className="mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2">
                   <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold">Yêu cầu xác thực:</span> Vui lòng đăng nhập tài khoản để truy cập Phân hệ Quản trị (Admin Portal).
+                    <span className="font-bold">Yêu cầu xác thực:</span> Vui lòng đăng nhập tài khoản để tiếp tục thao tác của bạn.
                   </div>
                 </div>
               )}
 
               {/* Alert Notifications */}
-              {errorMessage && (
+              {errorMessage && !roleWarning && (
                 <div className="mt-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-start gap-2">
                   <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                   <span>{errorMessage}</span>
@@ -363,7 +612,11 @@ export default function LoginPage() {
                       type="text"
                       required
                       value={usernameOrEmail}
-                      onChange={(e) => setUsernameOrEmail(e.target.value)}
+                      onChange={(e) => {
+                        setUsernameOrEmail(e.target.value);
+                        if (roleWarning) setRoleWarning('');
+                        if (errorMessage) setErrorMessage('');
+                      }}
                       placeholder="admin@novacommerce.vn hoặc username..."
                       className="w-full text-xs pl-9 pr-3 py-2.5 border border-gray-300 rounded-xl focus:outline-emerald-600 font-medium text-slate-800 shadow-2xs"
                     />
@@ -377,16 +630,12 @@ export default function LoginPage() {
                     <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider text-[11px]">
                       MẬT KHẨU TRUY CẬP *
                     </label>
-                    <a
-                      href="#"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        alert('Tính năng khôi phục mật khẩu qua Email đã được kích hoạt trong backend API /auth/forgot-password.');
-                      }}
-                      className="text-[11px] text-emerald-700 hover:text-emerald-800 font-bold"
+                    <Link
+                      to="/forgot-password"
+                      className="text-[11px] text-emerald-700 hover:text-emerald-800 font-bold hover:underline"
                     >
                       Quên mật khẩu?
-                    </a>
+                    </Link>
                   </div>
                   <div className="relative">
                     <input
@@ -435,7 +684,11 @@ export default function LoginPage() {
                     </>
                   ) : (
                     <>
-                      <span>Đăng nhập vào hệ thống</span>
+                      <span>
+                        {roleMode === 'ADMIN'
+                          ? 'Đăng nhập Phân hệ Quản trị'
+                          : 'Đăng nhập vào hệ thống'}
+                      </span>
                       <ArrowRight className="w-4 h-4" />
                     </>
                   )}
@@ -527,4 +780,3 @@ export default function LoginPage() {
     </div>
   );
 }
-

@@ -22,7 +22,9 @@ public class UserResponse {
     private String avatar;
     private Role role;
     private Boolean active;
+    private String lockReason;
+    private String unlockedVouchers;
+    private String usedVouchers;
     private Double ratingAvg;
     private Long cartId;
 }
-

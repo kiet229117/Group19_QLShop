@@ -11,6 +11,8 @@ public class CommentRequest {
     @NotNull(message = "ProductId không được để trống")
     private Long productId;
 
+    private Long parentId;
+
     @NotBlank(message = "Nội dung bình luận không được để trống")
     private String content;
 }

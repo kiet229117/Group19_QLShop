@@ -56,6 +56,7 @@ export default function CommentsPage() {
     setActiveReviewForReply,
     replyText,
     setReplyText,
+    savingReply,
     isEditModalOpen,
     setIsEditModalOpen,
     editingComment,
@@ -354,6 +355,9 @@ export default function CommentsPage() {
                         </span>
                         <span className="font-bold text-slate-900">{rev.officialReply.author}</span>
                       </div>
+                      {rev.officialReply.timeAgo && (
+                        <span className="text-[10px] text-gray-500">{rev.officialReply.timeAgo}</span>
+                      )}
                     </div>
                     <p className="text-xs text-slate-700 leading-relaxed">
                       "{rev.officialReply.content}"
@@ -672,10 +676,21 @@ export default function CommentsPage() {
               </button>
               <button
                 type="button"
+                disabled={savingReply}
                 onClick={handleSaveReply}
-                className="px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 font-bold text-xs text-white shadow-2xs"
+                className="px-4 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 font-bold text-xs text-white shadow-2xs flex items-center gap-1.5 disabled:opacity-50"
               >
-                Lưu phản hồi
+                {savingReply ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Đang lưu...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Lưu phản hồi</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

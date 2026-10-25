@@ -1,5 +1,6 @@
 package com.group19.QLShop.controller;
 
+import java.util.Map;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -25,6 +26,14 @@ public class AuthController {
 
     private final AuthService authService;
     private final JwtUtils jwtUtils;
+
+    // ==========================================
+    // 0. KIỂM TRA NHANH QUYỀN TÀI KHOẢN TRÊN TRANG ĐĂNG NHẬP
+    // ==========================================
+    @GetMapping("/check-role")
+    public ResponseEntity<Map<String, Object>> checkRole(@RequestParam("identifier") String identifier) {
+        return ResponseEntity.ok(authService.checkAccountRole(identifier));
+    }
 
     // ==========================================
     // 1. ĐĂNG KÝ TÀI KHOẢN (Gắn Cookie HttpOnly)
@@ -125,6 +134,4 @@ public class AuthController {
         authService.resetPassword(request);
         return ResponseEntity.ok("Đặt lại mật khẩu thành công");
     }
-
-    
 }

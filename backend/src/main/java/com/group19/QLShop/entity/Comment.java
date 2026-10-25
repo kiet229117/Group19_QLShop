@@ -21,8 +21,20 @@ public class Comment {
     @Column(name = "product_id", nullable = false)
     private Long productId;
 
+    @Column(name = "parent_id")
+    private Long parentId;
+
     @Column(columnDefinition = "TEXT")
     private String content;
+
+    @Column(name = "reply_content", columnDefinition = "TEXT")
+    private String replyContent;
+
+    @Column(name = "reply_author")
+    private String replyAuthor;
+
+    @Column(name = "replied_at")
+    private LocalDateTime repliedAt;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;

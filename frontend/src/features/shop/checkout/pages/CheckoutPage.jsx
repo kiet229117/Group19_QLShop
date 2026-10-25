@@ -1,6 +1,4 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../../../auth/context/AuthContext';
-import { toast } from '../../../../components/common/Toast';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShoppingBag } from 'lucide-react';
 import ProductBreadcrumb from '../../../../components/shop/common/ProductBreadcrumb';
@@ -45,12 +43,19 @@ function validateCheckoutForm(values) {
 
 /**
  * Trang Thanh toán (`/shop/checkout`).
- * Bố cục 2 cột trên desktop, 1 cột trên mobile, có kiểm tra validation frontend
- * và tạo đơn hàng mô phỏng trong state cục bộ khi hợp lệ.
+ * Chỉ hiển thị các Voucher mà khách hàng đang sở hữu và tự động tặng Voucher mới sau khi đặt hàng.
  */
 export default function CheckoutPage() {
   const navigate = useNavigate();
-  const { cartItems, cartSummary, profile, placeOrder } = useShopState();
+  const {
+    cartItems,
+    cartSummary,
+    vouchers,
+    appliedVoucherCode,
+    applyVoucher,
+    profile,
+    placeOrder,
+  } = useShopState();
 
   const checkoutItems =
     cartSummary.selectedItems.length > 0 ? cartSummary.selectedItems : cartItems;
@@ -152,7 +157,13 @@ export default function CheckoutPage() {
         </div>
 
         <div className="lg:col-span-5">
-          <CheckoutSummary items={checkoutItems} summary={cartSummary} />
+          <CheckoutSummary
+            items={checkoutItems}
+            summary={cartSummary}
+            vouchers={vouchers}
+            appliedVoucherCode={appliedVoucherCode}
+            onApplyVoucher={applyVoucher}
+          />
         </div>
       </form>
     </div>

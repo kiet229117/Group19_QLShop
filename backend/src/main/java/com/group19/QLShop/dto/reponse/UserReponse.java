@@ -7,10 +7,10 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-@Data 
-@Builder                  
-@NoArgsConstructor       
-@AllArgsConstructor      
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class UserReponse {
     private Long id;
     private String name;
@@ -22,5 +22,8 @@ public class UserReponse {
     private String avatar;
     private Role role;
     private Boolean active;
+    private String lockReason;
+    private String unlockedVouchers;
+    private String usedVouchers;
     private Long cartId;
 }

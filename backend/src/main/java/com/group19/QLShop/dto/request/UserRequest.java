@@ -34,4 +34,5 @@ public class UserRequest {
 
     private String role;
     private Boolean active;
+    private String lockReason;
 }
