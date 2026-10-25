@@ -1,3 +1,4 @@
+import { shopRoutes } from './features/shop/shopRoutes';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import AdminLayout from './components/layout/AdminLayout';
 import ClientLayout from './components/layout/ClientLayout';
@@ -21,7 +22,6 @@ import ChatsPage from './features/admin-chats/pages/ChatsPage';
 import BannersPage from './features/admin-banners/pages/BannersPage';
 import CommentsPage from './features/admin-comments/pages/CommentsPage';
 import SettingsPage from './features/admin-settings/pages/SettingsPage';
-
 // Client Placeholder / Trang chủ người dùng
 function ClientHome() {
   return (
@@ -60,10 +60,8 @@ function App() {
             {/* =========================================================================
                 2. GIAO DIỆN KHÁCH HÀNG (CLIENT STOREFRONT)
                 ========================================================================= */}
-            <Route path="/" element={<ClientLayout />}>
-              <Route index element={<ClientHome />} />
-            </Route>
-
+<Route path="/" element={<Navigate to="/shop" replace />} />
+            {shopRoutes}
             {/* =========================================================================
                 3. GIAO DIỆN QUẢN TRỊ VIÊN (ADMIN PORTAL) - YÊU CẦU ĐĂNG NHẬP
                 ========================================================================= */}
