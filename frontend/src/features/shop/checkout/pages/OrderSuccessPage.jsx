@@ -6,8 +6,7 @@ import { formatCurrency } from '../../shared/utils/formatters';
 import { shopPaths } from '../../shopPaths';
 
 /**
- * Trang Xác nhận đặt hàng mô phỏng (`/shop/checkout/success`).
- * Hiển thị rõ đây là kết quả mô phỏng trên giao diện kèm mã đơn mẫu vừa tạo.
+ * Trang Xác nhận đặt hàng thành công (`/shop/checkout/success`).
  */
 export default function OrderSuccessPage() {
   const [searchParams] = useSearchParams();
@@ -15,7 +14,7 @@ export default function OrderSuccessPage() {
   const { orders } = useShopState();
 
   const order =
-    orders.find((o) => String(o.id) === String(orderId)) || orders[0] || null;
+    orders.find((o) => String(o.id) === String(orderId) || String(o.code) === String(orderId)) || orders[0] || null;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
@@ -24,23 +23,23 @@ export default function OrderSuccessPage() {
           <CheckCircle2 className="h-10 w-10" aria-hidden="true" />
         </div>
 
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3.5 py-1 text-xs font-bold text-amber-800 ring-1 ring-amber-200">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3.5 py-1 text-xs font-bold text-emerald-800 ring-1 ring-emerald-200">
           <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-          Kết quả đặt hàng mô phỏng trên giao diện
+          Đơn hàng đã được xác nhận thành công
         </span>
 
         <h1 className="mt-4 text-2xl font-black tracking-tight text-zinc-900 sm:text-3xl">
-          Đặt hàng mô phỏng thành công!
+          Cảm ơn bạn đã đặt hàng!
         </h1>
         <p className="mx-auto mt-2 max-w-lg text-sm leading-relaxed text-zinc-500">
-          Đơn hàng mẫu đã được lưu vào trạng thái giao diện của phiên làm việc hiện tại (không gửi dữ liệu lên Backend hay thực hiện giao dịch thật).
+          Đơn hàng của bạn đã được ghi nhận vào hệ thống QLShop. Chúng tôi sẽ nhanh chóng chuẩn bị hàng và giao đến bạn.
         </p>
 
         {order && (
           <div className="mt-8 rounded-2xl border border-zinc-200/80 bg-zinc-50/70 p-5 text-left text-sm">
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <p className="text-xs text-zinc-400">Mã đơn hàng mẫu</p>
+                <p className="text-xs text-zinc-400">Mã đơn hàng</p>
                 <p className="font-black text-zinc-900">#{order.code || order.id}</p>
               </div>
               <div>

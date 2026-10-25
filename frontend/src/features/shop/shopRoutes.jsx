@@ -13,6 +13,7 @@ import OrderSuccessPage from './checkout/pages/OrderSuccessPage';
 import OrdersPage from './orders/pages/OrdersPage';
 import OrderDetailPage from './orders/pages/OrderDetailPage';
 import ProfilePage from './users/pages/ProfilePage';
+import WishlistPage from './wishlist/pages/WishlistPage';
 import { SHOP_BASE_PATH } from './shopPaths';
 
 /**
@@ -33,6 +34,7 @@ export const shopRoutes = (
     <Route path="checkout/success" element={<OrderSuccessPage />} />
     <Route path="orders" element={<OrdersPage />} />
     <Route path="orders/:id" element={<OrderDetailPage />} />
+    <Route path="wishlist" element={<WishlistPage />} />
     <Route path="profile" element={<ProfilePage />} />
     <Route path="*" element={<Navigate to={SHOP_BASE_PATH} replace />} />
   </Route>

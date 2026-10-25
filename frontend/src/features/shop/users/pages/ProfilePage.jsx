@@ -1,39 +1,46 @@
 import { useState } from 'react';
-import { MapPin, Plus, CheckCircle2, Sparkles } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { MapPin, Plus, CheckCircle2, Lock, LogIn, KeyRound, RefreshCw, AlertCircle } from 'lucide-react';
 import ProductBreadcrumb from '../../../../components/shop/common/ProductBreadcrumb';
 import ShopButton from '../../../../components/shop/common/ShopButton';
 import ShopInput from '../../../../components/shop/common/ShopInput';
 import { useShopState } from '../../shared/context/ShopStateContext';
+import { useAuth } from '../../../auth/context/AuthContext';
+import { toast } from '../../../../components/common/Toast';
 import ProfileSidebar from '../components/ProfileSidebar';
 import ProfileForm from '../components/ProfileForm';
 
 /**
  * Trang Hồ sơ cá nhân (`/shop/profile`).
- * Không yêu cầu đăng nhập thật và không gọi API.
+ * Kết nối xác thực thật và đồng bộ API Authentication
  */
 export default function ProfilePage() {
-  const {
-    profile,
-    orders,
-    updateProfileSimulated,
-    demoSignedIn,
-    setDemoSignedIn,
-  } = useShopState();
+  const { profile, orders, updateProfileSimulated } = useShopState();
+  const { isAuthenticated, logout, changePassword } = useAuth();
+  const location = useLocation();
 
   const [activeSection, setActiveSection] = useState('info');
-  const [signOutNotice, setSignOutNotice] = useState('');
   const [addingAddress, setAddingAddress] = useState(false);
   const [newAddressLabel, setNewAddressLabel] = useState('Địa chỉ mới');
   const [newAddressText, setNewAddressText] = useState('');
 
-  const handleToggleSignOut = () => {
-    const next = !demoSignedIn;
-    setDemoSignedIn(next);
-    setSignOutNotice(
-      next
-        ? 'Đã bật lại trạng thái tài khoản mẫu trên giao diện.'
-        : 'Bạn vừa thực hiện Đăng xuất mô phỏng trên giao diện (không gọi API Backend).'
-    );
+  // State đổi mật khẩu
+  const [pwdData, setPwdData] = useState({
+    oldPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [pwdError, setPwdError] = useState('');
+  const [pwdSuccess, setPwdSuccess] = useState('');
+
+  const handleSignOut = async () => {
+    try {
+      await logout();
+      toast.success('Đã đăng xuất tài khoản thành công.');
+    } catch {
+      toast.error('Có lỗi khi đăng xuất');
+    }
   };
 
   const handleSetDefaultAddress = (addr) => {
@@ -63,16 +70,68 @@ export default function ProfilePage() {
     });
     setNewAddressText('');
     setAddingAddress(false);
+    toast.success('Đã lưu địa chỉ giao hàng mới!');
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setPwdError('');
+    setPwdSuccess('');
+
+    if (!pwdData.oldPassword) {
+      setPwdError('Vui lòng nhập mật khẩu hiện tại.');
+      return;
+    }
+    if (pwdData.newPassword.length < 6) {
+      setPwdError('Mật khẩu mới phải có ít nhất 6 ký tự.');
+      return;
+    }
+    if (pwdData.newPassword !== pwdData.confirmPassword) {
+      setPwdError('Mật khẩu xác nhận không khớp.');
+      return;
+    }
+
+    setPwdLoading(true);
+    try {
+      await changePassword({
+        oldPassword: pwdData.oldPassword,
+        newPassword: pwdData.newPassword,
+      });
+      setPwdSuccess('Đổi mật khẩu thành công!');
+      toast.success('Đổi mật khẩu tài khoản thành công!');
+      setPwdData({ oldPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err) {
+      console.error('Change password error:', err);
+      const msg = err.response?.data?.message || err.response?.data || 'Mật khẩu cũ không chính xác. Vui lòng kiểm tra lại!';
+      setPwdError(typeof msg === 'string' ? msg : 'Lỗi khi đổi mật khẩu');
+      toast.error('Đổi mật khẩu thất bại');
+    } finally {
+      setPwdLoading(false);
+    }
   };
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 px-4 py-8 sm:px-6">
       <ProductBreadcrumb items={[{ label: 'Hồ sơ cá nhân' }]} />
 
-      {signOutNotice && (
-        <div className="flex items-center gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold text-amber-900">
-          <Sparkles className="h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
-          <span>{signOutNotice}</span>
+      {!isAuthenticated && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 rounded-3xl border border-emerald-200 bg-emerald-50/70 p-6 shadow-xs">
+          <div className="space-y-1 text-center sm:text-left">
+            <h3 className="text-base font-bold text-emerald-900">
+              Bạn chưa đăng nhập tài khoản QLShop
+            </h3>
+            <p className="text-xs text-emerald-700">
+              Đăng nhập để xem lịch sử đơn hàng thực tế, lưu danh sách yêu thích và bảo mật tài khoản.
+            </p>
+          </div>
+          <Link
+            to="/login"
+            state={{ from: location }}
+            className="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-5 py-2.5 text-xs font-bold text-white transition hover:bg-emerald-600 shadow-xs"
+          >
+            <LogIn className="h-4 w-4" />
+            Đăng nhập ngay
+          </Link>
         </div>
       )}
 
@@ -82,17 +141,18 @@ export default function ProfilePage() {
             profile={profile}
             activeSection={activeSection}
             ordersCount={orders.length}
-            demoSignedIn={demoSignedIn}
+            demoSignedIn={isAuthenticated}
             onSelectSection={setActiveSection}
-            onToggleDemoSignOut={handleToggleSignOut}
+            onToggleDemoSignOut={handleSignOut}
           />
         </div>
 
         <div className="space-y-6 lg:col-span-8">
-          {activeSection === 'info' ? (
+          {activeSection === 'info' && (
             <ProfileForm profile={profile} onSave={updateProfileSimulated} />
-          ) : (
-            /* Quản lý sổ địa chỉ giao hàng cục bộ */
+          )}
+
+          {activeSection === 'addresses' && (
             <div className="space-y-6 rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-xs sm:p-8">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-100 pb-5">
                 <div>
@@ -140,7 +200,7 @@ export default function ProfilePage() {
                       Hủy
                     </ShopButton>
                     <ShopButton type="submit" variant="primary" size="sm">
-                      Lưu địa chỉ (Mô phỏng)
+                      Lưu địa chỉ
                     </ShopButton>
                   </div>
                 </form>
@@ -187,6 +247,95 @@ export default function ProfilePage() {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {activeSection === 'password' && (
+            <div className="space-y-6 rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-xs sm:p-8">
+              <div className="border-b border-zinc-100 pb-5">
+                <div className="flex items-center gap-2.5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                    <KeyRound className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black tracking-tight text-zinc-900">
+                      Đổi mật khẩu tài khoản
+                    </h2>
+                    <p className="text-xs text-zinc-500">
+                      Cập nhật mật khẩu định kỳ để bảo vệ tài khoản và đơn hàng của bạn.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {pwdError && (
+                <div className="flex items-start gap-2 rounded-xl bg-rose-50 p-3.5 text-xs text-rose-800 border border-rose-200">
+                  <AlertCircle className="h-4 w-4 text-rose-600 shrink-0 mt-0.5" />
+                  <span>{pwdError}</span>
+                </div>
+              )}
+
+              {pwdSuccess && (
+                <div className="flex items-start gap-2 rounded-xl bg-emerald-50 p-3.5 text-xs text-emerald-800 border border-emerald-200">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <span>{pwdSuccess}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleChangePassword} className="space-y-4 max-w-lg">
+                <ShopInput
+                  type="password"
+                  label="Mật khẩu hiện tại (*)"
+                  icon={Lock}
+                  placeholder="Nhập mật khẩu đang sử dụng..."
+                  value={pwdData.oldPassword}
+                  onChange={(e) => setPwdData({ ...pwdData, oldPassword: e.target.value })}
+                  required
+                />
+
+                <ShopInput
+                  type="password"
+                  label="Mật khẩu mới (tối thiểu 6 ký tự) (*)"
+                  icon={Lock}
+                  placeholder="Nhập mật khẩu mới..."
+                  value={pwdData.newPassword}
+                  onChange={(e) => setPwdData({ ...pwdData, newPassword: e.target.value })}
+                  required
+                  minLength={6}
+                />
+
+                <ShopInput
+                  type="password"
+                  label="Xác nhận mật khẩu mới (*)"
+                  icon={Lock}
+                  placeholder="Nhập lại mật khẩu mới..."
+                  value={pwdData.confirmPassword}
+                  onChange={(e) => setPwdData({ ...pwdData, confirmPassword: e.target.value })}
+                  required
+                  minLength={6}
+                />
+
+                <div className="pt-2">
+                  <ShopButton
+                    type="submit"
+                    variant="primary"
+                    disabled={pwdLoading}
+                    className="inline-flex items-center gap-2"
+                  >
+                    {pwdLoading ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                        <span>Đang cập nhật...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="h-4 w-4" />
+                        <span>Cập nhật mật khẩu</span>
+                      </>
+                    )}
+                  </ShopButton>
+                </div>
+              </form>
             </div>
           )}
         </div>

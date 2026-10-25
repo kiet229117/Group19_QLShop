@@ -24,6 +24,7 @@ export const shopPaths = {
     withBase(`/checkout/success${orderId ? `?orderId=${encodeURIComponent(orderId)}` : ''}`),
   orders: () => withBase('/orders'),
   orderDetail: (id) => withBase(`/orders/${encodeURIComponent(id)}`),
+  wishlist: () => withBase('/wishlist'),
   profile: (tab) => withBase(`/profile${tab ? `?tab=${encodeURIComponent(tab)}` : ''}`),
 };
 

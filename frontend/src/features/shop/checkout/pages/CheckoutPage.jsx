@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '../../../auth/context/AuthContext';
+import { toast } from '../../../../components/common/Toast';
 import { useNavigate } from 'react-router-dom';
 import { ShoppingBag } from 'lucide-react';
 import ProductBreadcrumb from '../../../../components/shop/common/ProductBreadcrumb';
@@ -48,7 +50,7 @@ function validateCheckoutForm(values) {
  */
 export default function CheckoutPage() {
   const navigate = useNavigate();
-  const { cartItems, cartSummary, profile, placeSimulatedOrder } = useShopState();
+  const { cartItems, cartSummary, profile, placeOrder } = useShopState();
 
   const checkoutItems =
     cartSummary.selectedItems.length > 0 ? cartSummary.selectedItems : cartItems;
@@ -80,7 +82,7 @@ export default function CheckoutPage() {
     setErrors({});
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const validationErrors = validateCheckoutForm(formValues);
     if (Object.keys(validationErrors).length > 0) {
@@ -88,7 +90,7 @@ export default function CheckoutPage() {
       return;
     }
 
-    const createdOrder = placeSimulatedOrder({
+    const createdOrder = await placeOrder({
       ...formValues,
       paymentMethod,
     });

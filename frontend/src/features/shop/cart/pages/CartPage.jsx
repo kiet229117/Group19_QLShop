@@ -5,6 +5,8 @@ import ProductBreadcrumb from '../../../../components/shop/common/ProductBreadcr
 import ShopButton from '../../../../components/shop/common/ShopButton';
 import ConfirmDialog from '../../../../components/shop/common/ConfirmDialog';
 import { useShopState } from '../../shared/context/ShopStateContext';
+import { useAuth } from '../../../auth/context/AuthContext';
+import { toast } from '../../../../components/common/Toast';
 import { shopPaths } from '../../shopPaths';
 import CartItem from '../components/CartItem';
 import CartSummary from '../components/CartSummary';
@@ -17,6 +19,7 @@ import EmptyCart from '../components/EmptyCart';
  */
 export default function CartPage() {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const {
     cartItems,
     cartSummary,
@@ -111,7 +114,14 @@ export default function CartPage() {
               vouchers={vouchers}
               appliedVoucherCode={appliedVoucherCode}
               onApplyVoucher={applyVoucher}
-              onProceedCheckout={() => navigate(shopPaths.checkout())}
+              onProceedCheckout={() => {
+                if (!isAuthenticated) {
+                  toast.warning('Vui lòng đăng nhập để tiến hành thanh toán!');
+                  navigate('/login', { state: { from: { pathname: shopPaths.checkout() } } });
+                  return;
+                }
+                navigate(shopPaths.checkout());
+              }}
             />
           </div>
         </div>

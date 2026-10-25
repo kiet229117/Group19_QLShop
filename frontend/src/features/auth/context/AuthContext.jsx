@@ -49,6 +49,8 @@ function formatUserData(rawUser, token) {
     id: rawUser?.id || decoded?.id,
     username: rawUser?.username || decoded?.sub,
     email: rawUser?.email || decoded?.email,
+    name: rawUser?.name || rawUser?.fullname || decoded?.sub || 'Người dùng',
+    fullname: rawUser?.fullname || rawUser?.name || decoded?.sub || 'Người dùng',
     role, // Luôn chuẩn hóa thành 'ADMIN' | 'STAFF' | 'USER'
     backendRole: rawRole, // Giữ nguyên giá trị gốc từ enum backend ('admin', 'staff', 'user')
   };
@@ -69,7 +71,7 @@ export function AuthProvider({ children }) {
   });
   const [loading, setLoading] = useState(true);
 
-  // Khởi động: Kiểm tra phiên đăng nhập từ backend
+  // Khởi động: Kiểm tra phiên đăng nhập từ backend qua GET /api/auth/me
   useEffect(() => {
     async function verifySession() {
       try {
@@ -126,7 +128,7 @@ export function AuthProvider({ children }) {
     return data;
   };
 
-  // Đăng xuất
+  // Đăng xuất (xóa sạch thông tin đăng nhập, wishlist và giỏ hàng)
   const logout = async () => {
     try {
       await authService.logout();
@@ -137,7 +139,25 @@ export function AuthProvider({ children }) {
       setToken(null);
       localStorage.removeItem('qlshop_token');
       localStorage.removeItem('qlshop_user');
+      localStorage.removeItem('qlshop_client_wishlist');
+      localStorage.removeItem('qlshop_cart_items');
+      window.dispatchEvent(new Event('auth:logout'));
     }
+  };
+
+  // Đổi mật khẩu
+  const changePassword = async ({ oldPassword, newPassword }) => {
+    return await authService.changePassword({ oldPassword, newPassword });
+  };
+
+  // Quên mật khẩu
+  const forgotPassword = async (email) => {
+    return await authService.forgotPassword(email);
+  };
+
+  // Đặt lại mật khẩu
+  const resetPassword = async ({ token: resetToken, newPassword }) => {
+    return await authService.resetPassword({ token: resetToken, newPassword });
   };
 
   const value = {
@@ -151,6 +171,9 @@ export function AuthProvider({ children }) {
     register,
     logout,
     setUser,
+    changePassword,
+    forgotPassword,
+    resetPassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

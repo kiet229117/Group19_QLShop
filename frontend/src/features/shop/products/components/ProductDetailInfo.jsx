@@ -1,11 +1,14 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { CheckCircle2, Eye, Flame, Layers, ShoppingCart, Tag, XCircle } from 'lucide-react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../../../auth/context/AuthContext';
+import { toast } from '../../../../components/common/Toast';
+import { CheckCircle2, Eye, Flame, Layers, ShoppingCart, Tag, XCircle, MessageSquare, MessageCircle, Heart } from 'lucide-react';
 import ProductPrice from '../../../../components/shop/common/ProductPrice';
 import ProductRating from '../../../../components/shop/common/ProductRating';
 import ProductQuantitySelector from '../../../../components/shop/common/ProductQuantitySelector';
 import AddToCartButton from '../../../../components/shop/common/AddToCartButton';
 import ShopButton from '../../../../components/shop/common/ShopButton';
+import useShopWishlist from '../../wishlist/hooks/useShopWishlist';
 import { formatNumber } from '../../shared/utils/formatters';
 import {
   getTotalStock,
@@ -20,7 +23,11 @@ import { shopPaths } from '../../shopPaths';
  */
 export default function ProductDetailInfo({ product, category, brand }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { isAuthenticated } = useAuth();
   const { addToCart } = useShopState();
+  const { isWishlisted, toggleWishlist } = useShopWishlist();
+  const isFav = isWishlisted(product?.id);
 
   const variants = Array.isArray(product?.variants) ? product.variants : [];
   const sizes = getUniqueVariantValues(variants, 'size');
@@ -89,6 +96,13 @@ export default function ProductDetailInfo({ product, category, brand }) {
 
         <div className="mt-3 flex flex-wrap items-center gap-4 text-sm text-zinc-500">
           <ProductRating value={product.rating} size="lg" />
+          <a
+            href="#comments-section"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600 transition hover:text-emerald-700 hover:underline"
+          >
+            <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>Xem &amp; viết bình luận</span>
+          </a>
           {Number(product.views) > 0 && (
             <span className="inline-flex items-center gap-1.5">
               <Eye className="h-4 w-4 text-zinc-400" aria-hidden="true" />
@@ -218,6 +232,25 @@ export default function ProductDetailInfo({ product, category, brand }) {
           Mua ngay
         </ShopButton>
       </div>
+
+      {/* Nút Nhắn tin với chủ shop CSKH */}
+      <button
+        type="button"
+        onClick={() => {
+          window.dispatchEvent(
+            new CustomEvent('open-shop-chat', {
+              detail: {
+                product,
+                initialMessage: `Dạ shop ơi, em muốn tư vấn thêm về mẫu áo "${product.name}" (${selectedColor} - ${selectedSize}) ạ!`,
+              },
+            })
+          );
+        }}
+        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-emerald-300 bg-emerald-50/80 px-4 py-3 text-sm font-bold text-emerald-800 transition hover:bg-emerald-100 hover:border-emerald-400 active:scale-98 shadow-xs"
+      >
+        <MessageCircle className="h-4 w-4 text-emerald-700" />
+        <span>Nhắn tin với chủ shop CSKH tư vấn mẫu áo này</span>
+      </button>
 
       {/* Mô tả sản phẩm */}
       <div className="space-y-2 border-t border-zinc-200 pt-6">

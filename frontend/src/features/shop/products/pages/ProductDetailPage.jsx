@@ -11,11 +11,12 @@ import shopProductService from '../services/shopProductService';
 import ProductGallery from '../components/ProductGallery';
 import ProductDetailInfo from '../components/ProductDetailInfo';
 import RelatedProducts from '../components/RelatedProducts';
+import ProductCommentsSection from '../../comments/components/ProductCommentsSection';
 import { shopPaths } from '../../shopPaths';
 
 /**
  * Trang Chi tiết sản phẩm (`/shop/products/:slug`).
- * Gọi `GET /api/products/slug/{slug}` (ProductController).
+ * Gọi `GET /api/products/slug/{slug}` (ProductController) và tích hợp bình luận API.
  */
 export default function ProductDetailPage() {
   const { slug } = useParams();
@@ -81,6 +82,15 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
+      {/* Khu vực Bình luận & Đánh giá kết nối 100% Backend API */}
+      <div id="comments-section">
+        <ProductCommentsSection
+          productId={product.id}
+          productName={product.name}
+        />
+      </div>
+
+      {/* Sản phẩm liên quan */}
       <RelatedProducts
         currentProductId={product.id}
         categoryId={product.categoryId}

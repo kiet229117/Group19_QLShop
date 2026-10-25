@@ -2,11 +2,11 @@ import { Outlet } from 'react-router-dom';
 import Header from './Header';
 import Footer from './Footer';
 import { ShopStateProvider } from '../../../features/shop/shared/context/ShopStateContext';
+import ShopChatWidget from '../../../features/shop/chat/components/ShopChatWidget';
 
 /**
  * Layout tổng của Client Shop.
- * Bọc `ShopStateProvider` để toàn bộ trang Shop chia sẻ state giỏ hàng, đơn hàng và hồ sơ cục bộ
- * mà không thực hiện bất kỳ HTTP request nào và không can thiệp vào AdminLayout.
+ * Tích hợp sẵn `ShopChatWidget` nổi góc dưới màn hình giúp khách hàng nhắn tin với chủ shop CSKH 24/7.
  */
 export default function ShopLayout({ children }) {
   return (
@@ -15,6 +15,8 @@ export default function ShopLayout({ children }) {
         <Header />
         <main className="flex-1">{children || <Outlet />}</main>
         <Footer />
+        {/* Nút & Cửa sổ Chat trực tuyến với CSKH chủ shop */}
+        <ShopChatWidget />
       </div>
     </ShopStateProvider>
   );

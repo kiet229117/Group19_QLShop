@@ -7,6 +7,7 @@ import {
   LogIn,
   Award,
   ShoppingBag,
+  Lock,
 } from 'lucide-react';
 import { resolveShopImageUrl } from '../../shared/utils/productUtils';
 import { shopPaths } from '../../shopPaths';
@@ -113,7 +114,7 @@ export default function ProfileSidebar({
           {demoSignedIn ? (
             <>
               <LogOut className="h-4 w-4" aria-hidden="true" />
-              Đăng xuất (Mô phỏng giao diện)
+              Đăng xuất tài khoản
             </>
           ) : (
             <>

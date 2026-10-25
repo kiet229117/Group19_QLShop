@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Flame, Sparkles, Eye } from 'lucide-react';
+import { Flame, Sparkles, Eye, Heart } from 'lucide-react';
 import ProductImage from './ProductImage';
 import ProductPrice from './ProductPrice';
 import ProductRating from './ProductRating';
@@ -11,6 +11,7 @@ import {
 } from '../../../features/shop/shared/utils/productUtils';
 import { formatNumber } from '../../../features/shop/shared/utils/formatters';
 import { shopPaths } from '../../../features/shop/shopPaths';
+import useShopWishlist from '../../../features/shop/wishlist/hooks/useShopWishlist';
 
 /**
  * Thẻ hiển thị một sản phẩm (`ProductReponse`).
@@ -29,6 +30,8 @@ export default function ProductCard({ product, categoryName, brandName }) {
   const colors = getUniqueVariantValues(product.variants, 'color');
   const detailUrl = product.slug ? shopPaths.productDetail(product.slug) : null;
   const isHot = Boolean(product.hot ?? product.isHot);
+  const { isWishlisted, toggleWishlist } = useShopWishlist();
+  const isFav = isWishlisted(product.id);
 
   const Wrapper = detailUrl ? Link : 'div';
   const wrapperProps = detailUrl ? { to: detailUrl } : {};
@@ -52,6 +55,21 @@ export default function ProductCard({ product, categoryName, brandName }) {
             className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-300 group-hover:opacity-100"
           />
         )}
+
+        {/* Nút yêu thích */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleWishlist(product);
+          }}
+          aria-label={isFav ? 'Bỏ yêu thích' : 'Thêm vào yêu thích'}
+          title={isFav ? 'Bỏ yêu thích' : 'Thêm vào yêu thích'}
+          className="absolute right-3 top-3 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-zinc-600 shadow-sm backdrop-blur transition hover:scale-110 hover:bg-white hover:text-rose-500"
+        >
+          <Heart className={`h-4 w-4 ${isFav ? 'fill-rose-500 text-rose-500' : 'text-zinc-500'}`} />
+        </button>
 
         {/* Badges từ dữ liệu thực tế */}
         <div className="pointer-events-none absolute left-3 top-3 flex flex-wrap gap-1.5">

@@ -11,16 +11,16 @@ const PAYMENT_METHODS = [
   {
     id: 'BANK_TRANSFER',
     title: 'Chuyển khoản ngân hàng (VietQR)',
-    description: 'Lựa chọn minh họa trên giao diện — không phát sinh giao dịch chuyển khoản thật.',
+    description: 'Quét mã VietQR chuyển khoản nhanh 24/7 qua ứng dụng ngân hàng.',
     icon: Building2,
-    badge: 'Minh họa',
+    badge: 'Khuyên dùng',
   },
   {
     id: 'E_WALLET',
     title: 'Ví điện tử MoMo / VNPAY',
-    description: 'Lựa chọn minh họa cổng ví điện tử trên giao diện.',
+    description: 'Thanh toán tiện lợi qua ứng dụng MoMo hoặc cổng VNPAY-QR.',
     icon: Wallet,
-    badge: 'Minh họa',
+    badge: 'Tiện lợi',
   },
 ];
 
@@ -33,7 +33,7 @@ export default function PaymentMethodSelector({ value = 'COD', onChange }) {
       <div className="border-b border-zinc-100 pb-4">
         <h2 className="text-base font-black text-zinc-900">Phương thức thanh toán</h2>
         <p className="text-xs text-zinc-500">
-          Lựa chọn phương thức thanh toán (chỉ mô phỏng trên giao diện, không trừ tiền thật).
+          Vui lòng chọn hình thức thanh toán thuận tiện nhất cho bạn.
         </p>
       </div>
 

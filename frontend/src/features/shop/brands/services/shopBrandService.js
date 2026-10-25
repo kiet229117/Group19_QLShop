@@ -1,24 +1,43 @@
-import { SHOP_BRANDS } from '../../shared/data/shopMockData';
+import api from '../../../../services/api';
 
 /**
- * Service thương hiệu cho Client Shop (thuần Frontend, dữ liệu mẫu tĩnh, không gọi API).
+ * Service kết nối API Thương hiệu thời trang (Brands) cho Client Shop.
  */
-export const shopBrandService = {
-  async getPage(page = 0, size = 100) {
-    const start = page * size;
-    const content = SHOP_BRANDS.slice(start, start + size);
-    return {
-      content,
-      number: page,
-      size,
-      totalElements: SHOP_BRANDS.length,
-      totalPages: Math.max(1, Math.ceil(SHOP_BRANDS.length / size)),
-    };
-  },
+export const getAllBrands = async (page = 0, size = 100, signal) => {
+  const res = await api.get(`/brands?page=${page}&size=${size}`, { signal });
+  return res.data || res;
+};
 
-  async getAll() {
-    return [...SHOP_BRANDS];
-  },
+export const getPage = async (page = 0, size = 100, signal) => {
+  return getAllBrands(page, size, signal);
+};
+
+export const getAll = async (signal) => {
+  try {
+    const data = await getAllBrands(0, 100, signal);
+    return Array.isArray(data) ? data : (data.content || []);
+  } catch (err) {
+    console.warn('Lỗi khi tải danh sách thương hiệu từ API:', err);
+    return [];
+  }
+};
+
+export const getBrandById = async (id, signal) => {
+  const res = await api.get(`/brands/${id}`, { signal });
+  return res.data || res;
+};
+
+export const getBrandBySlug = async (slug, signal) => {
+  const list = await getAll(signal);
+  return list.find((b) => b.slug === slug || String(b.id) === String(slug)) || null;
+};
+
+export const shopBrandService = {
+  getAllBrands,
+  getPage,
+  getAll,
+  getBrandById,
+  getBrandBySlug,
 };
 
 export default shopBrandService;
