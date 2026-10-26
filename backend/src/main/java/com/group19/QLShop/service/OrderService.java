@@ -47,6 +47,7 @@ public class OrderService {
     private final CartRepository cartRepository;
     private final CartItemRepository cartItemRepository;
     private final VoucherService voucherService;
+    private final EmailService emailService;
 
     public OrderService(
             OrderRepository orderRepository,
@@ -55,7 +56,8 @@ public class OrderService {
             UserRepository userRepository,
             CartRepository cartRepository,
             CartItemRepository cartItemRepository,
-            VoucherService voucherService) {
+            VoucherService voucherService,
+            EmailService emailService) {
         this.orderRepository = orderRepository;
         this.productRepository = productRepository;
         this.productVariantRepository = productVariantRepository;
@@ -63,6 +65,7 @@ public class OrderService {
         this.cartRepository = cartRepository;
         this.cartItemRepository = cartItemRepository;
         this.voucherService = voucherService;
+        this.emailService = emailService;
     }
 
     // ==========================================
@@ -220,6 +223,9 @@ public class OrderService {
                 user, orderItems, totalAmount, appliedVoucherCode);
 
         Order savedOrder = orderRepository.save(order);
+
+        // Gửi email xác nhận đơn hàng cho khách
+        emailService.sendOrderConfirmationEmail(savedOrder);
 
         OrderResponse response = toOrderResponse(savedOrder);
         response.setNewlyUnlockedVouchers(newlyUnlockedVouchers);
