@@ -34,7 +34,7 @@ public class AuthController {
     public ResponseEntity<Map<String, Object>> checkRole(@RequestParam("identifier") String identifier) {
         return ResponseEntity.ok(authService.checkAccountRole(identifier));
     }
-
+ 
     // ==========================================
     // 1. ĐĂNG KÝ TÀI KHOẢN (Gắn Cookie HttpOnly)
     // ==========================================

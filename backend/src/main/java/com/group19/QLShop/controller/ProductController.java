@@ -175,4 +175,17 @@ public Page<ProductReponse> getNewestProducts(
             @RequestParam(defaultValue = "6") int limit) {
         return ResponseEntity.ok(productService.getSearchSuggestions(keyword, limit));
     }
+
+    // ==========================================
+    // SẢN PHẨM LIÊN QUAN THEO DANH MỤC VÀ THƯƠNG HIỆU
+    // GET /api/products/related?productId=1&categoryId=1&brandId=1&limit=8
+    // ==========================================
+    @GetMapping("/related")
+    public ResponseEntity<List<ProductReponse>> getRelatedProducts(
+            @RequestParam(required = false) Long productId,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Long brandId,
+            @RequestParam(defaultValue = "8") int limit) {
+        return ResponseEntity.ok(productService.getRelatedProducts(productId, categoryId, brandId, limit));
+    }
 }

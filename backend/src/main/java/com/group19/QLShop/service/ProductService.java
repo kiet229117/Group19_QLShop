@@ -404,6 +404,51 @@ public Page<ProductReponse> getNewestProducts(int page, int size) {
                 .build();
     }
 
+    // ==========================================
+    // SẢN PHẨM LIÊN QUAN THEO DANH MỤC & THƯƠNG HIỆU
+    // ==========================================
+    public List<ProductReponse> getRelatedProducts(Long productId, Long categoryId, Long brandId, int limit) {
+        int safeLimit = (limit > 0 && limit <= 24) ? limit : 8;
+
+        // Nếu chỉ truyền productId mà chưa truyền categoryId/brandId thì tự suy ra từ sản phẩm gốc
+        if (productId != null && categoryId == null && brandId == null) {
+            Product current = productRepository.findById(productId).orElse(null);
+            if (current != null) {
+                if (current.getCategory() != null) categoryId = current.getCategory().getId();
+                if (current.getBrand() != null) brandId = current.getBrand().getId();
+            }
+        }
+
+        List<Product> result = new ArrayList<>();
+        Set<Long> seenIds = new LinkedHashSet<>();
+        if (productId != null) {
+            seenIds.add(productId);
+        }
+
+        if (categoryId != null || brandId != null) {
+            List<Product> related = productRepository.findRelatedProducts(
+                    productId, categoryId, brandId, PageRequest.of(0, safeLimit));
+            for (Product p : related) {
+                if (p != null && seenIds.add(p.getId())) {
+                    result.add(p);
+                }
+            }
+        }
+
+        // Bổ sung thêm các mẫu áo Hot nếu danh mục/thương hiệu có ít sản phẩm
+        if (result.size() < safeLimit) {
+            List<Product> hotFallback = productRepository.findHotProducts(PageRequest.of(0, safeLimit + 4)).getContent();
+            for (Product p : hotFallback) {
+                if (result.size() >= safeLimit) break;
+                if (p != null && seenIds.add(p.getId())) {
+                    result.add(p);
+                }
+            }
+        }
+
+        return result.stream().map(this::toResponse).toList();
+    }
+
     private void validatePagination(int page, int size) {
         if (page < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số trang không được nhỏ hơn 0");

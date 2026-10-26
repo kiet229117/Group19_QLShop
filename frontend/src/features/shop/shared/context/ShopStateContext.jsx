@@ -7,70 +7,171 @@ import shopOrderService from '../../orders/services/shopOrderService';
 import shopVoucherService from '../../vouchers/services/shopVoucherService';
 import shopUserService from '../../users/services/shopUserService';
 import { getProductPricing, getProductThumbnail } from '../utils/productUtils';
+import { cleanSavedAddress, validateShippingAddress, buildUserAddressBook } from '../utils/addressUtils';
 
 const ShopStateContext = createContext(null);
 
 const BASE_SHIPPING_FEE = 30000;
 const FREE_SHIPPING_THRESHOLD = 499000;
 
-// Danh mục 4 Voucher chuẩn khớp 100% với trang Quản trị Voucher (API Backend)
-const DEFAULT_VOUCHER_CATALOG = [
-  {
-    id: 1,
-    code: 'WELCOME50K',
-    name: 'Ưu Đãi Khách Hàng Mới',
-    description: 'Giảm ngay 50.000đ cho đơn hàng mua áo từ 250.000đ',
-    discountType: 'FIXED_AMOUNT',
-    discountValue: 50000,
-    maxDiscountAmount: null,
-    minOrderValue: 250000,
-    unlockRule: 'Nhận ngay khi đăng ký tài khoản mới',
-    badgeText: 'Giảm 50.000 đ',
-  },
-  {
-    id: 2,
-    code: 'POLO10',
-    aliasCode: 'AOPOLO10',
-    name: 'Giảm 10% Áo Polo Routine',
-    description: 'Giảm 10% tối đa 40.000đ cho đơn hàng từ 300.000đ',
-    discountType: 'PERCENTAGE',
-    discountValue: 10,
-    maxDiscountAmount: 40000,
-    minOrderValue: 300000,
-    unlockRule: 'Đặt mua sản phẩm Áo Polo Routine hoặc đơn hàng từ 300.000đ',
-    badgeText: 'Giảm 10% (Tối đa 40.000 đ)',
-  },
-  {
-    id: 3,
-    code: 'TEELAB20',
-    name: 'Siêu Sale Áo Thun Teelab',
-    description: 'Giảm 20% tối đa 60.000đ cho đơn hàng từ 400.000đ',
-    discountType: 'PERCENTAGE',
-    discountValue: 20,
-    maxDiscountAmount: 60000,
-    minOrderValue: 400000,
-    unlockRule: 'Đặt mua sản phẩm Áo Thun Teelab hoặc đơn hàng từ 400.000đ',
-    badgeText: 'Giảm 20% (Tối đa 60.000 đ)',
-  },
-  {
-    id: 4,
-    code: 'HOODIE30K',
-    name: 'Khuyến Mãi Áo Khoác & Hoodie',
-    description: 'Giảm ngay 30.000đ cho đơn mua áo khoác mùa đông từ 350.000đ',
-    discountType: 'FIXED_AMOUNT',
-    discountValue: 30000,
-    maxDiscountAmount: null,
-    minOrderValue: 350000,
-    unlockRule: 'Đặt mua sản phẩm Áo Khoác & Hoodie hoặc đơn hàng từ 350.000đ',
-    badgeText: 'Giảm 30.000 đ',
-  },
-];
-
-// Chuẩn hóa mã voucher để POLO10 và AOPOLO10 luôn khớp nhau
-function normalizeVoucherCode(code) {
+// Chuẩn hóa mã voucher để POLO10 và AOPOLO10 luôn đồng nhất
+export function normalizeVoucherCode(code) {
   const clean = String(code || '').trim().toUpperCase();
   if (clean === 'AOPOLO10') return 'POLO10';
   return clean;
+}
+
+// Kiểm tra xem voucher từ API có phải mã chào mừng thành viên mới không
+export function isWelcomeVoucherFromApi(v) {
+  if (!v) return false;
+  const text = `${v.code || ''} ${v.name || ''} ${v.description || ''}`.toLowerCase();
+  return (
+    text.includes('welcome') ||
+    text.includes('khách hàng mới') ||
+    text.includes('khach hang moi') ||
+    text.includes('thành viên mới') ||
+    text.includes('tân thủ')
+  );
+}
+
+// Tạo mô tả điều kiện nhận mã chuẩn từ dữ liệu API của từng Voucher
+export function buildUnlockRuleFromApi(v) {
+  if (!v) return '';
+  if (v.unlockCondition) return v.unlockCondition;
+
+  const minVal = Number(v.minOrderValue || 0);
+  const minStr = minVal > 0 ? `${new Intl.NumberFormat('vi-VN').format(minVal)}đ` : '0đ';
+
+  if (isWelcomeVoucherFromApi(v)) {
+    return minVal > 0
+      ? `Nhận ngay khi đăng ký tài khoản mới (Áp dụng đơn từ ${minStr})`
+      : 'Nhận ngay khi đăng ký tài khoản mới';
+  }
+
+  const text = `${v.code || ''} ${v.name || ''} ${v.description || ''}`.toLowerCase();
+  if (text.includes('polo') || text.includes('routine')) {
+    return `Nhận khi đặt mua sản phẩm Áo Polo / Routine (Áp dụng đơn từ ${minStr})`;
+  }
+  if (text.includes('teelab') || text.includes('thun') || text.includes('tee')) {
+    return `Nhận khi đặt mua sản phẩm Áo Thun / Teelab (Áp dụng đơn từ ${minStr})`;
+  }
+  if (
+    text.includes('hoodie') ||
+    text.includes('khoác') ||
+    text.includes('khoac') ||
+    text.includes('sweater') ||
+    text.includes('jacket') ||
+    text.includes('bomber') ||
+    text.includes('cardigan')
+  ) {
+    return `Nhận khi đặt mua sản phẩm Áo Khoác & Hoodie (Áp dụng đơn từ ${minStr})`;
+  }
+  if (text.includes('sơ mi') || text.includes('so mi') || text.includes('oxford')) {
+    return `Nhận khi đặt mua sản phẩm Áo Sơ Mi (Áp dụng đơn từ ${minStr})`;
+  }
+  if (minVal > 0) {
+    return `Nhận khi đặt đơn hàng đạt từ ${minStr}`;
+  }
+  return v.description || 'Ưu đãi dành cho khách hàng đủ điều kiện';
+}
+
+// Chuẩn hóa đối tượng Voucher trả về từ API Backend
+export function formatApiVoucher(v) {
+  if (!v) return null;
+  const normCode = normalizeVoucherCode(v.code);
+  const discountVal = Number(v.discountValue || 0);
+  const maxDiscount = Number(v.maxDiscountAmount || 0);
+  const isPercent = v.discountType === 'PERCENTAGE' || v.discountType === 'PERCENT';
+
+  const badgeText = isPercent
+    ? maxDiscount > 0
+      ? `Giảm ${discountVal}% (Tối đa ${new Intl.NumberFormat('vi-VN').format(maxDiscount)} đ)`
+      : `Giảm ${discountVal}%`
+    : `Giảm ${new Intl.NumberFormat('vi-VN').format(discountVal)} đ`;
+
+  return {
+    ...v,
+    code: normCode,
+    backendCode: v.code,
+    name: v.name || `Voucher ${normCode}`,
+    description: v.description || '',
+    minOrderValue: Number(v.minOrderValue || 0),
+    unlockRule: buildUnlockRuleFromApi(v),
+    badgeText,
+  };
+}
+
+// Kiểm tra 1 đơn hàng thỏa mãn điều kiện mở khóa những Voucher nào trong danh mục API
+export function evaluateOrderAgainstApiCatalog(order, apiCatalog = []) {
+  const unlocked = [];
+  if (!order || order.status === 'CANCELLED' || !Array.isArray(apiCatalog)) return unlocked;
+
+  const amount = Math.max(Number(order.subtotal || 0), Number(order.totalAmount || 0));
+  const items = Array.isArray(order.items) ? order.items : [];
+
+  const combinedItemsText = items
+    .map((it) => `${it.name || ''} ${it.productName || ''} ${it.brandName || ''} ${it.slug || ''}`)
+    .join(' ')
+    .toLowerCase();
+
+  const hasPolo = combinedItemsText.includes('polo') || combinedItemsText.includes('routine');
+  const hasTee =
+    combinedItemsText.includes('thun') ||
+    combinedItemsText.includes('teelab') ||
+    combinedItemsText.includes('tee');
+  const hasHoodie =
+    combinedItemsText.includes('hoodie') ||
+    combinedItemsText.includes('khoác') ||
+    combinedItemsText.includes('khoac') ||
+    combinedItemsText.includes('sweater') ||
+    combinedItemsText.includes('jacket') ||
+    combinedItemsText.includes('bomber') ||
+    combinedItemsText.includes('cardigan') ||
+    combinedItemsText.includes('chống nắng');
+  const hasShirt =
+    combinedItemsText.includes('sơ mi') ||
+    combinedItemsText.includes('so mi') ||
+    combinedItemsText.includes('oxford');
+
+  for (const v of apiCatalog) {
+    if (isWelcomeVoucherFromApi(v)) continue;
+    const normCode = normalizeVoucherCode(v.code);
+    const vText = `${v.code || ''} ${v.name || ''} ${v.description || ''}`.toLowerCase();
+    const minOrder = Number(v.minOrderValue || 0);
+
+    const reqPolo = vText.includes('polo') || vText.includes('routine');
+    const reqTee = vText.includes('teelab') || vText.includes('thun') || vText.includes('tee');
+    const reqHoodie =
+      vText.includes('hoodie') ||
+      vText.includes('khoác') ||
+      vText.includes('khoac') ||
+      vText.includes('sweater') ||
+      vText.includes('jacket') ||
+      vText.includes('bomber') ||
+      vText.includes('cardigan');
+    const reqShirt = vText.includes('sơ mi') || vText.includes('so mi') || vText.includes('oxford');
+
+    if (reqPolo) {
+      if (hasPolo) unlocked.push(normCode);
+    } else if (reqTee) {
+      if (hasTee) unlocked.push(normCode);
+    } else if (reqHoodie) {
+      if (hasHoodie) unlocked.push(normCode);
+    } else if (reqShirt) {
+      if (hasShirt) unlocked.push(normCode);
+    } else if (amount >= minOrder && amount > 0) {
+      unlocked.push(normCode);
+    }
+  }
+
+  if (unlocked.length === 0 && amount >= 300000) {
+    const firstNonWelcome = apiCatalog.find((v) => !isWelcomeVoucherFromApi(v));
+    if (firstNonWelcome) {
+      unlocked.push(normalizeVoucherCode(firstNonWelcome.code));
+    }
+  }
+
+  return unlocked;
 }
 
 export function calculateVoucherDiscount(voucher, subtotal) {
@@ -91,52 +192,6 @@ export function calculateVoucherDiscount(voucher, subtotal) {
   return Math.min(discountVal, subtotal);
 }
 
-// Kiểm tra một đơn hàng mở khóa những mã voucher nào (khớp chuẩn 4 Voucher trên ảnh API)
-function evaluateOrderUnlockedCodes(order) {
-  const unlocked = [];
-  if (!order || order.status === 'CANCELLED') return unlocked;
-
-  const amount = Math.max(Number(order.subtotal || 0), Number(order.totalAmount || 0));
-  const items = Array.isArray(order.items) ? order.items : [];
-
-  // 1. POLO10 (Giảm 10% Áo Polo Routine - đơn từ 300.000đ): Khi mua Áo Polo hoặc đơn từ 300.000đ
-  const hasPolo = items.some((it) => {
-    const itemName = String(it.name || it.productName || it.slug || '').toLowerCase();
-    return itemName.includes('polo') || itemName.includes('routine');
-  });
-  if (hasPolo || amount >= 300000) {
-    unlocked.push('POLO10');
-  }
-
-  // 2. HOODIE30K (Khuyến Mãi Áo Khoác & Hoodie - đơn từ 350.000đ): Khi mua Áo Khoác/Hoodie hoặc đơn từ 350.000đ
-  const hasHoodieOrJacket = items.some((it) => {
-    const itemName = String(it.name || it.productName || it.slug || '').toLowerCase();
-    return (
-      itemName.includes('hoodie') ||
-      itemName.includes('khoác') ||
-      itemName.includes('khoac') ||
-      itemName.includes('sweater') ||
-      itemName.includes('jacket') ||
-      itemName.includes('bomber') ||
-      itemName.includes('cardigan')
-    );
-  });
-  if (hasHoodieOrJacket || amount >= 350000) {
-    unlocked.push('HOODIE30K');
-  }
-
-  // 3. TEELAB20 (Siêu Sale Áo Thun Teelab - đơn từ 400.000đ): Khi mua Áo Thun Teelab hoặc đơn từ 400.000đ
-  const hasTshirt = items.some((it) => {
-    const itemName = String(it.name || it.productName || it.slug || '').toLowerCase();
-    return itemName.includes('thun') || itemName.includes('teelab') || itemName.includes('tee');
-  });
-  if (hasTshirt || amount >= 400000) {
-    unlocked.push('TEELAB20');
-  }
-
-  return unlocked;
-}
-
 const EMPTY_PROFILE = {
   fullname: '',
   username: '',
@@ -153,7 +208,7 @@ export function ShopStateProvider({ children }) {
   const { user, isAuthenticated, setUser } = useAuth();
   const userKey = user?.id || user?.username || null;
 
-  // 1. Giỏ hàng (lưu trong localStorage)
+  // 1. Giỏ hàng
   const [cartItems, setCartItems] = useState(() => {
     try {
       const saved = localStorage.getItem('qlshop_cart_items');
@@ -175,11 +230,12 @@ export function ShopStateProvider({ children }) {
     }
   }, [cartItems, isAuthenticated]);
 
-  // Xóa sạch giỏ hàng khi đăng xuất
+  // Xóa sạch giỏ hàng & state khi đăng xuất
   useEffect(() => {
     const handleLogout = () => {
       setCartItems([]);
       setProfile(EMPTY_PROFILE);
+      setVouchers([]);
       setAppliedVoucherCode('');
       setServerDiscount(0);
       setRewardPopupVouchers([]);
@@ -193,77 +249,26 @@ export function ShopStateProvider({ children }) {
     return () => window.removeEventListener('auth:logout', handleLogout);
   }, []);
 
-  // 2. Danh sách Voucher gốc từ Backend + Ví Voucher cá nhân của từng User
-  const [catalogVouchers, setCatalogVouchers] = useState(DEFAULT_VOUCHER_CATALOG);
+  // 2. Danh sách Voucher lấy chuẩn 100% từ API Backend
+  // - catalogVouchers: Toàn bộ voucher đang chạy trên hệ thống (GET /api/vouchers/catalog)
+  // - vouchers: Các voucher hiện có trong Ví cá nhân của User đang đăng nhập (GET /api/vouchers/available?userId=...)
+  const [catalogVouchers, setCatalogVouchers] = useState([]);
+  const [vouchers, setVouchers] = useState([]);
   const [appliedVoucherCode, setAppliedVoucherCode] = useState('');
   const [serverDiscount, setServerDiscount] = useState(0);
-
-  // State lưu các mã đã mở khóa và đã sử dụng của User hiện tại
-  const [userVoucherWallet, setUserVoucherWallet] = useState({
-    unlockedCodes: ['WELCOME50K'],
-    usedCodes: [],
-    welcomed: true,
-  });
 
   // State hiển thị Popup / Toast nổi bật khi User vừa nhận được Voucher mới
   const [rewardPopupVouchers, setRewardPopupVouchers] = useState([]);
   const prevUserKeyRef = useRef(null);
 
-  const fetchVouchers = useCallback(async () => {
-    try {
-      const res = await shopVoucherService.getAvailableVouchers(user?.id);
-      const list = Array.isArray(res) ? res : res?.content || [];
-      if (list.length > 0) {
-        // Đồng bộ thông tin từ DB với catalog chuẩn
-        const merged = list.map((v) => {
-          const normCode = normalizeVoucherCode(v.code);
-          const preset = DEFAULT_VOUCHER_CATALOG.find((d) => d.code === normCode);
-          return {
-            ...preset,
-            ...v,
-            code: normCode,
-            backendCode: v.code,
-            name: v.name || preset?.name || `Voucher ${normCode}`,
-            description: v.description || preset?.description || '',
-            unlockRule: preset?.unlockRule || 'Ưu đãi dành riêng cho tài khoản của bạn',
-            badgeText:
-              preset?.badgeText ||
-              (v.discountType === 'PERCENTAGE'
-                ? `GIẢM ${v.discountValue}%`
-                : `GIẢM ${Math.round((v.discountValue || 0) / 1000)}K`),
-          };
-        });
-        setCatalogVouchers((prev) => {
-          const map = new Map(DEFAULT_VOUCHER_CATALOG.map((d) => [d.code, d]));
-          merged.forEach((m) => map.set(m.code, m));
-          return Array.from(map.values());
-        });
-      }
-    } catch (err) {
-      console.warn('Không thể tải voucher từ Backend, dùng danh mục mặc định:', err);
-    }
-  }, [user?.id]);
-
-  useEffect(() => {
-    fetchVouchers();
-  }, [fetchVouchers]);
-
-  // 3. Đơn hàng (kết nối API Backend)
-  const [orders, setOrders] = useState(() => {
-    try {
-      const saved = localStorage.getItem('qlshop_client_orders');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  // 3. Đơn hàng của User (GET /api/orders/user/{userId})
+  const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
 
-  // Tải đơn hàng của User từ API khi đã đăng nhập
   const fetchUserOrders = useCallback(async () => {
     if (!user?.id) {
       setOrders([]);
-      return;
+      return [];
     }
     setLoadingOrders(true);
     try {
@@ -328,113 +333,119 @@ export function ShopStateProvider({ children }) {
         ],
       }));
       setOrders(formatted);
+      return formatted;
     } catch (err) {
       console.warn('Lỗi tải đơn hàng của người dùng:', err);
+      return [];
     } finally {
       setLoadingOrders(false);
     }
   }, [user?.id, user?.name, user?.phone]);
 
+  // Tập hợp mã voucher tài khoản này đã từng sử dụng (mỗi voucher chỉ dùng 1 lần và không được nhận lại)
+  const usedVoucherCodes = useMemo(() => {
+    const set = new Set();
+    if (user?.usedVouchers) {
+      String(user.usedVouchers)
+        .split(',')
+        .map((c) => normalizeVoucherCode(c))
+        .filter(Boolean)
+        .forEach((c) => set.add(c));
+    }
+    (orders || []).forEach((o) => {
+      if (o.voucherCode && o.status !== 'CANCELLED') {
+        set.add(normalizeVoucherCode(o.voucherCode));
+      }
+    });
+    return set;
+  }, [user?.usedVouchers, orders]);
+
+  // Tải danh mục Voucher hệ thống & Ví Voucher khả dụng của User trực tiếp từ API Backend
+  const fetchVouchers = useCallback(async () => {
+    try {
+      // 1. Lấy danh mục toàn bộ voucher đang chạy từ API (GET /api/vouchers/catalog)
+      let rawCatalog = [];
+      try {
+        const catRes = await shopVoucherService.getCatalogVouchers();
+        rawCatalog = Array.isArray(catRes) ? catRes : catRes?.content || [];
+      } catch {
+        // Nếu Backend chưa restart có endpoint /catalog thì lấy tạm từ /available không truyền userId
+        try {
+          const fallbackRes = await shopVoucherService.getAvailableVouchers();
+          rawCatalog = Array.isArray(fallbackRes) ? fallbackRes : fallbackRes?.content || [];
+        } catch {
+          rawCatalog = [];
+        }
+      }
+
+      const formattedCatalog = rawCatalog.map(formatApiVoucher).filter(Boolean);
+      setCatalogVouchers(formattedCatalog);
+
+      // 2. Nếu chưa đăng nhập -> không có voucher cá nhân
+      if (!isAuthenticated || !user?.id) {
+        setVouchers([]);
+        return;
+      }
+
+      // 3. Lấy danh sách voucher HIỆN CÓ của riêng tài khoản từ API (GET /api/vouchers/available?userId=...)
+      const userRes = await shopVoucherService.getAvailableVouchers(user.id);
+      const rawUserVouchers = Array.isArray(userRes) ? userRes : userRes?.content || [];
+      const formattedUserVouchers = rawUserVouchers.map(formatApiVoucher).filter(Boolean);
+
+      // Nếu Backend đã lọc theo điều kiện đơn hàng thì dùng trực tiếp kết quả API
+      setVouchers(formattedUserVouchers);
+
+      // Cập nhật catalogVouchers nếu catalog rỗng mà userVouchers có dữ liệu
+      if (formattedCatalog.length === 0 && formattedUserVouchers.length > 0) {
+        setCatalogVouchers(formattedUserVouchers);
+      }
+    } catch (err) {
+      console.warn('Không thể tải voucher từ API Backend:', err);
+    }
+  }, [isAuthenticated, user?.id]);
+
   useEffect(() => {
     fetchUserOrders();
   }, [fetchUserOrders]);
 
-  // Khởi tạo & đồng bộ Ví Voucher cá nhân theo từng tài khoản (userKey) và lịch sử đơn hàng
+  useEffect(() => {
+    fetchVouchers();
+  }, [fetchVouchers]);
+
+  // Xóa cache ví voucher cũ trong localStorage (nếu có từ phiên trước) và thông báo mã Welcome cho tài khoản mới
   useEffect(() => {
     if (!isAuthenticated || !userKey) {
-      setUserVoucherWallet({ unlockedCodes: [], usedCodes: [], welcomed: true });
       prevUserKeyRef.current = null;
       return;
     }
 
-    const storageKey = `qlshop_voucher_wallet_${userKey}`;
-    let savedWallet = null;
     try {
-      const raw = localStorage.getItem(storageKey);
-      if (raw) savedWallet = JSON.parse(raw);
+      localStorage.removeItem(`qlshop_voucher_wallet_${userKey}`);
     } catch {
-      savedWallet = null;
+      // ignore
     }
 
-    // Mặc định khi mới đăng ký đều có WELCOME50K (kết hợp đồng bộ từ user.unlockedVouchers của Backend)
-    const serverUnlocked = user?.unlockedVouchers
-      ? String(user.unlockedVouchers)
-          .split(',')
-          .map((c) => normalizeVoucherCode(c))
-          .filter(Boolean)
-      : [];
-    const serverUsed = user?.usedVouchers
-      ? String(user.usedVouchers)
-          .split(',')
-          .map((c) => normalizeVoucherCode(c))
-          .filter(Boolean)
-      : [];
+    const welcomeNotifiedKey = `qlshop_welcome_notified_${userKey}`;
+    const alreadyNotified = localStorage.getItem(welcomeNotifiedKey);
 
-    const unlockedSet = new Set([
-      ...(savedWallet?.unlockedCodes || ['WELCOME50K']),
-      ...serverUnlocked,
-    ]);
-    unlockedSet.add('WELCOME50K');
-
-    const usedSet = new Set([...(savedWallet?.usedCodes || []), ...serverUsed]);
-
-    // Quét lịch sử đơn hàng thực tế của user để mở khóa các mã đã đạt điều kiện và đánh dấu mã đã dùng
-    orders.forEach((ord) => {
-      if (ord.status !== 'CANCELLED') {
-        const codesFromOrder = evaluateOrderUnlockedCodes(ord);
-        codesFromOrder.forEach((c) => unlockedSet.add(c));
-        if (ord.voucherCode) {
-          usedSet.add(normalizeVoucherCode(ord.voucherCode));
-        }
-      }
-    });
-
-    const isBrandNewWallet = !savedWallet;
-    const nextWallet = {
-      unlockedCodes: Array.from(unlockedSet),
-      usedCodes: Array.from(usedSet),
-      welcomed: true,
-    };
-
-    setUserVoucherWallet(nextWallet);
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(nextWallet));
-    } catch (e) {
-      console.warn(e);
-    }
-
-    // Nếu tài khoản mới vừa đăng ký (chưa từng mở ví và chưa có đơn hàng nào), hiện thông báo tặng WELCOME50K
-    if (isBrandNewWallet && orders.length === 0 && prevUserKeyRef.current !== userKey) {
-      const welcomeVoucher =
-        catalogVouchers.find((v) => normalizeVoucherCode(v.code) === 'WELCOME50K') ||
-        DEFAULT_VOUCHER_CATALOG[0];
+    if (!alreadyNotified && orders.length === 0 && vouchers.length === 1 && prevUserKeyRef.current !== userKey) {
+      const welcomeVoucher = vouchers.find((v) => isWelcomeVoucherFromApi(v));
       if (welcomeVoucher) {
         setRewardPopupVouchers([
           {
             ...welcomeVoucher,
-            rewardReason: 'Chào mừng thành viên mới đăng ký tài khoản QLShop!',
+            rewardReason: 'Tặng ngay khi đăng ký tài khoản mới tại QLShop!',
           },
         ]);
+        try {
+          localStorage.setItem(welcomeNotifiedKey, '1');
+        } catch {
+          // ignore
+        }
       }
     }
     prevUserKeyRef.current = userKey;
-  }, [isAuthenticated, userKey, orders, catalogVouchers]);
-
-  // Danh sách Voucher HIỆN CÓ của riêng tài khoản đang đăng nhập (chỉ hiện các mã đã mở khóa & chưa dùng)
-  const vouchers = useMemo(() => {
-    if (!isAuthenticated || !userKey) return [];
-    const unlockedSet = new Set(
-      (userVoucherWallet.unlockedCodes || []).map((c) => normalizeVoucherCode(c))
-    );
-    const usedSet = new Set(
-      (userVoucherWallet.usedCodes || []).map((c) => normalizeVoucherCode(c))
-    );
-
-    return catalogVouchers.filter((v) => {
-      const norm = normalizeVoucherCode(v.code);
-      return unlockedSet.has(norm) && !usedSet.has(norm);
-    });
-  }, [isAuthenticated, userKey, catalogVouchers, userVoucherWallet]);
+  }, [isAuthenticated, userKey, orders.length, vouchers]);
 
   // 4. Thông tin cá nhân Profile
   const [profile, setProfile] = useState(() => {
@@ -445,6 +456,7 @@ export function ShopStateProvider({ children }) {
         sessionStorage.getItem('qlshop_user') || localStorage.getItem('qlshop_user');
       if (token && savedUser) {
         const u = JSON.parse(savedUser);
+        const initAddr = cleanSavedAddress(u.address);
         return {
           ...EMPTY_PROFILE,
           id: u.id,
@@ -453,7 +465,7 @@ export function ShopStateProvider({ children }) {
           email: u.email || '',
           phone: u.phone || '',
           gender: u.gender || '',
-          defaultAddress: u.address || '',
+          defaultAddress: initAddr,
           avatar: u.avatar || '',
         };
       }
@@ -465,17 +477,29 @@ export function ShopStateProvider({ children }) {
 
   useEffect(() => {
     if (user && isAuthenticated) {
+      const cleanUserAddr = cleanSavedAddress(user.address);
+      const userKey = user.id || user.username;
+      let savedExtra = [];
+      try {
+        const raw = localStorage.getItem(`qlshop_saved_addresses_${userKey}`);
+        if (raw) savedExtra = JSON.parse(raw);
+      } catch {
+        savedExtra = [];
+      }
+      const builtAddresses = buildUserAddressBook(cleanUserAddr, user, orders, savedExtra);
+
       setProfile((prev) => ({
         ...EMPTY_PROFILE,
-        ...prev,
+        ...(prev.id === user.id ? prev : {}),
         id: user.id,
-        username: user.username || prev.username || '',
+        username: user.username || '',
         fullname: user.fullname || user.name || user.username || '',
         email: user.email || '',
         phone: user.phone || '',
-        gender: user.gender || prev.gender || '',
-        defaultAddress: user.address || prev.defaultAddress || '',
-        avatar: user.avatar || prev.avatar || '',
+        gender: user.gender || '',
+        defaultAddress: cleanUserAddr,
+        avatar: user.avatar || '',
+        addresses: builtAddresses,
       }));
     } else {
       setProfile(EMPTY_PROFILE);
@@ -485,7 +509,7 @@ export function ShopStateProvider({ children }) {
         console.warn(e);
       }
     }
-  }, [user, isAuthenticated]);
+  }, [user, isAuthenticated, orders]);
 
   const [demoSignedIn, setDemoSignedIn] = useState(Boolean(user));
 
@@ -498,9 +522,12 @@ export function ShopStateProvider({ children }) {
     }
     const { currentPrice, originalPrice } = getProductPricing(product);
     const unitPrice = currentPrice ?? product.price ?? 0;
-    const variant = (product.variants || []).find(
-      (v) => (!size || v.size === size) && (!color || v.color === color)
-    );
+    const variant =
+      (product.variants || []).find(
+        (v) => (!size || v.size === size) && (!color || v.color === color)
+      ) ||
+      (product.variants || [])[0] ||
+      null;
     const variantId = variant?.id || null;
     const stockQuantity = variant ? Number(variant.stockQuantity) || 20 : 20;
     const itemId = `cart-${product.id}-${size || 'F'}-${color || 'Default'}`;
@@ -625,7 +652,7 @@ export function ShopStateProvider({ children }) {
     };
   }, [cartItems, vouchers, appliedVoucherCode, serverDiscount]);
 
-  // Áp dụng mã giảm giá (chỉ cho phép áp dụng mã mà tài khoản đã sở hữu & chưa dùng)
+  // Áp dụng mã giảm giá chuẩn qua API Backend (POST /api/vouchers/apply)
   const applyVoucher = async (rawCode) => {
     const clean = normalizeVoucherCode(rawCode);
     if (!clean) {
@@ -634,18 +661,25 @@ export function ShopStateProvider({ children }) {
       return { ok: true, message: 'Đã gỡ mã giảm giá.' };
     }
 
-    // Kiểm tra xem tài khoản đã sở hữu voucher này chưa
-    const ownedVoucher = vouchers.find((v) => normalizeVoucherCode(v.code) === clean);
-    if (!ownedVoucher) {
-      const alreadyUsed = (userVoucherWallet.usedCodes || []).includes(clean);
-      const msg = alreadyUsed
-        ? `Bạn đã sử dụng mã "${clean}" ở đơn hàng trước rồi!`
-        : `Tài khoản của bạn chưa sở hữu mã "${clean}". Hãy đặt đơn từ 99K hoặc mua Áo Polo để nhận mã!`;
+    // Kiểm tra xem mã này tài khoản đã từng sử dụng chưa (mỗi tài khoản chỉ được dùng 1 lần)
+    if (usedVoucherCodes.has(clean)) {
+      const msg = `Bạn đã sử dụng mã giảm giá "${clean}" ở đơn hàng trước rồi! Mỗi tài khoản chỉ được sử dụng mã này 1 lần duy nhất.`;
       toast.error(msg);
       return { ok: false, message: msg };
     }
 
-    // Kiểm tra giá trị đơn tối thiểu
+    // Kiểm tra xem tài khoản đã sở hữu voucher này trong danh sách từ API chưa
+    const ownedVoucher = vouchers.find((v) => normalizeVoucherCode(v.code) === clean);
+    if (!ownedVoucher) {
+      const catalogMatch = catalogVouchers.find((v) => normalizeVoucherCode(v.code) === clean);
+      const msg = catalogMatch
+        ? `Tài khoản của bạn chưa đủ điều kiện nhận mã "${clean}" (${catalogMatch.unlockRule}).`
+        : `Mã giảm giá "${clean}" không có trong Ví Voucher của bạn hoặc đã được sử dụng!`;
+      toast.error(msg);
+      return { ok: false, message: msg };
+    }
+
+    // Kiểm tra giá trị đơn tối thiểu theo dữ liệu API
     const minOrder = Number(ownedVoucher.minOrderValue || 0);
     if (cartSummary.subtotal < minOrder) {
       const minMsg = `Đơn hàng cần đạt tối thiểu ${new Intl.NumberFormat('vi-VN').format(
@@ -673,8 +707,12 @@ export function ShopStateProvider({ children }) {
         );
         return { ok: true, voucher: ownedVoucher, message: res.message || 'Mã giảm giá hợp lệ!' };
       }
-    } catch {
-      // Fallback tính toán trực tiếp từ voucher hợp lệ của user
+    } catch (err) {
+      const apiErrMsg = err?.response?.data?.message;
+      if (apiErrMsg) {
+        toast.error(apiErrMsg);
+        return { ok: false, message: apiErrMsg };
+      }
     }
 
     const calculatedDiscount = calculateVoucherDiscount(ownedVoucher, cartSummary.subtotal);
@@ -692,121 +730,7 @@ export function ShopStateProvider({ children }) {
     };
   };
 
-  // Kiểm tra và trao thưởng Voucher mới sau khi đặt hàng thành công
-  const checkAndGrantOrderVouchers = useCallback(
-    (placedOrder, usedCodeInOrder) => {
-      if (!userKey) return;
-      const storageKey = `qlshop_voucher_wallet_${userKey}`;
-      const currentUnlocked = new Set(
-        (userVoucherWallet.unlockedCodes || ['WELCOME50K']).map((c) => normalizeVoucherCode(c))
-      );
-      const currentUsed = new Set(
-        (userVoucherWallet.usedCodes || []).map((c) => normalizeVoucherCode(c))
-      );
-
-      if (usedCodeInOrder) {
-        currentUsed.add(normalizeVoucherCode(usedCodeInOrder));
-      }
-
-      const newlyEarnedList = [];
-      const orderAmount = Math.max(
-        Number(placedOrder.subtotal || 0),
-        Number(placedOrder.totalAmount || 0)
-      );
-      const items = Array.isArray(placedOrder.items) ? placedOrder.items : [];
-
-      // Điều kiện 1: Đặt mua Áo Polo Routine (hoặc đơn từ 300.000đ) -> Nhận POLO10 (Giảm 10% tối đa 40.000đ cho đơn từ 300.000đ)
-      const boughtPolo = items.some((it) => {
-        const n = String(it.name || it.productName || it.slug || '').toLowerCase();
-        return n.includes('polo') || n.includes('routine');
-      });
-      if ((boughtPolo || orderAmount >= 300000) && !currentUnlocked.has('POLO10')) {
-        currentUnlocked.add('POLO10');
-        const vObj =
-          catalogVouchers.find((v) => normalizeVoucherCode(v.code) === 'POLO10') ||
-          DEFAULT_VOUCHER_CATALOG.find((v) => v.code === 'POLO10');
-        if (vObj) {
-          newlyEarnedList.push({
-            ...vObj,
-            code: 'POLO10',
-            rewardReason: boughtPolo
-              ? 'Đặt mua sản phẩm Áo Polo Routine!'
-              : 'Đặt đơn hàng đạt mốc từ 300.000đ!',
-          });
-        }
-      }
-
-      // Điều kiện 2: Đặt mua Áo Khoác & Hoodie (hoặc đơn từ 350.000đ) -> Nhận HOODIE30K (Giảm 30.000đ cho đơn từ 350.000đ)
-      const boughtHoodie = items.some((it) => {
-        const n = String(it.name || it.productName || it.slug || '').toLowerCase();
-        return (
-          n.includes('hoodie') ||
-          n.includes('khoác') ||
-          n.includes('khoac') ||
-          n.includes('sweater') ||
-          n.includes('jacket') ||
-          n.includes('bomber') ||
-          n.includes('cardigan')
-        );
-      });
-      if ((boughtHoodie || orderAmount >= 350000) && !currentUnlocked.has('HOODIE30K')) {
-        currentUnlocked.add('HOODIE30K');
-        const vObj =
-          catalogVouchers.find((v) => normalizeVoucherCode(v.code) === 'HOODIE30K') ||
-          DEFAULT_VOUCHER_CATALOG.find((v) => v.code === 'HOODIE30K');
-        if (vObj) {
-          newlyEarnedList.push({
-            ...vObj,
-            rewardReason: boughtHoodie
-              ? 'Đặt mua sản phẩm Áo Khoác & Hoodie!'
-              : 'Đặt đơn hàng đạt mốc từ 350.000đ!',
-          });
-        }
-      }
-
-      // Điều kiện 3: Đặt mua Áo Thun Teelab (hoặc đơn từ 400.000đ) -> Nhận TEELAB20 (Giảm 20% tối đa 60.000đ cho đơn từ 400.000đ)
-      const boughtTee = items.some((it) => {
-        const n = String(it.name || it.productName || it.slug || '').toLowerCase();
-        return n.includes('thun') || n.includes('teelab') || n.includes('tee');
-      });
-      if ((boughtTee || orderAmount >= 400000) && !currentUnlocked.has('TEELAB20')) {
-        currentUnlocked.add('TEELAB20');
-        const vObj =
-          catalogVouchers.find((v) => normalizeVoucherCode(v.code) === 'TEELAB20') ||
-          DEFAULT_VOUCHER_CATALOG.find((v) => v.code === 'TEELAB20');
-        if (vObj) {
-          newlyEarnedList.push({
-            ...vObj,
-            rewardReason: boughtTee
-              ? 'Đặt mua sản phẩm Áo Thun Teelab!'
-              : 'Đặt đơn hàng đạt mốc từ 400.000đ!',
-          });
-        }
-      }
-
-      const updatedWallet = {
-        unlockedCodes: Array.from(currentUnlocked),
-        usedCodes: Array.from(currentUsed),
-        welcomed: true,
-      };
-      setUserVoucherWallet(updatedWallet);
-      try {
-        localStorage.setItem(storageKey, JSON.stringify(updatedWallet));
-      } catch (e) {
-        console.warn(e);
-      }
-
-      if (newlyEarnedList.length > 0) {
-        setRewardPopupVouchers(newlyEarnedList);
-        newlyEarnedList.forEach((v) => {
-          toast.success(`🎁 Chúc mừng! Bạn vừa nhận được mã giảm giá ${v.code} (${v.name})!`);
-        });
-      }
-    },
-    [userKey, userVoucherWallet, catalogVouchers]
-  );
-
-  // 5. ĐẶT HÀNG THỰC TẾ (Gọi POST /api/orders)
+  // 5. ĐẶT HÀNG THỰC TẾ QUA API (POST /api/orders) & NHẬN VOUCHER MỚI TỪ API KHI ĐỦ ĐIỀU KIỆN
   const placeOrder = async ({
     recipientName,
     recipientPhone,
@@ -823,6 +747,28 @@ export function ShopStateProvider({ children }) {
       throw new Error('Giỏ hàng trống');
     }
 
+    const cleanName = String(recipientName || '').trim();
+    const cleanPhone = String(recipientPhone || '').replace(/\s+/g, '');
+    const cleanAddress = String(shippingAddress || '').trim();
+
+    if (!cleanName || cleanName.length < 2) {
+      toast.error('Vui lòng nhập đầy đủ họ và tên người nhận hàng!');
+      throw new Error('Chưa nhập họ tên người nhận');
+    }
+
+    if (!cleanPhone || !/^(0[35789])[0-9]{8}$/.test(cleanPhone)) {
+      toast.error(
+        'Số điện thoại nhận hàng không hợp lệ! Vui lòng nhập đúng 10 chữ số (bắt đầu bằng 03, 05, 07, 08, 09).'
+      );
+      throw new Error('Số điện thoại không hợp lệ');
+    }
+
+    const addressError = validateShippingAddress(cleanAddress);
+    if (addressError) {
+      toast.error(addressError, 'Chưa nhập địa chỉ nhận hàng');
+      throw new Error(addressError);
+    }
+
     const activeVoucherObj = vouchers.find(
       (v) => normalizeVoucherCode(v.code) === normalizeVoucherCode(appliedVoucherCode)
     );
@@ -830,9 +776,9 @@ export function ShopStateProvider({ children }) {
 
     const orderPayload = {
       userId: user?.id || null,
-      receiverName: recipientName.trim(),
-      receiverPhone: recipientPhone.trim(),
-      shippingAddress: shippingAddress.trim(),
+      receiverName: cleanName,
+      receiverPhone: cleanPhone,
+      shippingAddress: cleanAddress,
       note: note || '',
       voucherCode: serverVoucherCode,
       items: itemsToOrder.map((it) => ({
@@ -842,113 +788,120 @@ export function ShopStateProvider({ children }) {
       })),
     };
 
-    try {
-      const res = await shopOrderService.createOrder(orderPayload);
-      const backendOrder = res.data || res;
+    const res = await shopOrderService.createOrder(orderPayload);
+    const backendOrder = res.data || res;
 
-      const orderId = backendOrder.id || `DH${Date.now()}`;
-      const orderCode = backendOrder.orderCode || `QL-${orderId}`;
+    const orderId = backendOrder.id || `DH${Date.now()}`;
+    const orderCode = backendOrder.orderCode || `QL-${orderId}`;
 
-      const newOrder = {
-        id: orderId,
-        code: orderCode,
-        createdAt: new Date().toLocaleString('vi-VN'),
-        status: backendOrder.status || 'PENDING',
-        paymentMethod,
-        paymentMethodLabel:
-          paymentMethod === 'BANK_TRANSFER'
-            ? 'Chuyển khoản VietQR'
-            : 'Thanh toán khi nhận hàng (COD)',
-        paymentStatus: 'UNPAID',
-        paymentStatusLabel: 'Chờ giao hàng',
-        recipientName,
-        recipientPhone,
-        recipientEmail,
-        shippingAddress,
-        note: note || '',
-        subtotal: cartSummary.subtotal,
-        shippingFee: cartSummary.shippingFee,
-        discount: cartSummary.discount,
-        voucherCode: appliedVoucherCode || '',
-        totalAmount: backendOrder.totalAmount || cartSummary.totalAmount,
-        items: itemsToOrder.map((it, idx) => ({
-          id: idx + 1,
-          productId: it.productId,
-          slug: it.slug,
-          name: it.name,
-          image: it.image,
-          size: it.size,
-          color: it.color,
-          unitPrice: it.unitPrice,
-          quantity: it.quantity,
-        })),
-        timeline: [
-          {
-            step: 'ORDERED',
-            label: 'Đặt hàng thành công',
-            time: new Date().toLocaleString('vi-VN'),
-            done: true,
-          },
-          { step: 'CONFIRMED', label: 'Chờ cửa hàng xác nhận', time: 'Đang xử lý', done: false },
-          { step: 'SHIPPING', label: 'Đang giao hàng', time: '—', done: false },
-          { step: 'COMPLETED', label: 'Hoàn thành đơn hàng', time: '—', done: false },
-        ],
-      };
+    const newOrder = {
+      id: orderId,
+      code: orderCode,
+      createdAt: new Date().toLocaleString('vi-VN'),
+      status: backendOrder.status || 'PENDING',
+      paymentMethod,
+      paymentMethodLabel:
+        paymentMethod === 'BANK_TRANSFER'
+          ? 'Chuyển khoản VietQR'
+          : 'Thanh toán khi nhận hàng (COD)',
+      paymentStatus: 'UNPAID',
+      paymentStatusLabel: 'Chờ giao hàng',
+      recipientName,
+      recipientPhone,
+      recipientEmail,
+      shippingAddress,
+      note: note || '',
+      subtotal: cartSummary.subtotal,
+      shippingFee: cartSummary.shippingFee,
+      discount: cartSummary.discount,
+      voucherCode: appliedVoucherCode || '',
+      totalAmount: backendOrder.totalAmount ?? cartSummary.totalAmount,
+      items: itemsToOrder.map((it, idx) => ({
+        id: idx + 1,
+        productId: it.productId,
+        slug: it.slug,
+        name: it.name,
+        brandName: it.brandName,
+        image: it.image,
+        size: it.size,
+        color: it.color,
+        unitPrice: it.unitPrice,
+        quantity: it.quantity,
+      })),
+      timeline: [
+        {
+          step: 'ORDERED',
+          label: 'Đặt hàng thành công',
+          time: new Date().toLocaleString('vi-VN'),
+          done: true,
+        },
+        { step: 'CONFIRMED', label: 'Chờ cửa hàng xác nhận', time: 'Đang xử lý', done: false },
+        { step: 'SHIPPING', label: 'Đang giao hàng', time: '—', done: false },
+        { step: 'COMPLETED', label: 'Hoàn thành đơn hàng', time: '—', done: false },
+      ],
+    };
 
-      setOrders((prev) => [newOrder, ...prev]);
-      setCartItems((prev) => prev.filter((it) => !it.selected));
+    setOrders((prev) => [newOrder, ...prev]);
+    setCartItems((prev) => prev.filter((it) => !it.selected));
 
-      // Kiểm tra & tặng Voucher mới cho khách hàng
-      checkAndGrantOrderVouchers(newOrder, appliedVoucherCode);
-
-      setAppliedVoucherCode('');
-      setServerDiscount(0);
-
-      toast.success(`Đặt hàng thành công! Mã đơn hàng: #${orderCode}`);
-      return newOrder;
-    } catch (err) {
-      console.error('Lỗi khi gửi đơn hàng lên Backend:', err);
-      const localId = `DH${Date.now()}`;
-      const localOrder = {
-        id: localId,
-        code: `QL-${localId}`,
-        createdAt: new Date().toLocaleString('vi-VN'),
-        status: 'PENDING',
-        paymentMethod,
-        paymentMethodLabel: 'Thanh toán khi nhận hàng (COD)',
-        recipientName,
-        recipientPhone,
-        recipientEmail,
-        shippingAddress,
-        note: note || '',
-        subtotal: cartSummary.subtotal,
-        shippingFee: cartSummary.shippingFee,
-        discount: cartSummary.discount,
-        voucherCode: appliedVoucherCode || '',
-        totalAmount: cartSummary.totalAmount,
-        items: itemsToOrder,
-        timeline: [
-          {
-            step: 'ORDERED',
-            label: 'Đặt hàng thành công',
-            time: new Date().toLocaleString('vi-VN'),
-            done: true,
-          },
-          { step: 'CONFIRMED', label: 'Chờ cửa hàng xác nhận', time: 'Đang xử lý', done: false },
-          { step: 'SHIPPING', label: 'Đang giao hàng', time: '—', done: false },
-          { step: 'COMPLETED', label: 'Hoàn thành đơn hàng', time: '—', done: false },
-        ],
-      };
-      setOrders((prev) => [localOrder, ...prev]);
-      setCartItems((prev) => prev.filter((it) => !it.selected));
-
-      checkAndGrantOrderVouchers(localOrder, appliedVoucherCode);
-      setAppliedVoucherCode('');
-      setServerDiscount(0);
-
-      toast.success('Đã lưu đơn hàng của bạn!');
-      return localOrder;
+    // Lấy danh sách Voucher mới vừa mở khóa trực tiếp từ response API Backend (newlyUnlockedVouchers)
+    // Loại trừ bất kỳ mã nào đã từng sử dụng hoặc vừa sử dụng trong đơn này
+    const currentUsedAndApplied = new Set(usedVoucherCodes);
+    if (appliedVoucherCode) {
+      currentUsedAndApplied.add(normalizeVoucherCode(appliedVoucherCode));
     }
+
+    const apiNewlyUnlocked = Array.isArray(backendOrder.newlyUnlockedVouchers)
+      ? backendOrder.newlyUnlockedVouchers
+          .map(formatApiVoucher)
+          .filter((v) => v && !currentUsedAndApplied.has(normalizeVoucherCode(v.code)))
+      : [];
+
+    if (apiNewlyUnlocked.length > 0) {
+      const enriched = apiNewlyUnlocked.map((v) => ({
+        ...v,
+        rewardReason: v.unlockRule || 'Đơn hàng vừa đặt đã đủ điều kiện mở khóa ưu đãi!',
+      }));
+      setRewardPopupVouchers(enriched);
+      enriched.forEach((v) => {
+        toast.success(`🎁 Chúc mừng! Bạn đã đủ điều kiện và nhận được Voucher ${v.code} (${v.name})!`);
+      });
+    } else {
+      // Nếu Backend chưa trả về newlyUnlockedVouchers, kiểm tra đối chiếu với danh sách từ API
+      const prevOwnedCodes = new Set(vouchers.map((v) => normalizeVoucherCode(v.code)));
+      const earnedCodes = evaluateOrderAgainstApiCatalog(newOrder, catalogVouchers);
+      const newlyMatched = catalogVouchers
+        .filter(
+          (v) => {
+            const norm = normalizeVoucherCode(v.code);
+            return (
+              earnedCodes.includes(norm) &&
+              !prevOwnedCodes.has(norm) &&
+              !currentUsedAndApplied.has(norm)
+            );
+          }
+        )
+        .map((v) => ({
+          ...v,
+          rewardReason: v.unlockRule || 'Đơn hàng vừa đặt đã đủ điều kiện mở khóa ưu đãi!',
+        }));
+
+      if (newlyMatched.length > 0) {
+        setRewardPopupVouchers(newlyMatched);
+        newlyMatched.forEach((v) => {
+          toast.success(`🎁 Chúc mừng! Bạn đã đủ điều kiện và nhận được Voucher ${v.code} (${v.name})!`);
+        });
+      }
+    }
+
+    setAppliedVoucherCode('');
+    setServerDiscount(0);
+
+    // Đồng bộ lại Ví Voucher cá nhân trực tiếp từ API Backend
+    await fetchVouchers();
+
+    toast.success(`Đặt hàng thành công! Mã đơn hàng: #${orderCode}`);
+    return newOrder;
   };
 
   // Hủy đơn hàng
@@ -976,6 +929,7 @@ export function ShopStateProvider({ children }) {
           };
         })
       );
+      await fetchVouchers();
       toast.success(`Đã hủy thành công đơn hàng #${orderId}!`);
     } catch (err) {
       console.warn('Lỗi khi hủy đơn hàng:', err);
@@ -1020,24 +974,48 @@ export function ShopStateProvider({ children }) {
     toast.success('Đã thêm lại các sản phẩm vào giỏ hàng!');
   };
 
-  // Cập nhật thông tin hồ sơ cá nhân
+  // Cập nhật thông tin hồ sơ cá nhân đồng bộ trực tiếp với database (PUT /api/users/{id})
   const updateProfile = async (nextFields) => {
     try {
       let updatedUserFromServer = null;
+      const targetAddress = nextFields.defaultAddress !== undefined ? nextFields.defaultAddress : nextFields.address;
+
       if (user?.id) {
         updatedUserFromServer = await shopUserService.updateProfile(user.id, {
           ...profile,
           ...nextFields,
+          ...(targetAddress !== undefined ? { address: targetAddress } : {}),
         });
       }
 
+      const userKey = user?.id || user?.username;
+      const nextAddresses = nextFields.addresses;
+
+      if (nextAddresses && userKey) {
+        try {
+          localStorage.setItem(`qlshop_saved_addresses_${userKey}`, JSON.stringify(nextAddresses));
+        } catch (e) {
+          console.warn('Lỗi lưu sổ địa chỉ vào localStorage:', e);
+        }
+      }
+
       setProfile((prev) => {
+        const nextDefault = cleanSavedAddress(targetAddress !== undefined ? targetAddress : prev.defaultAddress);
+        const baseAddresses = nextAddresses ?? prev.addresses ?? [];
+        const builtAddresses = buildUserAddressBook(nextDefault, user, orders, baseAddresses);
+
         const updated = {
           ...prev,
           ...nextFields,
+          defaultAddress: nextDefault,
+          addresses: builtAddresses,
           ...(updatedUserFromServer?.avatar ? { avatar: updatedUserFromServer.avatar } : {}),
         };
-        localStorage.setItem('qlshop_profile', JSON.stringify(updated));
+        try {
+          localStorage.setItem('qlshop_profile', JSON.stringify(updated));
+        } catch (e) {
+          console.warn(e);
+        }
         return updated;
       });
 
@@ -1049,7 +1027,7 @@ export function ShopStateProvider({ children }) {
           email: nextFields.email ?? user.email,
           phone: nextFields.phone ?? user.phone,
           gender: nextFields.gender ?? user.gender,
-          address: nextFields.defaultAddress ?? user.address,
+          address: targetAddress !== undefined ? targetAddress : user.address,
           avatar: nextFields.avatar ?? updatedUserFromServer?.avatar ?? user.avatar,
         };
         setUser?.(nextUser);
@@ -1105,7 +1083,7 @@ export function ShopStateProvider({ children }) {
     cartSummary,
     vouchers,
     catalogVouchers,
-    userVoucherWallet,
+    usedVoucherCodes,
     appliedVoucherCode,
     addToCart,
     updateCartQuantity,
@@ -1137,12 +1115,11 @@ export function ShopStateProvider({ children }) {
       {children}
 
       {/* =========================================================================
-          TOAST / BANNER NỔI BẬT KHI NGƯỜI DÙNG VỪA NHẬN ĐƯỢC VOUCHER MỚI
+          POPUP / BANNER NỔI BẬT KHI NGƯỜI DÙNG ĐỦ ĐIỀU KIỆN NHẬN ĐƯỢC VOUCHER MỚI TỪ API
           ========================================================================= */}
       {rewardPopupVouchers.length > 0 && (
         <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
           <div className="relative w-full max-w-md overflow-hidden rounded-3xl border-2 border-amber-300 bg-gradient-to-b from-emerald-950 via-zinc-900 to-zinc-950 p-6 text-white shadow-2xl animate-in zoom-in-95 duration-200">
-            {/* Hiệu ứng ánh sáng nền */}
             <div className="pointer-events-none absolute -top-20 -right-20 h-48 w-48 rounded-full bg-amber-400/20 blur-3xl" />
             <div className="pointer-events-none absolute -bottom-20 -left-20 h-48 w-48 rounded-full bg-emerald-500/20 blur-3xl" />
 
@@ -1161,18 +1138,17 @@ export function ShopStateProvider({ children }) {
 
               <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-amber-400/40 bg-amber-400/10 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-amber-300">
                 <Sparkles className="h-3.5 w-3.5" />
-                Phần thưởng Voucher mới
+                Phần thưởng Voucher từ hệ thống
               </div>
 
               <h3 className="mt-2 text-xl font-black tracking-tight text-white">
                 Chúc mừng bạn nhận được {rewardPopupVouchers.length} Mã Giảm Giá!
               </h3>
               <p className="mt-1 text-xs text-zinc-300">
-                Voucher đã được tự động thêm vào Ví Voucher của bạn để dùng khi Thanh toán.
+                Bạn đã đủ điều kiện nhận Voucher! Mã đã được lưu vào Ví Voucher của bạn để áp dụng khi Thanh toán.
               </p>
             </div>
 
-            {/* Danh sách thẻ vé Voucher vừa nhận */}
             <div className="relative z-10 mt-5 space-y-3">
               {rewardPopupVouchers.map((v) => (
                 <div
@@ -1187,12 +1163,7 @@ export function ShopStateProvider({ children }) {
                           {v.code}
                         </span>
                         <span className="rounded-md bg-amber-100 px-2 py-0.5 text-[11px] font-extrabold text-amber-900 ring-1 ring-amber-300">
-                          {v.badgeText ||
-                            (v.discountType === 'PERCENTAGE'
-                              ? `GIẢM ${v.discountValue}%`
-                              : `GIẢM ${new Intl.NumberFormat('vi-VN').format(
-                                  v.discountValue || 0
-                                )}Đ`)}
+                          {v.badgeText}
                         </span>
                       </div>
 
@@ -1200,7 +1171,7 @@ export function ShopStateProvider({ children }) {
                       <p className="text-[11px] text-zinc-600">{v.description}</p>
                       {v.rewardReason && (
                         <p className="pt-1 text-[11px] font-bold text-emerald-700">
-                          ✨ Lý do nhận: {v.rewardReason}
+                          ✨ Điều kiện đạt được: {v.rewardReason}
                         </p>
                       )}
                     </div>
@@ -1228,7 +1199,7 @@ export function ShopStateProvider({ children }) {
                 className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 py-3 text-xs font-black uppercase tracking-wider text-zinc-950 shadow-lg shadow-amber-500/20 transition hover:brightness-105"
               >
                 <CheckCircle2 className="h-4 w-4" />
-                Tuyệt vời! Đã nhận vào Ví Voucher
+                Tuyệt vời! Đã lưu vào Ví Voucher
               </button>
             </div>
           </div>

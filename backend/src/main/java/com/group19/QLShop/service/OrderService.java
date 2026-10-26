@@ -66,7 +66,7 @@ public class OrderService {
     }
 
     // ==========================================
-    // 1. TẠO ĐƠN HÀNG (Có Trừ Tồn Kho Variant & Tặng Voucher Tự Động)
+    // 1. TẠO ĐƠN HÀNG (Có Trừ Tồn Kho Variant & Tặng Voucher Tự Động Chuẩn Theo API)
     // ==========================================
     @Transactional(rollbackFor = Exception.class)
     public OrderResponse createOrder(OrderRequest request) {
@@ -77,11 +77,23 @@ public class OrderService {
         User user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy User với ID: " + request.getUserId()));
 
+        String cleanAddress = request.getShippingAddress() != null ? request.getShippingAddress().trim() : "";
+        if (isPlaceholderAddress(cleanAddress) || cleanAddress.length() < 10 || cleanAddress.split("\\s+").length < 3) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Bạn chưa nhập địa chỉ nhận hàng hợp lệ! Vui lòng nhập đầy đủ số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành phố.");
+        }
+
+        // Nếu tài khoản User chưa có địa chỉ mặc định trong hồ sơ thì tự động lưu địa chỉ hợp lệ vừa nhập
+        if (isPlaceholderAddress(user.getAddress())) {
+            user.setAddress(cleanAddress);
+            userRepository.save(user);
+        }
+
         Order order = new Order();
         order.setUser(user);
         order.setReceiverName(request.getReceiverName().trim());
         order.setReceiverPhone(request.getReceiverPhone().trim());
-        order.setShippingAddress(request.getShippingAddress().trim());
+        order.setShippingAddress(cleanAddress);
         order.setNote(request.getNote());
         order.setStatus(OrderStatus.PENDING);
 
@@ -105,14 +117,22 @@ public class OrderService {
                     variant = productVariantRepository.findById(itemReq.getVariantId())
                             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                                     "Không tìm thấy phân loại sản phẩm với ID: " + itemReq.getVariantId()));
+                } else {
+                    List<ProductVariant> variants = productVariantRepository.findByProductId(product.getId());
+                    if (variants != null && !variants.isEmpty()) {
+                        variant = variants.stream()
+                                .filter(v -> v.getStockQuantity() >= itemReq.getQuantity())
+                                .findFirst()
+                                .orElse(variants.get(0));
+                    }
+                }
 
+                if (variant != null) {
                     if (variant.getStockQuantity() < itemReq.getQuantity()) {
                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                                 "Sản phẩm " + product.getName() + " (" + variant.getColor() + " - " + variant.getSize() +
                                 ") chỉ còn " + variant.getStockQuantity() + " chiếc trong kho!");
                     }
-
-                    // Trừ số lượng tồn kho
                     variant.setStockQuantity(variant.getStockQuantity() - itemReq.getQuantity());
                     productVariantRepository.save(variant);
                 }
@@ -187,14 +207,11 @@ public class OrderService {
         order.setDiscountAmount(discountAmount);
         order.setOrderItems(orderItems);
 
-        Order savedOrder = orderRepository.save(order);
-
-        // ---> ĐÁNH GIÁ & TẶNG VOUCHER MỚI CHO KHÁCH HÀNG SAU KHI ĐẶT ĐƠN <---
-        // - Đơn từ 99.000đ -> Tặng HOODIE30K
-        // - Đơn có Áo Polo -> Tặng POLO10
-        // - Đơn từ 2 SP hoặc Áo Thun -> Tặng TEELAB20
+        // Đánh giá các voucher mới mở khóa TRƯỚC khi lưu đơn mới để so sánh chính xác với lịch sử đơn cũ
         List<VoucherResponse> newlyUnlockedVouchers = voucherService.evaluateAndUnlockVouchersForOrder(
                 user, orderItems, totalAmount, appliedVoucherCode);
+
+        Order savedOrder = orderRepository.save(order);
 
         OrderResponse response = toOrderResponse(savedOrder);
         response.setNewlyUnlockedVouchers(newlyUnlockedVouchers);
@@ -344,5 +361,24 @@ public class OrderService {
                 .quantity(item.getQuantity())
                 .total(item.getPrice() * item.getQuantity())
                 .build();
+    }
+
+    // Phát hiện địa chỉ rỗng hoặc chỉ là câu placeholder ("Chưa cập nhật địa chỉ", "Chưa có địa chỉ"...)
+    private static boolean isPlaceholderAddress(String address) {
+        if (address == null || address.isBlank()) return true;
+        String norm = java.text.Normalizer.normalize(address, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .replace('đ', 'd').replace('Đ', 'D')
+                .toLowerCase()
+                .replaceAll("\\s+", " ")
+                .trim();
+        String[] placeholders = {
+                "chua cap nhat", "chua co dia chi", "chua nhap", "khong co", "khong ro",
+                "dia chi mac dinh", "nhap dia chi", "n/a", "null", "undefined"
+        };
+        for (String p : placeholders) {
+            if (norm.contains(p)) return true;
+        }
+        return false;
     }
 }

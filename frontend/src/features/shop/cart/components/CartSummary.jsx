@@ -3,13 +3,16 @@ import { Ticket, CheckCircle2, ArrowRight, Truck, Sparkles, X, Gift } from 'luci
 import ShopButton from '../../../../components/shop/common/ShopButton';
 import { formatCurrency } from '../../shared/utils/formatters';
 import { shopPaths } from '../../shopPaths';
+import { normalizeVoucherCode } from '../../shared/context/ShopStateContext';
 
 /**
- * Tóm tắt đơn hàng và áp dụng voucher cá nhân của từng tài khoản trên trang Giỏ hàng.
+ * Tóm tắt đơn hàng và áp dụng voucher cá nhân lấy chuẩn từ API Backend trên trang Giỏ hàng.
  */
 export default function CartSummary({
   summary,
   vouchers = [],
+  catalogVouchers = [],
+  usedVoucherCodes = new Set(),
   appliedVoucherCode = '',
   onApplyVoucher,
   onProceedCheckout,
@@ -42,6 +45,8 @@ export default function CartSummary({
     if (res) setFeedback(res);
   };
 
+  const ownedCodeSet = new Set(vouchers.map((v) => v.code));
+
   return (
     <aside className="space-y-5 rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-xs">
       <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
@@ -70,7 +75,7 @@ export default function CartSummary({
         </div>
       </div>
 
-      {/* Nhập hoặc chọn voucher cá nhân hiện có */}
+      {/* Nhập hoặc chọn voucher cá nhân hiện có từ API */}
       <div className="space-y-3 border-t border-zinc-100 pt-4">
         <div className="flex items-center justify-between">
           <label className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-500">
@@ -84,7 +89,7 @@ export default function CartSummary({
             type="text"
             value={codeInput}
             onChange={(e) => setCodeInput(e.target.value.toUpperCase())}
-            placeholder="Nhập mã (VD: WELCOME50K, POLO10)"
+            placeholder="Nhập mã giảm giá của bạn..."
             className="h-10 flex-1 rounded-xl border border-zinc-200 px-3.5 text-sm font-semibold uppercase text-zinc-900 placeholder:normal-case placeholder:font-normal placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none"
           />
           <ShopButton type="submit" variant="outline" size="sm">
@@ -102,7 +107,7 @@ export default function CartSummary({
           </p>
         )}
 
-        {/* Chỉ hiển thị các voucher mà tài khoản đang sở hữu */}
+        {/* Chỉ hiển thị các voucher mà tài khoản đang sở hữu từ API */}
         {vouchers.length > 0 ? (
           <div className="space-y-2 pt-1">
             {vouchers.map((v) => {
@@ -153,31 +158,41 @@ export default function CartSummary({
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/60 p-3 text-xs text-zinc-500">
-            Bạn hiện chưa có voucher khả dụng nào trong ví. Đặt đơn từ 99K hoặc mua Áo Polo để nhận ngay mã mới!
+            Bạn hiện chưa có voucher khả dụng nào trong ví. Khi đặt hàng đủ điều kiện của các chương trình khuyến mãi bên dưới, bạn sẽ tự động nhận được Voucher!
           </div>
         )}
 
-        {/* Gợi ý nhiệm vụ nhận thêm Voucher chuẩn theo 4 mã hệ thống */}
-        <div className="rounded-2xl border border-amber-200/80 bg-amber-50/60 p-3 text-[11px] text-amber-900 space-y-1">
-          <div className="flex items-center gap-1.5 font-bold text-amber-800">
-            <Gift className="h-3.5 w-3.5 shrink-0 text-amber-600" />
-            <span>Cách nhận đủ 4 Voucher ưu đãi:</span>
+        {/* Danh sách điều kiện nhận Voucher lấy trực tiếp từ API (/api/vouchers/catalog) */}
+        {catalogVouchers.length > 0 && (
+          <div className="rounded-2xl border border-amber-200/80 bg-amber-50/60 p-3 text-[11px] text-amber-900 space-y-1.5">
+            <div className="flex items-center gap-1.5 font-bold text-amber-800">
+              <Gift className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+              <span>Điều kiện nhận Voucher từ hệ thống:</span>
+            </div>
+            <ul className="list-disc pl-4 space-y-1 text-amber-800/90">
+              {catalogVouchers.map((cv) => {
+                const norm = normalizeVoucherCode(cv.code);
+                const isOwned = ownedCodeSet.has(cv.code) || ownedCodeSet.has(norm);
+                const isUsed = usedVoucherCodes?.has?.(norm) || usedVoucherCodes?.has?.(cv.code);
+                return (
+                  <li key={cv.code}>
+                    <strong>{cv.code}</strong> ({cv.badgeText}): {cv.name} —{' '}
+                    <em>{cv.unlockRule || cv.description}</em>{' '}
+                    {isUsed ? (
+                      <span className="inline-block rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] font-bold text-zinc-600">
+                        Đã sử dụng (Mỗi tài khoản dùng 1 lần)
+                      </span>
+                    ) : isOwned ? (
+                      <span className="inline-block rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-bold text-emerald-800">
+                        Đã có trong ví
+                      </span>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
           </div>
-          <ul className="list-disc pl-4 space-y-0.5 text-amber-800/90">
-            <li>
-              <strong>WELCOME50K</strong>: Giảm 50.000đ (Đơn từ 250.000đ) — <em>Tặng khi đăng ký tài khoản mới</em>
-            </li>
-            <li>
-              <strong>POLO10</strong>: Giảm 10% tối đa 40.000đ (Đơn từ 300.000đ) — <em>Tặng khi đặt mua Áo Polo Routine (hoặc đơn từ 300.000đ)</em>
-            </li>
-            <li>
-              <strong>HOODIE30K</strong>: Giảm 30.000đ (Đơn từ 350.000đ) — <em>Tặng khi đặt mua Áo Khoác &amp; Hoodie (hoặc đơn từ 350.000đ)</em>
-            </li>
-            <li>
-              <strong>TEELAB20</strong>: Giảm 20% tối đa 60.000đ (Đơn từ 400.000đ) — <em>Tặng khi đặt mua Áo Thun Teelab (hoặc đơn từ 400.000đ)</em>
-            </li>
-          </ul>
-        </div>
+        )}
       </div>
 
       {/* Chi tiết tiền */}
@@ -235,7 +250,7 @@ export default function CartSummary({
 
       <p className="flex items-center justify-center gap-1.5 text-center text-[11px] text-zinc-400">
         <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-        Ví Voucher tự động tích lũy theo lịch sử mua sắm của tài khoản bạn
+        Dữ liệu Voucher đồng bộ trực tiếp từ API hệ thống
       </p>
     </aside>
   );

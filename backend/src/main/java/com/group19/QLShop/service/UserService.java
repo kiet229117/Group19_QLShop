@@ -282,6 +282,8 @@ public class UserService {
                 .role(user.getRole())
                 .active(user.getActive() != null ? user.getActive() : true)
                 .lockReason(user.getLockReason())
+                .unlockedVouchers(user.getUnlockedVouchers() != null ? user.getUnlockedVouchers() : "WELCOME50K")
+                .usedVouchers(user.getUsedVouchers() != null ? user.getUsedVouchers() : "")
                 .cartId(cartId)
                 .build();
     }

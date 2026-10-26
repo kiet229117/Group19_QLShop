@@ -90,14 +90,18 @@ export default function ProductDetailPage() {
         />
       </div>
 
-      {/* Sản phẩm liên quan */}
-      <RelatedProducts
-        currentProductId={product.id}
-        categoryId={product.categoryId}
-        brandId={product.brandId}
-        categoryMap={categoryMap}
-        brandMap={brandMap}
-      />
+      {/* Sản phẩm liên quan theo Danh mục (Category) & Thương hiệu (Brand) phía dưới Bình luận */}
+      <div id="related-products-section">
+        <RelatedProducts
+          currentProductId={product.id}
+          categoryId={product.categoryId}
+          brandId={product.brandId}
+          category={category}
+          brand={brand}
+          categoryMap={categoryMap}
+          brandMap={brandMap}
+        />
+      </div>
     </div>
   );
 }
