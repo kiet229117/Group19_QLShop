@@ -17,6 +17,7 @@ import { resolveShopImageUrl } from '../../shared/utils/productUtils';
 import { useShopState } from '../../shared/context/ShopStateContext';
 import shopUserService from '../services/shopUserService';
 import { toast } from '../../../../components/common/Toast';
+import { validateShippingAddress } from '../../shared/utils/addressUtils';
 
 const GENDER_OPTIONS = [
   { value: 'MALE', label: 'Nam' },
@@ -42,8 +43,9 @@ function validateProfile(values) {
   } else if (!/^0\d{8,10}$/.test(cleanPhone)) {
     errors.phone = 'Số điện thoại cần bắt đầu bằng 0 và gồm 9–11 chữ số.';
   }
-  if (!values.defaultAddress.trim()) {
-    errors.defaultAddress = 'Vui lòng nhập địa chỉ mặc định.';
+  if (values.defaultAddress !== undefined) {
+    errors.defaultAddress = validateShippingAddress(values.defaultAddress) || undefined;
+    if (!errors.defaultAddress) delete errors.defaultAddress;
   }
   return errors;
 }

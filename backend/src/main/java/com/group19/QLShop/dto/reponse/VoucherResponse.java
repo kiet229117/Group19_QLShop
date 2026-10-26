@@ -24,4 +24,6 @@ public class VoucherResponse {
     private Integer usageLimit;
     private Integer usedCount;
     private Boolean active;
+    private String unlockCondition;
 }
+

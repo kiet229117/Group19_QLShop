@@ -20,6 +20,6 @@ public class OrderItemRequest {
     @Min(value = 1, message = "Số lượng sản phẩm phải lớn hơn 0")
     private Integer quantity;
 
+    // Tùy chọn: Nếu client không truyền variantId, hệ thống sẽ tự chọn phân loại khả dụng đầu tiên
     private Long variantId;
 }
-

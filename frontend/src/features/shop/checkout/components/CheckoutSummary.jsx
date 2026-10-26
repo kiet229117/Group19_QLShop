@@ -1,29 +1,51 @@
 import { useState } from 'react';
-import { ArrowLeft, CheckCircle2, Sparkles, Ticket, X, Gift } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Sparkles, Ticket, X, Gift, AlertTriangle } from 'lucide-react';
 import ProductImage from '../../../../components/shop/common/ProductImage';
 import ShopButton from '../../../../components/shop/common/ShopButton';
 import { formatCurrency } from '../../shared/utils/formatters';
 import { resolveShopImageUrl } from '../../shared/utils/productUtils';
+import { evaluateOrderAgainstApiCatalog, normalizeVoucherCode } from '../../shared/context/ShopStateContext';
 import { shopPaths } from '../../shopPaths';
+import { isValidShippingAddress } from '../../shared/utils/addressUtils';
 
 /**
- * Cột tóm tắt đơn hàng bên phải trang Thanh toán (Chỉ hiển thị các Voucher mà khách hàng đang sở hữu).
+ * Cột tóm tắt đơn hàng bên phải trang Thanh toán (Chỉ hiển thị các Voucher khách hàng đang sở hữu từ API).
  */
 export default function CheckoutSummary({
   items = [],
   summary,
   vouchers = [],
+  catalogVouchers = [],
+  usedVoucherCodes = new Set(),
   appliedVoucherCode = '',
   onApplyVoucher,
+  shippingAddress = '',
 }) {
   const { subtotal, shippingFee, discount, totalAmount, activeVoucher } = summary;
   const [feedback, setFeedback] = useState(null);
+  const isAddressMissingOrInvalid = !isValidShippingAddress(shippingAddress);
 
   const handleToggleVoucher = async (code) => {
     const nextCode = appliedVoucherCode === code ? '' : code;
     const res = await onApplyVoucher?.(nextCode);
     if (res) setFeedback(res);
   };
+
+  // Kiểm tra đơn hàng hiện tại sẽ mở khóa thêm những Voucher mới nào từ API sau khi đặt hàng
+  // NGUYÊN TẮC: Mã đã có trong ví HOẶC mã đã từng sử dụng thì TUYỆT ĐỐI không được nhận lại
+  const ownedCodes = new Set(vouchers.map((v) => normalizeVoucherCode(v.code)));
+  const earnedCodesFromThisOrder = evaluateOrderAgainstApiCatalog(
+    { subtotal, totalAmount, items, status: 'PENDING' },
+    catalogVouchers
+  );
+  const upcomingRewards = catalogVouchers.filter((cv) => {
+    const norm = normalizeVoucherCode(cv.code);
+    return (
+      earnedCodesFromThisOrder.includes(norm) &&
+      !ownedCodes.has(norm) &&
+      !usedVoucherCodes.has(norm)
+    );
+  });
 
   return (
     <aside className="space-y-5 rounded-3xl border border-zinc-200/80 bg-white p-6 shadow-xs">
@@ -61,7 +83,7 @@ export default function CheckoutSummary({
         ))}
       </div>
 
-      {/* Khu vực Voucher hiện có của tài khoản khi Thanh toán */}
+      {/* Khu vực Voucher hiện có của tài khoản khi Thanh toán (lấy chuẩn từ API) */}
       <div className="space-y-2.5 border-t border-zinc-100 pt-4">
         <div className="flex items-center justify-between">
           <span className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-zinc-600">
@@ -125,6 +147,9 @@ export default function CheckoutSummary({
                     <p className="mt-1 truncate text-xs font-bold text-zinc-800">
                       {v.name || v.description}
                     </p>
+                    {v.description && (
+                      <p className="truncate text-[11px] text-zinc-500">{v.description}</p>
+                    )}
                   </div>
                   {isSelected ? (
                     <X className="h-4 w-4 shrink-0 text-emerald-700" />
@@ -137,52 +162,26 @@ export default function CheckoutSummary({
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed border-zinc-200 bg-zinc-50/60 p-3 text-xs text-zinc-500">
-            Bạn chưa có voucher nào khả dụng. Hoàn tất đơn hàng này (đủ 99K hoặc có Áo Polo) để nhận ngay Voucher mới!
+            Bạn hiện chưa có voucher nào khả dụng trong ví. Hoàn tất đơn hàng đủ điều kiện để nhận ngay Voucher mới từ hệ thống!
           </div>
         )}
 
-        {/* Thông báo phần thưởng sẽ nhận được sau khi đặt đơn này */}
-        {(() => {
-          const hasPolo = items.some((it) => {
-            const n = String(it.name || '').toLowerCase();
-            return n.includes('polo') || n.includes('routine');
-          });
-          const hasHoodie = items.some((it) => {
-            const n = String(it.name || '').toLowerCase();
-            return (
-              n.includes('hoodie') ||
-              n.includes('khoác') ||
-              n.includes('khoac') ||
-              n.includes('sweater') ||
-              n.includes('jacket') ||
-              n.includes('bomber') ||
-              n.includes('cardigan')
-            );
-          });
-          const hasTee = items.some((it) => {
-            const n = String(it.name || '').toLowerCase();
-            return n.includes('thun') || n.includes('teelab') || n.includes('tee');
-          });
-          const rewards = [
-            hasPolo || subtotal >= 300000 ? 'POLO10 (Giảm 10% tối đa 40.000đ)' : null,
-            hasHoodie || subtotal >= 350000 ? 'HOODIE30K (Giảm 30.000đ)' : null,
-            hasTee || subtotal >= 400000 ? 'TEELAB20 (Giảm 20% tối đa 60.000đ)' : null,
-          ].filter(Boolean);
-
-          if (rewards.length === 0) return null;
-          return (
-            <div className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50/80 p-2.5 text-[11px] text-amber-900">
-              <Gift className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
-              <div>
-                <span className="font-bold">Quà tặng sau khi đặt đơn này: </span>
-                <span>
-                  Đơn hàng của bạn đủ điều kiện mở khóa Voucher:{' '}
-                  <strong>{rewards.join(' • ')}</strong>!
-                </span>
-              </div>
+        {/* Thông báo phần thưởng sẽ nhận được sau khi đặt đơn này (dựa chuẩn trên API catalogVouchers) */}
+        {upcomingRewards.length > 0 && (
+          <div className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50/80 p-2.5 text-[11px] text-amber-900">
+            <Gift className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+            <div>
+              <span className="font-bold">Quà tặng sau khi đặt đơn này: </span>
+              <span>
+                Đơn hàng của bạn đủ điều kiện nhận Voucher mới:{' '}
+                <strong>
+                  {upcomingRewards.map((r) => `${r.code} (${r.badgeText})`).join(' • ')}
+                </strong>
+                !
+              </span>
             </div>
-          );
-        })()}
+          </div>
+        )}
       </div>
 
       {/* Chi tiết tính tiền */}
@@ -215,6 +214,15 @@ export default function CheckoutSummary({
       </dl>
 
       <div className="space-y-2.5 pt-1">
+        {isAddressMissingOrInvalid && (
+          <div className="flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50/90 p-3 text-xs text-amber-900">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+            <span>
+              <strong>Chưa đủ địa chỉ nhận hàng:</strong> Vui lòng nhập đầy đủ số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành phố ở cột bên trái trước khi đặt hàng.
+            </span>
+          </div>
+        )}
+
         <ShopButton type="submit" variant="primary" size="lg" fullWidth>
           <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
           Xác nhận Đặt hàng ngay
@@ -227,7 +235,7 @@ export default function CheckoutSummary({
 
       <p className="flex items-center justify-center gap-1.5 text-center text-[11px] text-zinc-400">
         <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-        Chỉ hiển thị các Voucher thuộc sở hữu của tài khoản bạn
+        Chỉ hiển thị các Voucher thuộc sở hữu của tài khoản bạn từ API
       </p>
     </aside>
   );

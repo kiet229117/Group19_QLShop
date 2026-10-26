@@ -84,6 +84,76 @@ export const filterByBrand = async (brandId, page = 0, size = 10, signal) => {
   return res.data || res;
 };
 
+// 11. Lấy danh sách sản phẩm liên quan theo Danh mục (categoryId) và Thương hiệu (brandId)
+export const getRelatedByCategoryAndBrand = async (
+  { currentProductId, categoryId, brandId, limit = 8 } = {},
+  signal
+) => {
+  const tasks = [
+    categoryId
+      ? filterProducts({ categoryId, page: 0, pageSize: limit }, signal).catch(() => null)
+      : Promise.resolve(null),
+    brandId
+      ? filterProducts({ brandId, page: 0, pageSize: limit }, signal).catch(() => null)
+      : Promise.resolve(null),
+    getHot({ page: 0, size: limit }, signal).catch(() => null),
+  ];
+
+  const [catPage, brandPage, hotPage] = await Promise.all(tasks);
+
+  const extractList = (pageData) => {
+    if (!pageData) return [];
+    if (Array.isArray(pageData)) return pageData;
+    if (Array.isArray(pageData.content)) return pageData.content;
+    return [];
+  };
+
+  const isNotCurrent = (p) => p && String(p.id) !== String(currentProductId);
+
+  const byCategory = extractList(catPage).filter(isNotCurrent);
+  const byBrand = extractList(brandPage).filter(isNotCurrent);
+  const hotFallback = extractList(hotPage).filter(isNotCurrent);
+
+  // Gộp ưu tiên: Trùng cả Category & Brand -> Cùng Category -> Cùng Brand -> Hot Fallback
+  const seenIds = new Set();
+  const combined = [];
+
+  const pushUnique = (item) => {
+    if (!item || item.id == null) return;
+    const key = String(item.id);
+    if (!seenIds.has(key)) {
+      seenIds.add(key);
+      combined.push(item);
+    }
+  };
+
+  // 1. Trùng cả Category và Brand
+  byCategory
+    .filter((p) => brandId && String(p.brandId) === String(brandId))
+    .forEach(pushUnique);
+
+  // 2. Cùng Category
+  byCategory.forEach(pushUnique);
+
+  // 3. Cùng Brand
+  byBrand.forEach(pushUnique);
+
+  // 4. Bổ sung sản phẩm Hot nếu tổng số sản phẩm cùng Category + Brand ít hơn 4
+  if (combined.length < 4) {
+    hotFallback.forEach((p) => {
+      if (combined.length < limit) {
+        pushUnique(p);
+      }
+    });
+  }
+
+  return {
+    combined: combined.slice(0, limit),
+    byCategory: byCategory.slice(0, limit),
+    byBrand: byBrand.slice(0, limit),
+  };
+};
+
 export const shopProductService = {
   getAllProducts,
   getBySlug,
@@ -96,6 +166,7 @@ export const shopProductService = {
   searchProducts,
   filterByCategory,
   filterByBrand,
+  getRelatedByCategoryAndBrand,
 };
 
 export default shopProductService;

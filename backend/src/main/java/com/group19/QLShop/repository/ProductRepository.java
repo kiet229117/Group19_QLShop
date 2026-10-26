@@ -61,4 +61,23 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
            "OR LOWER(b.name) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "ORDER BY COALESCE(p.views, 0) DESC, p.id DESC")
     List<Product> findSearchSuggestions(@Param("keyword") String keyword, Pageable pageable);
+
+    // ==========================================
+    // SẢN PHẨM LIÊN QUAN THEO DANH MỤC & THƯƠNG HIỆU
+    // ==========================================
+    @Query("SELECT p FROM Product p " +
+           "WHERE (:productId IS NULL OR p.id <> :productId) " +
+           "AND ((:categoryId IS NOT NULL AND p.category.id = :categoryId) " +
+           "  OR (:brandId IS NOT NULL AND p.brand.id = :brandId)) " +
+           "ORDER BY " +
+           "CASE " +
+           "  WHEN (:categoryId IS NOT NULL AND p.category.id = :categoryId AND :brandId IS NOT NULL AND p.brand.id = :brandId) THEN 3 " +
+           "  WHEN (:categoryId IS NOT NULL AND p.category.id = :categoryId) THEN 2 " +
+           "  ELSE 1 " +
+           "END DESC, COALESCE(p.views, 0) DESC, p.id DESC")
+    List<Product> findRelatedProducts(
+            @Param("productId") Long productId,
+            @Param("categoryId") Long categoryId,
+            @Param("brandId") Long brandId,
+            Pageable pageable);
 }

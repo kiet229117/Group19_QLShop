@@ -66,7 +66,7 @@ export default function Header() {
       <div className="border-b border-zinc-100 bg-zinc-900 px-4 py-1 text-[11px] text-zinc-300">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4">
           <p className="truncate font-medium">
-            🔥 SHOP3AE — Miễn phí vận chuyển từ 499k (Nhập mã: <span className="font-bold text-amber-300">QLSHOP50</span>)
+            🔥 SHOP3AE — Nơi thời trang ở tầm cao mới
           </p>
           <div className="hidden items-center gap-4 sm:flex text-zinc-400">
             <Link to={shopPaths.products({ hasSale: 'true' })} className="transition hover:text-emerald-400">

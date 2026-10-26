@@ -14,7 +14,6 @@ import EmptyCart from '../components/EmptyCart';
 
 /**
  * Trang Giỏ hàng (`/shop/cart`).
- * Tự động kiểm tra tồn kho thực tế từ Server ngay khi mở giỏ hàng để thông báo nếu sản phẩm để lâu bị hết hàng.
  */
 export default function CartPage() {
   const navigate = useNavigate();
@@ -23,6 +22,8 @@ export default function CartPage() {
     cartItems,
     cartSummary,
     vouchers,
+    catalogVouchers,
+    usedVoucherCodes,
     appliedVoucherCode,
     updateCartQuantity,
     removeCartItem,
@@ -68,24 +69,6 @@ export default function CartPage() {
         <div className="grid gap-8 lg:grid-cols-12 lg:items-start">
           {/* Danh sách sản phẩm trong giỏ */}
           <div className="space-y-4 lg:col-span-8">
-            {/* Cảnh báo nổi bật nếu có sản phẩm trong giỏ vừa bị hết hàng */}
-            {outOfStockItems.length > 0 && (
-              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3.5 text-xs text-rose-900 shadow-2xs">
-                <div className="flex items-start gap-2.5">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" aria-hidden="true" />
-                  <div>
-                    <p className="font-bold text-rose-800">
-                      Có {outOfStockItems.length} sản phẩm trong giỏ hàng của bạn hiện đã hết hàng!
-                    </p>
-                    <p className="mt-0.5 text-rose-700">
-                      Các sản phẩm hết hàng đã được tự động bỏ chọn để không ảnh hưởng tới đơn thanh toán của bạn.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Thanh chọn tất cả & xóa mục đã chọn */}
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-200/80 bg-white px-4 py-3.5">
               <label className="inline-flex cursor-pointer items-center gap-3 text-sm font-semibold text-zinc-800">
                 <input
@@ -126,7 +109,7 @@ export default function CartPage() {
             <div className="flex items-center gap-2.5 rounded-2xl border border-zinc-200/70 bg-white px-4 py-3 text-xs text-zinc-500">
               <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
               <span>
-                Đổi trả dễ dàng trong 30 ngày • Kiểm tra hàng trước khi nhận • Giao diện mô phỏng trực quan trên trình duyệt.
+                Đổi trả dễ dàng trong 30 ngày • Kiểm tra hàng trước khi nhận • Tích lũy Voucher tự động theo đơn hàng.
               </span>
             </div>
           </div>
@@ -136,6 +119,8 @@ export default function CartPage() {
             <CartSummary
               summary={cartSummary}
               vouchers={vouchers}
+              catalogVouchers={catalogVouchers}
+              usedVoucherCodes={usedVoucherCodes}
               appliedVoucherCode={appliedVoucherCode}
               onApplyVoucher={applyVoucher}
               onProceedCheckout={() => {
@@ -151,7 +136,6 @@ export default function CartPage() {
         </div>
       )}
 
-      {/* Hộp thoại xác nhận xóa 1 sản phẩm */}
       <ConfirmDialog
         open={Boolean(itemToRemove)}
         title="Xóa sản phẩm khỏi giỏ hàng"
@@ -165,7 +149,6 @@ export default function CartPage() {
         onClose={() => setItemToRemove(null)}
       />
 
-      {/* Hộp thoại xác nhận xóa các mục đang chọn */}
       <ConfirmDialog
         open={confirmClearSelected}
         title="Xóa các sản phẩm đã chọn"

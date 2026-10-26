@@ -1,12 +1,9 @@
-
-
 package com.group19.QLShop.dto.request;
 
 import java.util.List;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -31,8 +28,8 @@ public class OrderRequest {
     @Size(min = 9, max = 11, message = "Số điện thoại phải từ 9 đến 11 ký tự")
     private String receiverPhone;
 
-    @NotBlank(message = "Địa chỉ nhận hàng không được để trống")
-    @Size(max = 255, message = "Địa chỉ nhận hàng không vượt quá 255 ký tự")
+    @NotBlank(message = "Bạn chưa cập nhật địa chỉ nhận hàng! Vui lòng nhập địa chỉ giao hàng chi tiết.")
+    @Size(min = 10, max = 255, message = "Địa chỉ nhận hàng phải từ 10 đến 255 ký tự (ghi rõ số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố)")
     private String shippingAddress;
 
     private String note;

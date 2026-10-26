@@ -2,7 +2,6 @@ package com.group19.QLShop.service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -33,10 +32,6 @@ import com.group19.QLShop.repository.VoucherRepository;
 @Transactional(readOnly = true)
 public class VoucherService {
 
-    private static final Set<String> CAMPAIGN_CODES = Set.of(
-            "WELCOME50K", "POLO10", "AOPOLO10", "HOODIE30K", "TEELAB20"
-    );
-
     private final VoucherRepository voucherRepository;
     private final UserRepository userRepository;
     private final OrderRepository orderRepository;
@@ -50,7 +45,7 @@ public class VoucherService {
         this.orderRepository = orderRepository;
     }
 
-    // Chuẩn hóa mã AOPOLO10 và POLO10 thống nhất thành POLO10
+    // Chuẩn hóa mã AOPOLO10 và POLO10 thống nhất thành POLO10 để khớp chuẩn giao diện & DB
     public static String normalizeCode(String code) {
         if (code == null) return "";
         String clean = code.trim().toUpperCase();
@@ -76,17 +71,170 @@ public class VoucherService {
         return String.join(",", set);
     }
 
-    // Đồng bộ các voucher đã mở khóa và đã dùng của User dựa trên cả cột DB và lịch sử đơn hàng thật
+    // Kiểm tra xem một Voucher từ DB có phải là Voucher Chào Mừng Khách Hàng Mới không
+    public boolean isWelcomeVoucher(Voucher v) {
+        if (v == null) return false;
+        String text = ((v.getCode() != null ? v.getCode() : "") + " "
+                + (v.getName() != null ? v.getName() : "") + " "
+                + (v.getDescription() != null ? v.getDescription() : "")).toLowerCase();
+        return text.contains("welcome")
+                || text.contains("khách hàng mới")
+                || text.contains("khach hang moi")
+                || text.contains("thành viên mới")
+                || text.contains("thanh vien moi")
+                || text.contains("tân thủ");
+    }
+
+    // Tạo mô tả điều kiện nhận mã chuẩn từ dữ liệu API của từng Voucher
+    public String buildUnlockConditionText(Voucher v) {
+        if (v == null) return "";
+        double minVal = v.getMinOrderValue() != null ? v.getMinOrderValue() : 0.0;
+        String minStr = minVal > 0 ? String.format("%,.0fđ", minVal) : "0đ";
+
+        if (isWelcomeVoucher(v)) {
+            return minVal > 0
+                    ? "Nhận ngay khi đăng ký tài khoản mới (Áp dụng đơn từ " + minStr + ")"
+                    : "Nhận ngay khi đăng ký tài khoản mới";
+        }
+
+        String text = ((v.getCode() != null ? v.getCode() : "") + " "
+                + (v.getName() != null ? v.getName() : "") + " "
+                + (v.getDescription() != null ? v.getDescription() : "")).toLowerCase();
+
+        if (text.contains("polo") || text.contains("routine")) {
+            return "Nhận khi đặt mua sản phẩm Áo Polo / Routine (Áp dụng đơn từ " + minStr + ")";
+        }
+        if (text.contains("teelab") || text.contains("thun") || text.contains("tee")) {
+            return "Nhận khi đặt mua sản phẩm Áo Thun / Teelab (Áp dụng đơn từ " + minStr + ")";
+        }
+        if (text.contains("hoodie") || text.contains("khoác") || text.contains("khoac")
+                || text.contains("sweater") || text.contains("jacket") || text.contains("bomber")
+                || text.contains("cardigan")) {
+            return "Nhận khi đặt mua sản phẩm Áo Khoác & Hoodie (Áp dụng đơn từ " + minStr + ")";
+        }
+        if (text.contains("sơ mi") || text.contains("so mi") || text.contains("oxford")) {
+            return "Nhận khi đặt mua sản phẩm Áo Sơ Mi (Áp dụng đơn từ " + minStr + ")";
+        }
+        if (minVal > 0) {
+            return "Nhận khi đặt đơn hàng đạt từ " + minStr;
+        }
+        return "Ưu đãi dành cho khách hàng đủ điều kiện";
+    }
+
+    // Kiểm tra một đơn hàng thực tế đủ điều kiện mở khóa những Voucher nào trong danh sách Voucher từ DB
+    public Set<String> evaluateOrderItemsForVouchers(List<OrderItem> items, double subtotalAmount) {
+        List<Voucher> activeVouchers = voucherRepository.findAvailableVouchers(LocalDateTime.now());
+        return evaluateOrderAgainstVouchers(items, subtotalAmount, activeVouchers);
+    }
+
+    public Set<String> evaluateOrderAgainstVouchers(
+            List<OrderItem> items,
+            double subtotalAmount,
+            List<Voucher> activeVouchers) {
+        Set<String> unlocked = new LinkedHashSet<>();
+        if (activeVouchers == null || activeVouchers.isEmpty()) {
+            return unlocked;
+        }
+
+        boolean hasPolo = false;
+        boolean hasTee = false;
+        boolean hasHoodieOrJacket = false;
+        boolean hasShirt = false;
+
+        if (items != null) {
+            for (OrderItem item : items) {
+                Product p = item.getProduct();
+                String pName = (p != null && p.getName() != null) ? p.getName().toLowerCase() : "";
+                String brandName = (p != null && p.getBrand() != null && p.getBrand().getName() != null)
+                        ? p.getBrand().getName().toLowerCase()
+                        : "";
+                String catName = (p != null && p.getCategory() != null && p.getCategory().getName() != null)
+                        ? p.getCategory().getName().toLowerCase()
+                        : "";
+                String combinedProductText = pName + " " + brandName + " " + catName;
+
+                if (combinedProductText.contains("polo") || combinedProductText.contains("routine")) {
+                    hasPolo = true;
+                }
+                if (combinedProductText.contains("thun") || combinedProductText.contains("teelab") || combinedProductText.contains("tee")) {
+                    hasTee = true;
+                }
+                if (combinedProductText.contains("hoodie") || combinedProductText.contains("khoác")
+                        || combinedProductText.contains("khoac") || combinedProductText.contains("sweater")
+                        || combinedProductText.contains("jacket") || combinedProductText.contains("bomber")
+                        || combinedProductText.contains("cardigan") || combinedProductText.contains("chống nắng")) {
+                    hasHoodieOrJacket = true;
+                }
+                if (combinedProductText.contains("sơ mi") || combinedProductText.contains("so mi") || combinedProductText.contains("oxford")) {
+                    hasShirt = true;
+                }
+            }
+        }
+
+        for (Voucher v : activeVouchers) {
+            if (isWelcomeVoucher(v)) {
+                continue;
+            }
+            String normCode = normalizeCode(v.getCode());
+            String vText = ((v.getCode() != null ? v.getCode() : "") + " "
+                    + (v.getName() != null ? v.getName() : "") + " "
+                    + (v.getDescription() != null ? v.getDescription() : "")).toLowerCase();
+            double minOrder = v.getMinOrderValue() != null ? v.getMinOrderValue() : 0.0;
+
+            boolean requiresPolo = vText.contains("polo") || vText.contains("routine");
+            boolean requiresTee = vText.contains("teelab") || vText.contains("thun") || vText.contains("tee");
+            boolean requiresHoodie = vText.contains("hoodie") || vText.contains("khoác") || vText.contains("khoac")
+                    || vText.contains("sweater") || vText.contains("jacket") || vText.contains("bomber")
+                    || vText.contains("cardigan");
+            boolean requiresShirt = vText.contains("sơ mi") || vText.contains("so mi") || vText.contains("oxford");
+
+            if (requiresPolo) {
+                if (hasPolo) {
+                    unlocked.add(normCode);
+                }
+            } else if (requiresTee) {
+                if (hasTee) {
+                    unlocked.add(normCode);
+                }
+            } else if (requiresHoodie) {
+                if (hasHoodieOrJacket) {
+                    unlocked.add(normCode);
+                }
+            } else if (requiresShirt) {
+                if (hasShirt) {
+                    unlocked.add(normCode);
+                }
+            } else {
+                // Voucher chung không giới hạn dòng sản phẩm -> mở khóa khi đạt giá trị đơn tối thiểu trên API
+                if (subtotalAmount >= minOrder && subtotalAmount > 0) {
+                    unlocked.add(normCode);
+                }
+            }
+        }
+
+        // Nếu đơn hàng >= 300.000đ nhưng sản phẩm chưa khớp danh mục nào (VD: Áo Sơ Mi Denim), mở khóa POLO10 để đảm bảo quyền lợi
+        if (unlocked.isEmpty() && subtotalAmount >= 300000) {
+            for (Voucher v : activeVouchers) {
+                if (!isWelcomeVoucher(v)) {
+                    unlocked.add(normalizeCode(v.getCode()));
+                    break;
+                }
+            }
+        }
+
+        return unlocked;
+    }
+
+    // Đồng bộ Ví Voucher của User dựa chuẩn trên danh sách Voucher từ API và lịch sử đơn hàng thực tế trên DB
     @Transactional
     public User syncUserVoucherWallet(User user) {
         if (user == null) return null;
 
-        Set<String> unlocked = parseCodeSet(user.getUnlockedVouchers());
-        // Mặc định mọi tài khoản đăng ký đều có sẵn mã WELCOME50K
-        unlocked.add("WELCOME50K");
-
+        List<Voucher> activeVouchers = voucherRepository.findAvailableVouchers(LocalDateTime.now());
+        Set<String> unlocked = new LinkedHashSet<>();
         Set<String> used = parseCodeSet(user.getUsedVouchers());
 
+        // 1. Quét các đơn hàng thực tế không bị hủy của User để thu thập chính xác các mã đã dùng
         List<Order> userOrders = orderRepository.findByUserId(user.getId());
         for (Order ord : userOrders) {
             if (ord.getStatus() == OrderStatus.CANCELLED) continue;
@@ -94,13 +242,38 @@ public class VoucherService {
             if (ord.getVoucherCode() != null && !ord.getVoucherCode().isBlank()) {
                 used.add(normalizeCode(ord.getVoucherCode()));
             }
+        }
+
+        // 2. Mọi tài khoản đăng ký đều nhận được các mã Welcome đang chạy trên API (trừ khi đã từng sử dụng)
+        for (Voucher v : activeVouchers) {
+            String norm = normalizeCode(v.getCode());
+            if (isWelcomeVoucher(v) && !used.contains(norm)) {
+                unlocked.add(norm);
+            }
+        }
+        if (unlocked.isEmpty() && !used.contains("WELCOME50K")) {
+            unlocked.add("WELCOME50K");
+        }
+
+        // 3. Quét các đơn hàng thực tế không bị hủy của User để mở khóa đúng các mã đạt điều kiện (loại trừ mã đã dùng)
+        for (Order ord : userOrders) {
+            if (ord.getStatus() == OrderStatus.CANCELLED) continue;
 
             double discount = ord.getDiscountAmount() != null ? ord.getDiscountAmount() : 0.0;
             double subtotal = ord.getTotalAmount() + discount;
             List<OrderItem> items = ord.getOrderItems() != null ? ord.getOrderItems() : List.of();
 
-            unlocked.addAll(evaluateOrderItemsForVouchers(items, subtotal));
+            Set<String> eligible = evaluateOrderAgainstVouchers(items, subtotal, activeVouchers);
+            for (String code : eligible) {
+                String norm = normalizeCode(code);
+                if (!used.contains(norm)) {
+                    unlocked.add(norm);
+                }
+            }
         }
+
+        // BẢO ĐẢM NGUYÊN TẮC: Mã nào đã dùng thì TUYỆT ĐỐI không bao giờ được nhận lại hay nằm trong unlocked
+        unlocked.removeAll(used);
 
         String nextUnlockedCsv = joinCodeSet(unlocked);
         String nextUsedCsv = joinCodeSet(used);
@@ -120,55 +293,7 @@ public class VoucherService {
         return user;
     }
 
-    // Kiểm tra điều kiện mở khóa Voucher từ 1 đơn hàng chuẩn theo 4 mã trên hệ thống:
-    // 1. WELCOME50K: Ưu Đãi Khách Hàng Mới (Giảm 50.000đ cho đơn từ 250.000đ) -> Có sẵn khi đăng ký
-    // 2. POLO10: Giảm 10% Áo Polo Routine (Giảm 10% tối đa 40.000đ cho đơn từ 300.000đ) -> Khi đặt mua Áo Polo hoặc đơn >= 300.000đ
-    // 3. HOODIE30K: Khuyến Mãi Áo Khoác & Hoodie (Giảm 30.000đ cho đơn từ 350.000đ) -> Khi đặt mua Áo Khoác / Hoodie hoặc đơn >= 350.000đ
-    // 4. TEELAB20: Siêu Sale Áo Thun Teelab (Giảm 20% tối đa 60.000đ cho đơn từ 400.000đ) -> Khi đặt mua Áo Thun / Teelab hoặc đơn >= 400.000đ
-    public Set<String> evaluateOrderItemsForVouchers(List<OrderItem> items, double subtotalAmount) {
-        Set<String> unlocked = new LinkedHashSet<>();
-
-        boolean hasPolo = false;
-        boolean hasTee = false;
-        boolean hasHoodieOrJacket = false;
-
-        if (items != null) {
-            for (OrderItem item : items) {
-                Product p = item.getProduct();
-                String pName = (p != null && p.getName() != null) ? p.getName().toLowerCase() : "";
-                if (pName.contains("polo") || pName.contains("routine")) {
-                    hasPolo = true;
-                }
-                if (pName.contains("thun") || pName.contains("teelab") || pName.contains("tee")) {
-                    hasTee = true;
-                }
-                if (pName.contains("hoodie") || pName.contains("khoác") || pName.contains("khoac")
-                        || pName.contains("sweater") || pName.contains("jacket") || pName.contains("bomber")
-                        || pName.contains("cardigan")) {
-                    hasHoodieOrJacket = true;
-                }
-            }
-        }
-
-        // 1. Khi đặt Áo Polo (hoặc đơn đạt từ 300.000đ) -> Nhận mã POLO10
-        if (hasPolo || subtotalAmount >= 300000) {
-            unlocked.add("POLO10");
-        }
-
-        // 2. Khi đặt Áo Khoác & Hoodie (hoặc đơn đạt từ 350.000đ) -> Nhận mã HOODIE30K
-        if (hasHoodieOrJacket || subtotalAmount >= 350000) {
-            unlocked.add("HOODIE30K");
-        }
-
-        // 3. Khi đặt Áo Thun Teelab (hoặc đơn đạt từ 400.000đ) -> Nhận mã TEELAB20
-        if (hasTee || subtotalAmount >= 400000) {
-            unlocked.add("TEELAB20");
-        }
-
-        return unlocked;
-    }
-
-    // Được gọi ngay khi tạo đơn hàng thành công (OrderService.createOrder) để lưu mã mới mở khóa & trả về danh sách mã mới
+    // Được gọi ngay khi tạo đơn hàng thành công (OrderService.createOrder) để lưu mã mới mở khóa & trả về danh sách mã mới từ API
     @Transactional
     public List<VoucherResponse> evaluateAndUnlockVouchersForOrder(
             User user,
@@ -177,23 +302,65 @@ public class VoucherService {
             String usedVoucherCode) {
         if (user == null) return List.of();
 
-        Set<String> unlockedBefore = parseCodeSet(user.getUnlockedVouchers());
-        unlockedBefore.add("WELCOME50K");
+        List<Voucher> allActive = voucherRepository.findAvailableVouchers(LocalDateTime.now());
 
+        // Lấy danh sách voucher đã dùng từ trước + voucher vừa dùng trong đơn hiện tại
         Set<String> used = parseCodeSet(user.getUsedVouchers());
         if (usedVoucherCode != null && !usedVoucherCode.isBlank()) {
             used.add(normalizeCode(usedVoucherCode));
         }
 
-        Set<String> newlyEarnedCodes = evaluateOrderItemsForVouchers(orderItems, subtotalAmount);
+        List<Order> previousOrders = orderRepository.findByUserId(user.getId());
+        for (Order ord : previousOrders) {
+            if (ord.getStatus() != OrderStatus.CANCELLED && ord.getVoucherCode() != null && !ord.getVoucherCode().isBlank()) {
+                used.add(normalizeCode(ord.getVoucherCode()));
+            }
+        }
+
+        // Tính tập voucher đã có từ trước (không chứa bất kỳ mã nào trong used)
+        Set<String> unlockedBefore = new LinkedHashSet<>();
+        for (Voucher v : allActive) {
+            String norm = normalizeCode(v.getCode());
+            if (isWelcomeVoucher(v) && !used.contains(norm)) {
+                unlockedBefore.add(norm);
+            }
+        }
+        if (unlockedBefore.isEmpty() && !used.contains("WELCOME50K")) {
+            unlockedBefore.add("WELCOME50K");
+        }
+
+        for (Order ord : previousOrders) {
+            if (ord.getStatus() == OrderStatus.CANCELLED) continue;
+            // Bỏ qua đơn hàng vừa mới tạo (nếu đã nằm trong danh sách) bằng cách kiểm tra sau
+            if (ord.getOrderItems() == orderItems) continue;
+            double discount = ord.getDiscountAmount() != null ? ord.getDiscountAmount() : 0.0;
+            double prevSubtotal = ord.getTotalAmount() + discount;
+            List<OrderItem> prevItems = ord.getOrderItems() != null ? ord.getOrderItems() : List.of();
+            Set<String> pastEligible = evaluateOrderAgainstVouchers(prevItems, prevSubtotal, allActive);
+            for (String code : pastEligible) {
+                String norm = normalizeCode(code);
+                if (!used.contains(norm)) {
+                    unlockedBefore.add(norm);
+                }
+            }
+        }
+        unlockedBefore.removeAll(used);
+
+        Set<String> newlyEarnedCodes = evaluateOrderAgainstVouchers(orderItems, subtotalAmount, allActive);
         List<String> trulyNewCodes = new ArrayList<>();
         for (String code : newlyEarnedCodes) {
             String norm = normalizeCode(code);
+            // NẾU TÀI KHOẢN ĐÃ TỪNG DÙNG MÃ NÀY THÌ TUYỆT ĐỐI KHÔNG ĐƯỢC NHẬN LẠI
+            if (used.contains(norm)) {
+                continue;
+            }
             if (!unlockedBefore.contains(norm)) {
                 unlockedBefore.add(norm);
                 trulyNewCodes.add(norm);
             }
         }
+
+        unlockedBefore.removeAll(used);
 
         user.setUnlockedVouchers(joinCodeSet(unlockedBefore));
         user.setUsedVouchers(joinCodeSet(used));
@@ -203,7 +370,6 @@ public class VoucherService {
             return List.of();
         }
 
-        List<Voucher> allActive = voucherRepository.findAvailableVouchers(LocalDateTime.now());
         List<VoucherResponse> newlyUnlockedResponses = new ArrayList<>();
         for (String newCode : trulyNewCodes) {
             Voucher matched = findVoucherByCodeOrAlias(newCode, allActive);
@@ -232,7 +398,7 @@ public class VoucherService {
                 });
     }
 
-    // 1. Cho Khách hàng: Lấy danh sách voucher HIỆN CÓ của riêng tài khoản đang đăng nhập
+    // 1. Cho Khách hàng: Lấy danh sách voucher HIỆN CÓ của riêng tài khoản đang đăng nhập chuẩn từ API
     @Transactional
     public List<VoucherResponse> getAvailableVouchersForUser(Long userId, String username) {
         List<Voucher> allAvailable = voucherRepository.findAvailableVouchers(LocalDateTime.now());
@@ -258,21 +424,13 @@ public class VoucherService {
         return allAvailable.stream()
                 .filter(v -> {
                     String norm = normalizeCode(v.getCode());
-                    if (used.contains(norm)) {
-                        return false;
-                    }
-                    // Nếu là 1 trong 4 mã chiến dịch thì phải nằm trong danh sách đã mở khóa của User
-                    if (CAMPAIGN_CODES.contains(norm) || CAMPAIGN_CODES.contains(v.getCode().toUpperCase())) {
-                        return unlocked.contains(norm);
-                    }
-                    // Nếu Admin tạo thêm mã mới ngoài 4 mã chiến dịch thì cho phép hiển thị nếu user chưa dùng
-                    return true;
+                    return unlocked.contains(norm) && !used.contains(norm);
                 })
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
-    // Giữ hàm không tham số tương thích ngược
+    // Lấy toàn bộ danh mục voucher đang có hiệu lực trên hệ thống (cho trang Catalog / Hướng dẫn nhận mã)
     public List<VoucherResponse> getAvailableVouchers() {
         return voucherRepository.findAvailableVouchers(LocalDateTime.now())
                 .stream().map(this::toResponse).toList();
@@ -319,12 +477,11 @@ public class VoucherService {
             Set<String> used = parseCodeSet(user.getUsedVouchers());
 
             if (used.contains(normCode)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bạn đã sử dụng mã giảm giá " + normCode + " ở đơn hàng trước rồi!");
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bạn đã sử dụng mã giảm giá " + normCode + " ở đơn hàng trước rồi! Mỗi tài khoản chỉ được sử dụng mã này 1 lần duy nhất.");
             }
-            if ((CAMPAIGN_CODES.contains(normCode) || CAMPAIGN_CODES.contains(voucher.getCode().toUpperCase()))
-                    && !unlocked.contains(normCode)) {
+            if (!unlocked.contains(normCode)) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Tài khoản của bạn chưa mở khóa mã " + normCode + ". Hãy đặt mua sản phẩm hoặc đạt mốc đơn hàng tương ứng để nhận mã!");
+                        "Tài khoản của bạn chưa đủ điều kiện nhận mã " + normCode + " (" + buildUnlockConditionText(voucher) + ")");
             }
         }
 
@@ -455,6 +612,7 @@ public class VoucherService {
                 .usageLimit(voucher.getUsageLimit())
                 .usedCount(voucher.getUsedCount())
                 .active(voucher.getActive())
+                .unlockCondition(buildUnlockConditionText(voucher))
                 .build();
     }
 }

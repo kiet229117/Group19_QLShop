@@ -1,7 +1,8 @@
 import { forwardRef, useId } from 'react';
+import { AlertCircle } from 'lucide-react';
 
 /**
- * Ô nhập liệu dùng chung của Shop, hỗ trợ label, icon bên trái và thông báo lỗi.
+ * Ô nhập liệu dùng chung của Shop, hỗ trợ label, icon bên trái và thông báo lỗi nổi bật.
  */
 const ShopInput = forwardRef(function ShopInput(
   { label, error, hint, icon: Icon, className = '', inputClassName = '', id, ...rest },
@@ -14,14 +15,21 @@ const ShopInput = forwardRef(function ShopInput(
   return (
     <div className={className}>
       {label && (
-        <label htmlFor={inputId} className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-zinc-500">
+        <label
+          htmlFor={inputId}
+          className={`mb-1.5 block text-xs font-semibold uppercase tracking-wide ${
+            error ? 'text-rose-600' : 'text-zinc-500'
+          }`}
+        >
           {label}
         </label>
       )}
       <div className="relative">
         {Icon && (
           <Icon
-            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400"
+            className={`pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 ${
+              error ? 'text-rose-500' : 'text-zinc-400'
+            }`}
             aria-hidden="true"
           />
         )}
@@ -35,7 +43,7 @@ const ShopInput = forwardRef(function ShopInput(
             'focus:outline-none focus:ring-4',
             Icon ? 'pl-10 pr-3.5' : 'px-3.5',
             error
-              ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-100'
+              ? 'border-rose-500 bg-rose-50/30 focus:border-rose-600 focus:ring-rose-100'
               : 'border-zinc-200 hover:border-zinc-300 focus:border-zinc-900 focus:ring-zinc-100',
             inputClassName,
           ].join(' ')}
@@ -43,8 +51,13 @@ const ShopInput = forwardRef(function ShopInput(
         />
       </div>
       {error ? (
-        <p id={`${inputId}-error`} className="mt-1.5 text-xs text-rose-600">
-          {error}
+        <p
+          id={`${inputId}-error`}
+          role="alert"
+          className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold text-rose-600"
+        >
+          <AlertCircle className="h-3.5 w-3.5 shrink-0 text-rose-600" aria-hidden="true" />
+          <span>{error}</span>
         </p>
       ) : hint ? (
         <p id={`${inputId}-hint`} className="mt-1.5 text-xs text-zinc-500">

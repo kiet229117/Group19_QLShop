@@ -37,6 +37,13 @@ public class VoucherController {
         return ResponseEntity.ok(voucherService.getAvailableVouchersForUser(userId, username));
     }
 
+    // 1b. CLIENT: Lấy toàn bộ danh mục voucher đang chạy trên hệ thống từ API (để hiển thị điều kiện nhận mã)
+    // GET /api/vouchers/catalog
+    @GetMapping("/catalog")
+    public ResponseEntity<List<VoucherResponse>> getCatalogVouchers() {
+        return ResponseEntity.ok(voucherService.getAvailableVouchers());
+    }
+
     // 2. USER: Nhập mã để kiểm tra quyền sở hữu trong Ví và tính số tiền được giảm
     // POST /api/vouchers/apply
     @PostMapping("/apply")

@@ -53,12 +53,19 @@ export default function ProductDetailInfo({ product, category, brand }) {
 
   const handleBuyNow = () => {
     if (outOfStock) return;
-    addToCart(product, {
+    if (!isAuthenticated) {
+      toast.warning('Vui lòng đăng nhập tài khoản để tiến hành mua hàng!');
+      navigate('/login', { state: { from: location } });
+      return;
+    }
+    const addedId = addToCart(product, {
       size: selectedSize,
       color: selectedColor,
       quantity,
     });
-    navigate(shopPaths.cart());
+    if (addedId) {
+      navigate(shopPaths.cart());
+    }
   };
 
   return (
