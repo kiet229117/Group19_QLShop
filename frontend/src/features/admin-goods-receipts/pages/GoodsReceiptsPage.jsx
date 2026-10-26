@@ -112,7 +112,7 @@ export default function GoodsReceiptsPage() {
           </button>
           <button
             type="button"
-            onClick={handleOpenCreateModal}
+            onClick={() => handleOpenCreateModal()}
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white font-bold shadow-sm transition"
           >
             <Plus className="w-3.5 h-3.5 stroke-[3]" />
@@ -883,7 +883,7 @@ export default function GoodsReceiptsPage() {
               </div>
 
               {/* Actions Footer */}
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-gray-100">
+              <div className="flex flex-wrap items-center justify-end gap-2.5 pt-3 border-t border-gray-100">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
@@ -894,17 +894,26 @@ export default function GoodsReceiptsPage() {
                 <button
                   type="submit"
                   disabled={submitting}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold transition disabled:opacity-50"
+                >
+                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Clock className="w-4 h-4" />}
+                  <span>Lưu Nháp (Chờ duyệt)</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={(e) => handleCreateReceipt(e, true)}
                   className="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white font-bold transition shadow-sm disabled:opacity-50"
                 >
                   {submitting ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Đang lưu phiếu...</span>
+                      <span>Đang xử lý...</span>
                     </>
                   ) : (
                     <>
                       <Check className="w-4 h-4 stroke-[3]" />
-                      <span>Tạo Phiếu Nhập Kho (Draft)</span>
+                      <span>Nhập Kho &amp; Cộng Tồn Kho Ngay</span>
                     </>
                   )}
                 </button>

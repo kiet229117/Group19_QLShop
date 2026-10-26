@@ -23,15 +23,12 @@ public class ProductRequest {
     @Positive(message = "Giá sản phẩm phải lớn hơn 0")
     private Double price;
 
+    private Double costPrice;
+
     private String description;
 
-    @NotNull(message = "Đánh giá không được để trống")
-    @DecimalMin(value = "0.0", message = "Đánh giá không được nhỏ hơn 0")
-    @DecimalMax(value = "5.0", message = "Đánh giá không được lớn hơn 5")
-    private Double rating;
+    private Double rating = 4.8;
 
-    @NotBlank(message = "Slug không được để trống")
-    @Size(min = 3, max = 255, message = "Slug phải từ 3 đến 255 ký tự")
     private String slug;
 
     @NotNull(message = "Thương hiệu không được để trống")
@@ -40,7 +37,7 @@ public class ProductRequest {
     @NotNull(message = "Danh mục không được để trống")
     private Long categoryId;
 
-    // (ĐÃ XÓA: private Double salePrice; - Chuyển sang quản lý qua ProductPriceRequest)
+    private String image;
 
     private boolean isHot;
     private List<ProductVariant> variants;

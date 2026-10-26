@@ -17,6 +17,14 @@ public class OrderItemResponse {
 
     private String productName;
 
+    private String productSlug;
+
+    private String productImage;
+
+    private String size;
+
+    private String color;
+
     private double price;
 
     private int quantity;

@@ -98,9 +98,10 @@ public class SecurityConfig {
                 // 3. QUẢN LÝ SẢN PHẨM (PRODUCTS)
                 // ==========================================
                 .requestMatchers(HttpMethod.POST, "/api/products/filter").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/products/**").hasAnyRole("ADMIN", "STAFF")
-                .requestMatchers(HttpMethod.PUT, "/api/products/**").hasAnyRole("ADMIN", "STAFF")
-                .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/products", "/api/products/**", "/api/goods-receipts", "/api/goods-receipts/**", "/api/suppliers", "/api/suppliers/**").hasAnyRole("ADMIN", "STAFF")
+                .requestMatchers(HttpMethod.PUT, "/api/products", "/api/products/**", "/api/goods-receipts", "/api/goods-receipts/**", "/api/suppliers", "/api/suppliers/**").hasAnyRole("ADMIN", "STAFF")
+                .requestMatchers(HttpMethod.PATCH, "/api/products", "/api/products/**").hasAnyRole("ADMIN", "STAFF")
+                .requestMatchers(HttpMethod.DELETE, "/api/products", "/api/products/**").hasRole("ADMIN")
 
                 // ==========================================
                 // 4. QUẢN LÝ THƯƠNG HIỆU, DANH MỤC, BANNER & VOUCHER

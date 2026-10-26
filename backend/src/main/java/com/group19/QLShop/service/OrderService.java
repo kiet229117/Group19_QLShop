@@ -102,18 +102,24 @@ public class OrderService {
                 ProductVariant variant = null;
                 // ---> KIỂM TRA & TRỪ TỒN KHO VARIANT <---
                 if (itemReq.getVariantId() != null) {
-                    variant = productVariantRepository.findById(itemReq.getVariantId())
-                            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                                    "Không tìm thấy phân loại sản phẩm với ID: " + itemReq.getVariantId()));
-
-                    if (variant.getStockQuantity() < itemReq.getQuantity()) {
+                    variant = productVariantRepository.findById(itemReq.getVariantId()).orElse(null);
+                }
+                if (variant == null && product.getVariants() != null && !product.getVariants().isEmpty()) {
+                    variant = product.getVariants().get(0);
+                }
+                if (variant != null) {
+                    int currentStock = variant.getStockQuantity();
+                    if (currentStock <= 0) {
                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                                "Sản phẩm " + product.getName() + " (" + variant.getColor() + " - " + variant.getSize() +
-                                ") chỉ còn " + variant.getStockQuantity() + " chiếc trong kho!");
+                                "Sản phẩm \"" + product.getName() + "\" (" + variant.getColor() + " - Size " + variant.getSize() +
+                                ") vừa hết hàng! Vui lòng bỏ chọn sản phẩm này khỏi giỏ hàng.");
                     }
-
-                    // Trừ số lượng tồn kho
-                    variant.setStockQuantity(variant.getStockQuantity() - itemReq.getQuantity());
+                    if (currentStock < itemReq.getQuantity()) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                "Sản phẩm \"" + product.getName() + "\" (" + variant.getColor() + " - Size " + variant.getSize() +
+                                ") chỉ còn " + currentStock + " chiếc trong kho (bạn đang đặt " + itemReq.getQuantity() + " chiếc)!");
+                    }
+                    variant.setStockQuantity(currentStock - itemReq.getQuantity());
                     productVariantRepository.save(variant);
                 }
 
@@ -136,6 +142,14 @@ public class OrderService {
                 totalAmount += priceToUse * itemReq.getQuantity();
                 orderItems.add(orderItem);
             }
+
+            // Xóa các sản phẩm đã đặt khỏi giỏ hàng của User trên DB (nếu có)
+            cartRepository.findByUserId(user.getId()).ifPresent(cart -> {
+                for (OrderItemRequest itemReq : request.getItems()) {
+                    cartItemRepository.findByCartIdAndProductId(cart.getId(), itemReq.getProductId())
+                            .ifPresent(cartItemRepository::delete);
+                }
+            });
         } else {
             // Checkout từ giỏ hàng
             Cart cart = cartRepository.findByUserId(user.getId())
@@ -246,6 +260,16 @@ public class OrderService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Không thể cập nhật đơn hàng đã hoàn thành");
         }
 
+        if (request.getStatus() == OrderStatus.CANCELLED && order.getOrderItems() != null) {
+            for (OrderItem item : order.getOrderItems()) {
+                ProductVariant v = item.getProductVariant();
+                if (v != null) {
+                    v.setStockQuantity(v.getStockQuantity() + item.getQuantity());
+                    productVariantRepository.save(v);
+                }
+            }
+        }
+
         order.setStatus(request.getStatus());
         order.setUpdatedAt(LocalDateTime.now());
         Order updated = orderRepository.save(order);
@@ -272,6 +296,18 @@ public class OrderService {
 
         order.setStatus(OrderStatus.CANCELLED);
         order.setUpdatedAt(LocalDateTime.now());
+
+        // Hoàn lại tồn kho các biến thể sản phẩm khi đơn hàng bị hủy
+        if (order.getOrderItems() != null) {
+            for (OrderItem item : order.getOrderItems()) {
+                ProductVariant v = item.getProductVariant();
+                if (v != null) {
+                    v.setStockQuantity(v.getStockQuantity() + item.getQuantity());
+                    productVariantRepository.save(v);
+                }
+            }
+        }
+
         Order updated = orderRepository.save(order);
         return toOrderResponse(updated);
     }
@@ -336,10 +372,23 @@ public class OrderService {
 
     private OrderItemResponse toOrderItemResponse(OrderItem item) {
         Product p = item.getProduct();
+        ProductVariant v = item.getProductVariant();
+        String primaryImage = null;
+        if (p != null && p.getImages() != null && !p.getImages().isEmpty()) {
+            primaryImage = p.getImages().stream()
+                    .filter(img -> Boolean.TRUE.equals(img.getIsPrimary()))
+                    .map(com.group19.QLShop.entity.ProductImage::getImageUrl)
+                    .findFirst()
+                    .orElse(p.getImages().get(0).getImageUrl());
+        }
         return OrderItemResponse.builder()
                 .id(item.getId())
                 .productId(p != null ? p.getId() : null)
                 .productName(p != null ? p.getName() : null)
+                .productSlug(p != null ? p.getSlug() : null)
+                .productImage(primaryImage)
+                .size(v != null ? v.getSize() : "L")
+                .color(v != null ? v.getColor() : "Đen")
                 .price(item.getPrice())
                 .quantity(item.getQuantity())
                 .total(item.getPrice() * item.getQuantity())

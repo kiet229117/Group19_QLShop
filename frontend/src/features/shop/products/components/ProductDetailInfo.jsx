@@ -33,8 +33,11 @@ export default function ProductDetailInfo({ product, category, brand }) {
   const sizes = getUniqueVariantValues(variants, 'size');
   const colors = getUniqueVariantValues(variants, 'color');
 
-  const [selectedSize, setSelectedSize] = useState(sizes[0] || 'L');
-  const [selectedColor, setSelectedColor] = useState(colors[0] || 'Đen');
+  // Ưu tiên chọn sẵn biến thể (Size + Màu) đang CÒN HÀNG (> 0) làm mặc định để khách không bị rơi vào phân loại đã hết
+  const firstInStockVariant = variants.find((v) => (Number(v.stockQuantity) || 0) > 0) || variants[0];
+
+  const [selectedSize, setSelectedSize] = useState(firstInStockVariant?.size || sizes[0] || 'L');
+  const [selectedColor, setSelectedColor] = useState(firstInStockVariant?.color || colors[0] || 'Đen');
   const [quantity, setQuantity] = useState(1);
 
   const matchedVariant = variants.find((v) => {
@@ -202,7 +205,11 @@ export default function ProductDetailInfo({ product, category, brand }) {
             ) : (
               <>
                 <XCircle className="h-4 w-4 shrink-0 text-rose-500" aria-hidden="true" />
-                <span className="font-medium text-rose-600">Tạm hết hàng</span>
+                <span className="font-medium text-rose-600">
+                  {totalStock > 0
+                    ? `Phân loại (${selectedColor} - ${selectedSize}) tạm hết • Còn ${totalStock} chiếc ở Size/Màu khác`
+                    : 'Tạm hết hàng'}
+                </span>
               </>
             )}
           </div>

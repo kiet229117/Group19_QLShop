@@ -95,11 +95,18 @@ export default function CheckoutPage() {
       return;
     }
 
-    const createdOrder = await placeOrder({
-      ...formValues,
-      paymentMethod,
-    });
-    navigate(shopPaths.checkoutSuccess(createdOrder.id));
+    try {
+      const createdOrder = await placeOrder({
+        ...formValues,
+        paymentMethod,
+      });
+      if (createdOrder?.id) {
+        navigate(shopPaths.checkoutSuccess(createdOrder.id));
+      }
+    } catch {
+      // Nếu có sản phẩm vừa hết hàng, quay lại giỏ hàng để khách xem thông báo chi tiết
+      navigate(shopPaths.cart());
+    }
   };
 
   if (checkoutItems.length === 0) {

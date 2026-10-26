@@ -84,16 +84,35 @@ public Page<ProductReponse> getNewestProducts(
         return ResponseEntity.ok(newProduct);
     }
 
-    // Sửa sản phẩm
+    // Sửa sản phẩm (Hỗ trợ cả Multipart/Form-data và JSON)
     @PutMapping(value = "/{id}", consumes = {"multipart/form-data"})
     public ResponseEntity<ProductReponse> update(
         @PathVariable Long id, 
-        @Valid @RequestPart("product") ProductRequest request, // Thay @RequestBody thành @RequestPart
+        @Valid @RequestPart("product") ProductRequest request,
         @RequestPart(value = "images", required = false) List<MultipartFile> images
     ) {
-        
         ProductReponse updatedProduct = productService.updateProduct(id, request, images);
         return ResponseEntity.ok(updatedProduct);
+    }
+
+    @PutMapping(value = "/{id}", consumes = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<ProductReponse> updateJson(
+        @PathVariable Long id,
+        @Valid @org.springframework.web.bind.annotation.RequestBody ProductRequest request
+    ) {
+        ProductReponse updatedProduct = productService.updateProduct(id, request, null);
+        return ResponseEntity.ok(updatedProduct);
+    }
+
+    // Cập nhật nhanh số lượng tồn kho & giá vốn của 1 biến thể (SKU)
+    @org.springframework.web.bind.annotation.PatchMapping("/variants/{variantId}/stock")
+    public ResponseEntity<com.group19.QLShop.entity.ProductVariant> updateVariantStock(
+        @PathVariable Long variantId,
+        @org.springframework.web.bind.annotation.RequestBody java.util.Map<String, Object> body
+    ) {
+        Integer stockQuantity = body.get("stockQuantity") != null ? Integer.valueOf(body.get("stockQuantity").toString()) : null;
+        Double costPrice = body.get("costPrice") != null ? Double.valueOf(body.get("costPrice").toString()) : null;
+        return ResponseEntity.ok(productService.updateVariantStock(variantId, stockQuantity, costPrice));
     }
 
 

@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import productService from '../services/productService';
 import categoryService from '../../admin-categories/services/categoryService';
 import brandService from '../../admin-brands/services/brandService';
+import goodsReceiptService from '../../admin-goods-receipts/services/goodsReceiptService';
+import supplierService from '../../admin-suppliers/services/supplierService';
 import { toast } from '../../../components/common/Toast';
 import { getFriendlyErrorMessage } from '../../../utils/errorHandler';
 
@@ -9,6 +11,7 @@ export default function useProducts() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Expanded Product ID for variants accordion
@@ -29,6 +32,13 @@ export default function useProducts() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importingProduct, setImportingProduct] = useState(null);
+  const [importForm, setImportForm] = useState({
+    supplierId: '',
+    note: '',
+    items: [],
+  });
   const [submitting, setSubmitting] = useState(false);
 
   // New product form
@@ -49,17 +59,20 @@ export default function useProducts() {
     ]
   });
 
-  // Tải danh mục và thương hiệu
+  // Tải danh mục, thương hiệu và nhà cung cấp
   const fetchMetadata = useCallback(async () => {
     try {
-      const [catsRes, brandsRes] = await Promise.all([
+      const [catsRes, brandsRes, supRes] = await Promise.all([
         categoryService.getAllCategories(0, 100).catch(() => ({ content: [] })),
         brandService.getAllBrands(0, 100).catch(() => ({ content: [] })),
+        supplierService.getAllSuppliers().catch(() => []),
       ]);
       const catList = catsRes?.content || (Array.isArray(catsRes) ? catsRes : []);
       const brandList = brandsRes?.content || (Array.isArray(brandsRes) ? brandsRes : []);
+      const supList = Array.isArray(supRes) ? supRes : (supRes?.content || []);
       setCategories(catList);
       setBrands(brandList);
+      setSuppliers(supList);
     } catch (err) {
       console.warn('Lỗi tải danh mục / thương hiệu:', err);
     }
@@ -98,18 +111,25 @@ export default function useProducts() {
     return map;
   }, [brands]);
 
-  // Thống kê động từ cơ sở dữ liệu thật
+  // Thống kê động từ cơ sở dữ liệu thật (Tính cả sản phẩm hết sạch 0 chiếc và sản phẩm có phân loại Size/Màu bị tạm hết hàng)
   const stats = useMemo(() => {
     let totalSkus = 0;
     let lowStockCount = 0;
     let outOfStockCount = 0;
+    let partialOutOfStockCount = 0;
 
     products.forEach((p) => {
       const variants = p.variants || [];
       totalSkus += variants.length;
-      const totalStock = variants.reduce((sum, v) => sum + (v.stockQuantity || 0), 0);
-      if (totalStock === 0) outOfStockCount++;
-      else if (totalStock < 20) lowStockCount++;
+      const totalStock = variants.reduce((sum, v) => sum + (Number(v.stockQuantity) || 0), 0);
+      const hasZeroSku = variants.some((v) => (Number(v.stockQuantity) || 0) <= 0);
+
+      if (totalStock <= 0) {
+        outOfStockCount++;
+      } else {
+        if (hasZeroSku) partialOutOfStockCount++;
+        if (totalStock < 20 || hasZeroSku) lowStockCount++;
+      }
     });
 
     return {
@@ -117,6 +137,7 @@ export default function useProducts() {
       totalSkus,
       lowStockCount,
       outOfStockCount,
+      partialOutOfStockCount,
       avgVariantsPerProduct: products.length > 0 ? (totalSkus / products.length).toFixed(1) : 0,
     };
   }, [products]);
@@ -142,11 +163,14 @@ export default function useProducts() {
         return false;
       }
 
-      // Lọc tồn kho
-      const totalStock = (p.variants || []).reduce((sum, v) => sum + (v.stockQuantity || 0), 0);
-      if (stockFilter === 'IN_STOCK' && totalStock === 0) return false;
-      if (stockFilter === 'LOW_STOCK' && (totalStock === 0 || totalStock >= 20)) return false;
-      if (stockFilter === 'OUT_OF_STOCK' && totalStock > 0) return false;
+      // Lọc tồn kho (Khớp chính xác với trạng thái hiển thị ở Client)
+      const variants = p.variants || [];
+      const totalStock = variants.reduce((sum, v) => sum + (Number(v.stockQuantity) || 0), 0);
+      const hasZeroSku = variants.some((v) => (Number(v.stockQuantity) || 0) <= 0);
+
+      if (stockFilter === 'IN_STOCK' && (totalStock <= 0 || hasZeroSku)) return false;
+      if (stockFilter === 'LOW_STOCK' && (totalStock <= 0 || (totalStock >= 20 && !hasZeroSku))) return false;
+      if (stockFilter === 'OUT_OF_STOCK' && totalStock > 0 && !hasZeroSku) return false;
 
       // Lọc khoảng giá
       const price = p.productPrice?.salePrice || p.price || 0;
@@ -209,10 +233,28 @@ export default function useProducts() {
     }
   };
 
-  // Mở modal sửa sản phẩm
+  // Mở modal sửa sản phẩm (Bao gồm cả danh sách phân loại Size / Màu & Số lượng tồn kho)
   const handleOpenEdit = (p) => {
+    const currentVariants =
+      Array.isArray(p.variants) && p.variants.length > 0
+        ? p.variants.map((v) => ({
+            id: v.id,
+            color: v.color || 'Đen',
+            size: v.size || 'L',
+            stockQuantity: Number(v.stockQuantity) || 0,
+            costPrice: Number(v.costPrice ?? p.costPrice ?? (p.price || 0) * 0.6),
+          }))
+        : [
+            { color: 'Trắng', size: 'M', stockQuantity: 50, costPrice: Number(p.costPrice) || 120000 },
+            { color: 'Trắng', size: 'L', stockQuantity: 50, costPrice: Number(p.costPrice) || 120000 },
+            { color: 'Đen', size: 'M', stockQuantity: 50, costPrice: Number(p.costPrice) || 120000 },
+            { color: 'Đen', size: 'L', stockQuantity: 50, costPrice: Number(p.costPrice) || 120000 },
+          ];
+
     setEditingProduct({
       id: p.id,
+      slug: p.slug || '',
+      rating: p.rating ?? 4.8,
       name: p.name || '',
       price: p.price || 0,
       costPrice: p.costPrice || 0,
@@ -220,12 +262,110 @@ export default function useProducts() {
       categoryId: p.categoryId || (categories[0]?.id || 1),
       brandId: p.brandId || (brands[0]?.id || 1),
       image: p.image || p.primaryImage || '',
-      isHot: p.hot || false
+      isHot: p.hot || false,
+      variants: currentVariants,
     });
     setIsEditModalOpen(true);
   };
 
-  // Lưu sửa sản phẩm (PUT /api/products/{id})
+  // Mở Modal Nhập Kho (Goods Receipt) cho sản phẩm hoặc biến thể cụ thể
+  const handleOpenImportModal = async (product, targetVariant = null) => {
+    if (!product) return;
+    setImportingProduct(product);
+
+    let supList = suppliers;
+    if (!supList || supList.length === 0) {
+      try {
+        const res = await supplierService.getAllSuppliers();
+        supList = Array.isArray(res) ? res : (res?.content || []);
+        setSuppliers(supList);
+      } catch {
+        supList = [];
+      }
+    }
+
+    const defaultSupplierId = supList[0]?.id || 1;
+    const variants = Array.isArray(product.variants) ? product.variants : [];
+    const hasAnyZero = variants.some((v) => (Number(v.stockQuantity) || 0) <= 0);
+
+    const items = variants.map((v) => {
+      const currentStock = Number(v.stockQuantity) || 0;
+      const isTarget = targetVariant && String(v.id) === String(targetVariant.id);
+      const shouldPreFill = isTarget || (!targetVariant && (hasAnyZero ? currentStock <= 0 : true));
+      return {
+        variantId: v.id,
+        color: v.color || 'Tiêu chuẩn',
+        size: v.size || 'FreeSize',
+        currentStock,
+        quantity: shouldPreFill ? 50 : 0,
+        importPrice: Number(v.costPrice ?? product.costPrice ?? (product.price || 0) * 0.6) || 120000,
+      };
+    });
+
+    setImportForm({
+      supplierId: defaultSupplierId,
+      note: targetVariant
+        ? `Nhập kho bổ sung ${product.name} (${targetVariant.color} - Size ${targetVariant.size})`
+        : `Nhập kho bổ sung ${product.name}`,
+      items,
+    });
+    setIsImportModalOpen(true);
+  };
+
+  // Xác nhận lập phiếu nhập kho (POST /api/goods-receipts + POST /api/goods-receipts/{id}/complete)
+  const handleConfirmImportReceipt = async (e, autoComplete = true) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!importingProduct) return;
+
+    const validItems = (importForm.items || []).filter((it) => (Number(it.quantity) || 0) > 0);
+    if (validItems.length === 0) {
+      toast.warning('Vui lòng nhập số lượng (> 0) cho ít nhất 1 phân loại Màu/Size cần nhập kho!');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const itemDetails = validItems.map((it) => ({
+        productId: Number(importingProduct.id),
+        variantId: it.variantId ? Number(it.variantId) : null,
+        quantity: Number(it.quantity),
+        importPrice: Number(it.importPrice) || 100000,
+      }));
+
+      const payload = {
+        supplierId: Number(importForm.supplierId) || 1,
+        note: importForm.note || `Nhập kho bổ sung sản phẩm ${importingProduct.name}`,
+        items: itemDetails,
+        details: itemDetails,
+      };
+
+      const createdReceipt = await goodsReceiptService.createReceipt(payload);
+      if (autoComplete && createdReceipt?.id) {
+        await goodsReceiptService.completeReceipt(createdReceipt.id);
+        const totalAdded = validItems.reduce((sum, it) => sum + Number(it.quantity), 0);
+        toast.success(
+          `Đã nhập kho thành công (+${totalAdded} chiếc) qua phiếu ${createdReceipt.receiptCode || `#${createdReceipt.id}`}!`
+        );
+      } else {
+        toast.success(
+          `Đã tạo phiếu nhập kho nháp ${createdReceipt?.receiptCode || ''} (Chờ duyệt tại mục Nhập kho)!`
+        );
+      }
+
+      setIsImportModalOpen(false);
+      setImportingProduct(null);
+      await fetchProducts(true);
+      window.dispatchEvent(
+        new CustomEvent('qlshop:products-updated', { detail: { productId: importingProduct.id } })
+      );
+    } catch (err) {
+      toast.error(getFriendlyErrorMessage(err, 'Không thể thực hiện nhập kho cho sản phẩm'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Lưu sửa sản phẩm kèm số lượng tồn kho các biến thể (PUT /api/products/{id})
   const handleSaveEdit = async (e) => {
     e.preventDefault();
     if (!editingProduct) return;
@@ -233,6 +373,8 @@ export default function useProducts() {
     try {
       const payload = {
         name: editingProduct.name,
+        slug: editingProduct.slug,
+        rating: editingProduct.rating ?? 4.8,
         price: parseFloat(editingProduct.price) || 0,
         costPrice: parseFloat(editingProduct.costPrice) || 0,
         description: editingProduct.description,
@@ -240,13 +382,23 @@ export default function useProducts() {
         brandId: parseInt(editingProduct.brandId) || brands[0]?.id || 1,
         isHot: editingProduct.isHot,
         image: editingProduct.image,
+        variants: (editingProduct.variants || []).map((v) => ({
+          id: v.id || null,
+          color: (v.color || 'Đen').trim(),
+          size: (v.size || 'L').trim(),
+          stockQuantity: Math.max(0, parseInt(v.stockQuantity, 10) || 0),
+          costPrice: parseFloat(v.costPrice) || parseFloat(editingProduct.costPrice) || 0,
+        })),
       };
 
       await productService.updateProduct(editingProduct.id, payload);
-      toast.success(`Đã cập nhật sản phẩm "${editingProduct.name}" thành công!`);
+      toast.success(`Đã cập nhật sản phẩm "${editingProduct.name}" và số lượng tồn kho thành công!`);
       setIsEditModalOpen(false);
       setEditingProduct(null);
       await fetchProducts(true);
+      window.dispatchEvent(
+        new CustomEvent('qlshop:products-updated', { detail: { productId: editingProduct.id } })
+      );
     } catch (err) {
       toast.error(getFriendlyErrorMessage(err, 'Lỗi khi cập nhật sản phẩm'));
     } finally {
@@ -354,7 +506,16 @@ export default function useProducts() {
     handleDeleteProduct,
     handleOpenEdit,
     handleSaveEdit,
-    handleCreateProduct
+    handleCreateProduct,
+    suppliers,
+    isImportModalOpen,
+    setIsImportModalOpen,
+    importingProduct,
+    setImportingProduct,
+    importForm,
+    setImportForm,
+    handleOpenImportModal,
+    handleConfirmImportReceipt,
   };
 }
 

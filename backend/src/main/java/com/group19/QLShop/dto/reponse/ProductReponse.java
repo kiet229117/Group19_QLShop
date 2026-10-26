@@ -15,6 +15,7 @@ public class ProductReponse {
     private Long id;
     private String name;
     private Double price; // Giá gốc
+    private Double costPrice; // Giá vốn
     private String description;
     private Double rating;
     private String slug;

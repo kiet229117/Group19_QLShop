@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trash2, ArrowLeft, ShieldCheck } from 'lucide-react';
+import { Trash2, ArrowLeft, ShieldCheck, AlertTriangle } from 'lucide-react';
 import ProductBreadcrumb from '../../../../components/shop/common/ProductBreadcrumb';
 import ShopButton from '../../../../components/shop/common/ShopButton';
 import ConfirmDialog from '../../../../components/shop/common/ConfirmDialog';
@@ -14,8 +14,7 @@ import EmptyCart from '../components/EmptyCart';
 
 /**
  * Trang Giỏ hàng (`/shop/cart`).
- * Mọi thao tác tăng/giảm số lượng, chọn/bỏ chọn, xóa sản phẩm và áp dụng voucher
- * đều hoạt động ngay lập tức bằng state React cục bộ, không gọi API.
+ * Tự động kiểm tra tồn kho thực tế từ Server ngay khi mở giỏ hàng để thông báo nếu sản phẩm để lâu bị hết hàng.
  */
 export default function CartPage() {
   const navigate = useNavigate();
@@ -31,10 +30,18 @@ export default function CartPage() {
     toggleSelectCartItem,
     toggleSelectAllCart,
     applyVoucher,
+    syncCartStockWithServer,
   } = useShopState();
 
   const [itemToRemove, setItemToRemove] = useState(null);
   const [confirmClearSelected, setConfirmClearSelected] = useState(false);
+
+  // Mỗi khi khách mở trang Giỏ hàng, đồng bộ lại tồn kho mới nhất trên DB
+  useEffect(() => {
+    syncCartStockWithServer?.(false);
+  }, [syncCartStockWithServer]);
+
+  const outOfStockItems = cartSummary.outOfStockItems || [];
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6">
@@ -61,6 +68,23 @@ export default function CartPage() {
         <div className="grid gap-8 lg:grid-cols-12 lg:items-start">
           {/* Danh sách sản phẩm trong giỏ */}
           <div className="space-y-4 lg:col-span-8">
+            {/* Cảnh báo nổi bật nếu có sản phẩm trong giỏ vừa bị hết hàng */}
+            {outOfStockItems.length > 0 && (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3.5 text-xs text-rose-900 shadow-2xs">
+                <div className="flex items-start gap-2.5">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" aria-hidden="true" />
+                  <div>
+                    <p className="font-bold text-rose-800">
+                      Có {outOfStockItems.length} sản phẩm trong giỏ hàng của bạn hiện đã hết hàng!
+                    </p>
+                    <p className="mt-0.5 text-rose-700">
+                      Các sản phẩm hết hàng đã được tự động bỏ chọn để không ảnh hưởng tới đơn thanh toán của bạn.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Thanh chọn tất cả & xóa mục đã chọn */}
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-zinc-200/80 bg-white px-4 py-3.5">
               <label className="inline-flex cursor-pointer items-center gap-3 text-sm font-semibold text-zinc-800">

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import goodsReceiptService from '../services/goodsReceiptService';
 import supplierService from '../../admin-suppliers/services/supplierService';
 import productService from '../../admin-products/services/productService';
@@ -6,6 +7,7 @@ import { toast } from '../../../components/common/Toast';
 import { getFriendlyErrorMessage } from '../../../utils/errorHandler';
 
 export default function useGoodsReceipts(itemsPerPage = 6) {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [receipts, setReceipts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -48,12 +50,12 @@ export default function useGoodsReceipts(itemsPerPage = 6) {
   }, [fetchReceipts]);
 
   // 2. Mở Modal tạo phiếu & tải suppliers + products
-  const handleOpenCreateModal = async () => {
+  const handleOpenCreateModal = useCallback(async (preselectedProductId = null, preselectedVariantId = null) => {
     setIsModalOpen(true);
     try {
       const [supRes, prodRes] = await Promise.all([
         supplierService.getAllSuppliers().catch(() => []),
-        productService.getAllProducts(0, 50).catch(() => ({ content: [] }))
+        productService.getAllProducts(0, 200).catch(() => ({ content: [] }))
       ]);
 
       const supList = Array.isArray(supRes) ? supRes : (supRes.content || []);
@@ -62,27 +64,47 @@ export default function useGoodsReceipts(itemsPerPage = 6) {
       setSuppliers(supList);
       setProducts(prodList);
 
-      if (supList.length > 0 && !newReceiptForm.supplierId) {
-        const firstProd = prodList.length > 0 ? prodList[0] : null;
-        const firstVariant = firstProd?.variants?.[0] || null;
+      const defaultSupId = supList.length > 0 ? supList[0].id : 1;
+      const targetProd =
+        (preselectedProductId && prodList.find(p => String(p.id) === String(preselectedProductId))) ||
+        (prodList.length > 0 ? prodList[0] : null);
+      const targetVariant =
+        (preselectedVariantId && targetProd?.variants?.find(v => String(v.id) === String(preselectedVariantId))) ||
+        targetProd?.variants?.find(v => (Number(v.stockQuantity) || 0) <= 0) ||
+        targetProd?.variants?.[0] ||
+        null;
 
-        setNewReceiptForm(prev => ({
-          ...prev,
-          supplierId: supList[0].id,
-          items: [
-            {
-              productId: firstProd ? firstProd.id : '',
-              variantId: firstVariant ? firstVariant.id : '',
-              quantity: 50,
-              importPrice: firstVariant?.costPrice || 120000
-            }
-          ]
-        }));
-      }
+      setNewReceiptForm(prev => ({
+        ...prev,
+        supplierId: prev.supplierId || defaultSupId,
+        note: preselectedProductId && targetProd
+          ? `Nhập bổ sung kho cho ${targetProd.name}`
+          : prev.note,
+        items: [
+          {
+            productId: targetProd ? targetProd.id : '',
+            variantId: targetVariant ? targetVariant.id : '',
+            quantity: 50,
+            importPrice: targetVariant?.costPrice || targetProd?.costPrice || 120000
+          }
+        ]
+      }));
     } catch (err) {
       console.error('Error loading metadata for receipt:', err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const qProdId = searchParams.get('productId');
+    const qVarId = searchParams.get('variantId');
+    if (qProdId) {
+      handleOpenCreateModal(qProdId, qVarId);
+      const next = new URLSearchParams(searchParams);
+      next.delete('productId');
+      next.delete('variantId');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams, handleOpenCreateModal]);
 
   const toggleExpand = (id) => {
     setExpandedReceiptId(prev => (prev === id ? null : id));
@@ -141,9 +163,9 @@ export default function useGoodsReceipts(itemsPerPage = 6) {
     });
   };
 
-  // Submit tạo phiếu nhập mới
-  const handleCreateReceipt = async (e) => {
-    e.preventDefault();
+  // Submit tạo phiếu nhập mới (hỗ trợ cả Lưu nháp DRAFT hoặc Duyệt nhập kho ngay)
+  const handleCreateReceipt = async (e, autoComplete = false) => {
+    if (e && e.preventDefault) e.preventDefault();
     if (!newReceiptForm.supplierId) {
       toast.error('Vui lòng chọn Nhà cung cấp xưởng may!');
       return;
@@ -165,8 +187,14 @@ export default function useGoodsReceipts(itemsPerPage = 6) {
         details: itemDetails
       };
 
-      await goodsReceiptService.createReceipt(payload);
-      toast.success('Đã tạo thành công phiếu nhập kho mới (DRAFT)!');
+      const created = await goodsReceiptService.createReceipt(payload);
+      if (autoComplete && created?.id) {
+        await goodsReceiptService.completeReceipt(created.id);
+        toast.success(`Đã lập phiếu ${created.receiptCode || `#${created.id}`} và cộng dồn tồn kho thành công!`);
+        window.dispatchEvent(new CustomEvent('qlshop:products-updated'));
+      } else {
+        toast.success('Đã tạo thành công phiếu nhập kho mới (DRAFT)!');
+      }
       setIsModalOpen(false);
       fetchReceipts(true);
     } catch (err) {
@@ -181,6 +209,7 @@ export default function useGoodsReceipts(itemsPerPage = 6) {
     try {
       await goodsReceiptService.completeReceipt(receiptId);
       toast.success(`Đã hoàn tất nhập kho phiếu #${receiptId}! Tồn kho các mẫu áo đã được cộng dồn.`);
+      window.dispatchEvent(new CustomEvent('qlshop:products-updated'));
       fetchReceipts(true);
     } catch (err) {
       toast.error(getFriendlyErrorMessage(err, 'Không thể duyệt hoàn tất phiếu nhập'));

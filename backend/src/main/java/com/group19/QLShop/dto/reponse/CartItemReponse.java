@@ -17,7 +17,15 @@ public class CartItemReponse {
 
     private String productName;
 
+    private String productSlug;
+
+    private String productImage;
+
+    private String brandName;
+
     private double price;
+
+    private double originalPrice;
 
     private int quantity;
 

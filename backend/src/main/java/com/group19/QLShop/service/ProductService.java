@@ -41,17 +41,32 @@ public class ProductService {
     private final CategoryRepository categoryRepository;
     private final FileStorageService fileStorageService;
     private final ProductImageRepository productImageRepository;
+    private final com.group19.QLShop.repository.ProductVariantRepository productVariantRepository;
 
     public ProductService(ProductRepository productRepository,
             BrandRepository brandRepository,
             CategoryRepository categoryRepository,
             FileStorageService fileStorageService,
-            ProductImageRepository productImageRepository) {
+            ProductImageRepository productImageRepository,
+            com.group19.QLShop.repository.ProductVariantRepository productVariantRepository) {
         this.productRepository = productRepository;
         this.brandRepository = brandRepository;
         this.categoryRepository = categoryRepository;
         this.fileStorageService = fileStorageService;
         this.productImageRepository = productImageRepository;
+        this.productVariantRepository = productVariantRepository;
+    }
+
+    private String generateSlug(String text) {
+        if (text == null || text.isBlank()) return "san-pham-" + System.currentTimeMillis();
+        String normalized = java.text.Normalizer.normalize(text.trim().toLowerCase(), java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{InCombiningDiacriticalMarks}+", "")
+                .replace('đ', 'd')
+                .replaceAll("[^a-z0-9\\s-]", "")
+                .replaceAll("\\s+", "-")
+                .replaceAll("-+", "-")
+                .replaceAll("^-|-$", "");
+        return normalized.length() >= 3 ? normalized : normalized + "-" + System.currentTimeMillis();
     }
 
     // Xem sản phẩm bằng slug
@@ -105,10 +120,11 @@ public Page<ProductReponse> getNewestProducts(int page, int size) {
                     "Tên sản phẩm '" + request.getName() + "' đã tồn tại trên hệ thống");
         }
 
-        if (productRepository.existsBySlug(request.getSlug())) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Slug '" + request.getSlug() + "' đã tồn tại trên hệ thống");
+        String finalSlug = (request.getSlug() != null && !request.getSlug().isBlank())
+                ? request.getSlug().trim()
+                : generateSlug(request.getName());
+        if (productRepository.existsBySlug(finalSlug)) {
+            finalSlug = finalSlug + "-" + (System.currentTimeMillis() % 10000);
         }
 
         Brand brand = brandRepository.findById(request.getBrandId())
@@ -124,9 +140,10 @@ public Page<ProductReponse> getNewestProducts(int page, int size) {
         Product newProduct = new Product();
         newProduct.setName(request.getName());
         newProduct.setPrice(request.getPrice()); // Gán giá gốc
+        newProduct.setCostPrice(request.getCostPrice() != null ? request.getCostPrice() : request.getPrice() * 0.6);
         newProduct.setDescription(request.getDescription());
-        newProduct.setRating(request.getRating());
-        newProduct.setSlug(request.getSlug());
+        newProduct.setRating(request.getRating() != null ? request.getRating() : 4.8);
+        newProduct.setSlug(finalSlug);
         newProduct.setBrand(brand);
         newProduct.setCategory(category);
         newProduct.setHot(request.isHot());
@@ -141,8 +158,8 @@ public Page<ProductReponse> getNewestProducts(int page, int size) {
 
         Product savedProduct = productRepository.save(newProduct);
 
-        // Lưu ảnh
-        if (images != null && !images.isEmpty()) {
+        // Lưu ảnh từ MultipartFile hoặc từ request.getImage()
+        if (images != null && !images.isEmpty() && !images.get(0).isEmpty()) {
             boolean isFirst = true;
             for (MultipartFile file : images) {
                 if (file != null && !file.isEmpty()) {
@@ -158,12 +175,19 @@ public Page<ProductReponse> getNewestProducts(int page, int size) {
                     isFirst = false;
                 }
             }
+        } else if (request.getImage() != null && !request.getImage().isBlank()) {
+            ProductImage productImage = new ProductImage();
+            productImage.setImageUrl(request.getImage().trim());
+            productImage.setIsPrimary(true);
+            productImage.setProduct(savedProduct);
+            ProductImage savedImage = productImageRepository.save(productImage);
+            savedProduct.getImages().add(savedImage);
         }
 
         return toResponse(savedProduct);
     }
 
-    // Sửa sản phẩm
+    // Sửa sản phẩm (An toàn khoá ngoại variant_id và cập nhật số lượng tồn kho từng Size/Màu)
     @Transactional(rollbackFor = Exception.class)
     public ProductReponse updateProduct(Long id, ProductRequest request, List<MultipartFile> images) {
         
@@ -174,8 +198,14 @@ public Page<ProductReponse> getNewestProducts(int page, int size) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Tên sản phẩm '" + request.getName() + "' đã tồn tại");
         }
 
-        if (productRepository.existsBySlug(request.getSlug()) && !existingProduct.getSlug().equals(request.getSlug())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Slug '" + request.getSlug() + "' đã tồn tại");
+        String finalSlug = (request.getSlug() != null && !request.getSlug().isBlank())
+                ? request.getSlug().trim()
+                : (existingProduct.getSlug() != null && !existingProduct.getSlug().isBlank()
+                        ? existingProduct.getSlug()
+                        : generateSlug(request.getName()));
+
+        if (productRepository.existsBySlug(finalSlug) && !existingProduct.getSlug().equals(finalSlug)) {
+            finalSlug = finalSlug + "-" + id;
         }
 
         Brand brand = brandRepository.findById(request.getBrandId())
@@ -186,25 +216,59 @@ public Page<ProductReponse> getNewestProducts(int page, int size) {
 
         existingProduct.setName(request.getName());
         existingProduct.setPrice(request.getPrice()); // Cập nhật giá gốc
+        if (request.getCostPrice() != null) {
+            existingProduct.setCostPrice(request.getCostPrice());
+        }
         existingProduct.setDescription(request.getDescription());
-        existingProduct.setRating(request.getRating());
-        existingProduct.setSlug(request.getSlug());
+        if (request.getRating() != null) {
+            existingProduct.setRating(request.getRating());
+        }
+        existingProduct.setSlug(finalSlug);
         existingProduct.setBrand(brand);
         existingProduct.setCategory(category);
         existingProduct.setHot(request.isHot());
 
-        // Cập nhật biến thể
+        // Cập nhật biến thể trực tiếp tại chỗ (in-place) để không làm mất ID liên kết với OrderItems / GoodsReceiptItems
         if (request.getVariants() != null) {
-            existingProduct.getVariants().clear();
-            for (ProductVariant variant : request.getVariants()) {
-                variant.setProduct(existingProduct);
-                existingProduct.getVariants().add(variant);
+            List<ProductVariant> currentVariants = existingProduct.getVariants();
+            for (ProductVariant incoming : request.getVariants()) {
+                ProductVariant matched = null;
+                if (incoming.getId() != null) {
+                    matched = currentVariants.stream()
+                            .filter(cv -> incoming.getId().equals(cv.getId()))
+                            .findFirst()
+                            .orElse(null);
+                }
+                if (matched == null) {
+                    matched = currentVariants.stream()
+                            .filter(cv -> java.util.Objects.equals(cv.getColor(), incoming.getColor())
+                                    && java.util.Objects.equals(cv.getSize(), incoming.getSize()))
+                            .findFirst()
+                            .orElse(null);
+                }
+
+                if (matched != null) {
+                    matched.setColor(incoming.getColor());
+                    matched.setSize(incoming.getSize());
+                    matched.setStockQuantity(Math.max(0, incoming.getStockQuantity()));
+                    if (incoming.getCostPrice() != null) {
+                        matched.setCostPrice(incoming.getCostPrice());
+                    }
+                } else {
+                    ProductVariant newVar = new ProductVariant();
+                    newVar.setProduct(existingProduct);
+                    newVar.setColor(incoming.getColor());
+                    newVar.setSize(incoming.getSize());
+                    newVar.setStockQuantity(Math.max(0, incoming.getStockQuantity()));
+                    newVar.setCostPrice(incoming.getCostPrice() != null ? incoming.getCostPrice() : existingProduct.getCostPrice());
+                    currentVariants.add(newVar);
+                }
             }
         }
 
         Product updatedProduct = productRepository.save(existingProduct);
 
-        // Cập nhật ảnh
+        // Cập nhật ảnh nếu upload file mới hoặc đổi URL ảnh
         if (images != null && !images.isEmpty() && !images.get(0).isEmpty()) {
             List<ProductImage> oldImages = productImageRepository.findByProductId(id);
             for (ProductImage oldImg : oldImages) {
@@ -228,9 +292,37 @@ public Page<ProductReponse> getNewestProducts(int page, int size) {
                     isFirst = false;
                 }
             }
+        } else if (request.getImage() != null && !request.getImage().isBlank()) {
+            List<ProductImage> oldImages = productImageRepository.findByProductIdOrderByIsPrimaryDesc(id);
+            if (!oldImages.isEmpty()) {
+                ProductImage primaryImg = oldImages.get(0);
+                primaryImg.setImageUrl(request.getImage().trim());
+                primaryImg.setIsPrimary(true);
+                productImageRepository.save(primaryImg);
+            } else {
+                ProductImage newImg = new ProductImage();
+                newImg.setImageUrl(request.getImage().trim());
+                newImg.setIsPrimary(true);
+                newImg.setProduct(updatedProduct);
+                productImageRepository.save(newImg);
+            }
         }
 
         return toResponse(updatedProduct);
+    }
+
+    // Cập nhật nhanh tồn kho & giá vốn của 1 biến thể (SKU)
+    @Transactional
+    public ProductVariant updateVariantStock(Long variantId, Integer stockQuantity, Double costPrice) {
+        ProductVariant variant = productVariantRepository.findById(variantId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy biến thể với ID: " + variantId));
+        if (stockQuantity != null) {
+            variant.setStockQuantity(Math.max(0, stockQuantity));
+        }
+        if (costPrice != null && costPrice >= 0) {
+            variant.setCostPrice(costPrice);
+        }
+        return productVariantRepository.save(variant);
     }
 
     // Xóa sản phẩm
@@ -419,6 +511,7 @@ public Page<ProductReponse> getNewestProducts(int page, int size) {
         response.setId(product.getId());
         response.setName(product.getName());
         response.setPrice(product.getPrice());
+        response.setCostPrice(product.getCostPrice());
         response.setDescription(product.getDescription());
         response.setRating(product.getRating());
         response.setSlug(product.getSlug());

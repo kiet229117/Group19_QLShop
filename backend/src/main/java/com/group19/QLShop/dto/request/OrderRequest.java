@@ -27,8 +27,8 @@ public class OrderRequest {
     private String receiverName;
 
     @NotBlank(message = "Số điện thoại người nhận không được để trống")
-    @Pattern(regexp = "^(0[3|5|7|8|9])[0-9]{8}$", message = "Số điện thoại không hợp lệ (ví dụ: 0912345678)")
-    @Size(min = 10, max = 10, message = "Số điện thoại phải có đúng 10 ký tự")
+    @Pattern(regexp = "^0[0-9]{8,10}$", message = "Số điện thoại không hợp lệ (ví dụ: 0912345678)")
+    @Size(min = 9, max = 11, message = "Số điện thoại phải từ 9 đến 11 ký tự")
     private String receiverPhone;
 
     @NotBlank(message = "Địa chỉ nhận hàng không được để trống")

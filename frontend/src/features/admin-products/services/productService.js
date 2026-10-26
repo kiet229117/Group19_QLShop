@@ -53,13 +53,16 @@ export const productService = {
       return res.data || res;
     }
     
-    // Gửi multipart form với Part "product"
-    const formData = new FormData();
-    const productBlob = new Blob([JSON.stringify(productData)], { type: 'application/json' });
-    formData.append('product', productBlob);
+    // Gửi JSON trực tiếp hoặc multipart form với Part "product"
+    const res = await api.put(`/products/${id}`, productData);
+    return res.data || res;
+  },
 
-    const res = await api.put(`/products/${id}`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+  // 8b. Cập nhật nhanh tồn kho & giá vốn của 1 biến thể (PATCH /api/products/variants/{variantId}/stock)
+  updateVariantStock: async (variantId, { stockQuantity, costPrice }) => {
+    const res = await api.patch(`/products/variants/${variantId}/stock`, {
+      stockQuantity,
+      costPrice,
     });
     return res.data || res;
   },

@@ -73,7 +73,15 @@ export default function ProductsPage() {
     handleDeleteProduct,
     handleOpenEdit,
     handleSaveEdit,
-    handleCreateProduct
+    handleCreateProduct,
+    suppliers,
+    isImportModalOpen,
+    setIsImportModalOpen,
+    importingProduct,
+    importForm,
+    setImportForm,
+    handleOpenImportModal,
+    handleConfirmImportReceipt,
   } = useProducts();
 
   return (
@@ -327,7 +335,9 @@ export default function ProductsPage() {
                 paginatedProducts.map((p) => {
                   const isExpanded = expandedId === p.id;
                   const variants = p.variants || [];
-                  const totalStock = variants.reduce((sum, v) => sum + (v.stockQuantity || 0), 0);
+                  const totalStock = variants.reduce((sum, v) => sum + (Number(v.stockQuantity) || 0), 0);
+                  const outOfStockVariants = variants.filter((v) => (Number(v.stockQuantity) || 0) <= 0);
+                  const hasOutOfStockVariant = outOfStockVariants.length > 0;
                   const categoryName = categoryMap[p.categoryId] || 'Áo thời trang';
                   const brandName = brandMap[p.brandId] || 'Local Brand';
                   const hasDiscount = p.productPrice && p.productPrice.salePrice && p.productPrice.salePrice < p.price;
@@ -429,21 +439,37 @@ export default function ProductsPage() {
 
                         {/* Tổng tồn kho */}
                         <td className="py-3.5 px-4">
-                          <div className={`font-bold ${totalStock === 0 ? 'text-rose-600' : totalStock < 20 ? 'text-amber-700' : 'text-gray-900'}`}>
+                          <div className={`font-bold ${totalStock <= 0 ? 'text-rose-600' : (totalStock < 20 || hasOutOfStockVariant) ? 'text-amber-700' : 'text-gray-900'}`}>
                             {totalStock.toLocaleString('vi-VN')} chiếc
                           </div>
-                          <div className="text-[10px] text-gray-400 mt-0.5">
-                            {totalStock === 0 ? 'Hết hàng kho chính' : totalStock < 20 ? 'Cần lập phiếu nhập' : 'Kho khả dụng'}
-                          </div>
+                          {hasOutOfStockVariant && totalStock > 0 ? (
+                            <div className="text-[10px] text-rose-600 font-semibold mt-0.5">
+                              ⚠️ {outOfStockVariants.length}/{variants.length} phân loại hết hàng (0)
+                            </div>
+                          ) : (
+                            <div className="text-[10px] text-gray-400 mt-0.5">
+                              {totalStock <= 0 ? 'Hết hàng toàn bộ' : totalStock < 20 ? 'Cần bổ sung tồn kho' : 'Kho khả dụng'}
+                            </div>
+                          )}
                         </td>
 
-                        {/* Trạng thái kinh doanh */}
+                        {/* Trạng thái kinh doanh (Khớp với trạng thái Client) */}
                         <td className="py-3.5 px-4 text-center">
-                          {totalStock === 0 ? (
+                          {totalStock <= 0 ? (
                             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold">
                               <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
                               Tạm hết hàng
                             </span>
+                          ) : hasOutOfStockVariant ? (
+                            <button
+                              type="button"
+                              onClick={() => toggleExpand(p.id)}
+                              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[10px] font-bold transition"
+                              title="Bấm để mở ma trận SKU và chỉnh lại số lượng phân loại bị hết hàng"
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse"></span>
+                              Hết {outOfStockVariants.length} Size/Màu
+                            </button>
                           ) : totalStock < 20 ? (
                             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold">
                               <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
@@ -452,18 +478,27 @@ export default function ProductsPage() {
                           ) : (
                             <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                              Đang kinh doanh
+                              Còn hàng ({variants.length} SKU)
                             </span>
                           )}
                         </td>
 
-                        {/* Thao tác Sửa / Xóa */}
+                        {/* Thao tác Nhập kho / Sửa / Xóa */}
                         <td className="py-3.5 px-4 text-center">
                           <div className="flex items-center justify-center gap-1">
                             <button
                               type="button"
+                              onClick={() => handleOpenImportModal(p)}
+                              title="Nhập kho bổ sung số lượng cho sản phẩm này"
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-[10px] transition shadow-2xs"
+                            >
+                              <Plus className="w-3 h-3 stroke-[2.5]" />
+                              <span>Nhập kho</span>
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => handleOpenEdit(p)}
-                              title="Chỉnh sửa sản phẩm áo"
+                              title="Chỉnh sửa thông tin sản phẩm"
                               className="p-1.5 rounded-lg border border-gray-200 bg-white hover:bg-emerald-50 text-gray-600 hover:text-emerald-700 transition shadow-2xs"
                             >
                               <Edit2 className="w-3.5 h-3.5" />
@@ -488,7 +523,7 @@ export default function ProductsPage() {
                           <td colSpan="8" className="p-4 pl-12 pr-6">
                             <div className="bg-white rounded-lg border border-emerald-200/80 shadow-2xs overflow-hidden">
                               {/* Header của Sub-table ma trận biến thể */}
-                              <div className="p-2.5 px-4 bg-emerald-50/50 border-b border-emerald-100 flex items-center justify-between">
+                              <div className="p-2.5 px-4 bg-emerald-50/50 border-b border-emerald-100 flex flex-wrap items-center justify-between gap-2">
                                 <div className="flex items-center gap-2">
                                   <span className="font-bold text-gray-800 text-xs flex items-center gap-1.5">
                                     <Layers className="w-3.5 h-3.5 text-emerald-700" />
@@ -498,8 +533,18 @@ export default function ProductsPage() {
                                     {p.name}
                                   </span>
                                 </div>
-                                <div className="text-[11px] text-gray-500">
-                                  Tổng tồn kho: <strong className="text-gray-900">{totalStock} cái</strong>
+                                <div className="flex items-center gap-3">
+                                  <div className="text-[11px] text-gray-500">
+                                    Tổng tồn kho: <strong className="text-gray-900">{totalStock} cái</strong>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenImportModal(p)}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-800 hover:bg-emerald-900 text-white text-[10px] font-bold transition shadow-2xs"
+                                  >
+                                    <Plus className="w-3 h-3 stroke-[3]" />
+                                    <span>Lập phiếu nhập kho sản phẩm này</span>
+                                  </button>
                                 </div>
                               </div>
 
@@ -551,19 +596,49 @@ export default function ProductsPage() {
                                             {formatMoney(displayPrice)}
                                           </td>
                                           <td className="py-2.5 px-3">
-                                            {isOut ? (
-                                              <span className="text-rose-600 font-bold flex items-center gap-1">
-                                                <X className="w-3.5 h-3.5" /> Hết hàng (0)
-                                              </span>
-                                            ) : isLow ? (
-                                              <span className="text-amber-700 font-bold flex items-center gap-1">
-                                                <AlertTriangle className="w-3 h-3 text-amber-500" /> Còn {v.stockQuantity} chiếc
-                                              </span>
-                                            ) : (
-                                              <span className="text-gray-800 font-medium">
-                                                📦 {v.stockQuantity} chiếc
-                                              </span>
-                                            )}
+                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                              <div className="flex items-center gap-2">
+                                                <span
+                                                  className={`font-extrabold text-xs ${
+                                                    isOut
+                                                      ? 'text-rose-600'
+                                                      : isLow
+                                                        ? 'text-amber-700'
+                                                        : 'text-gray-900'
+                                                  }`}
+                                                >
+                                                  {v.stockQuantity ?? 0} chiếc
+                                                </span>
+
+                                                {isOut ? (
+                                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold">
+                                                    <X className="w-3 h-3" /> Tạm hết hàng
+                                                  </span>
+                                                ) : isLow ? (
+                                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold">
+                                                    <AlertTriangle className="w-3 h-3 text-amber-500" /> Sắp hết
+                                                  </span>
+                                                ) : (
+                                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-semibold">
+                                                    Còn hàng
+                                                  </span>
+                                                )}
+                                              </div>
+
+                                              <button
+                                                type="button"
+                                                onClick={() => handleOpenImportModal(p, v)}
+                                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md font-bold text-[10px] transition ${
+                                                  isOut
+                                                    ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-2xs'
+                                                    : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                                }`}
+                                                title="Lập phiếu nhập kho bổ sung cho phân loại Size/Màu này"
+                                              >
+                                                <Plus className="w-3 h-3 stroke-[2.5]" />
+                                                <span>{isOut ? 'Nhập hàng ngay' : 'Nhập thêm kho'}</span>
+                                              </button>
+                                            </div>
                                           </td>
                                         </tr>
                                       );
@@ -788,6 +863,108 @@ export default function ProductsPage() {
                 />
               </div>
 
+              {/* Chỉnh sửa số lượng tồn kho từng phân loại (Size / Màu) */}
+              <div className="space-y-2 border-t border-gray-100 pt-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-gray-700 font-bold flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Số lượng tồn kho theo Phân loại (Size / Màu sắc)</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setNewProduct({
+                        ...newProduct,
+                        initialVariants: [
+                          ...(newProduct.initialVariants || []),
+                          {
+                            color: 'Đen',
+                            size: 'XL',
+                            stockQuantity: 30,
+                            costPrice: Number(newProduct.costPrice) || 120000,
+                          },
+                        ],
+                      })
+                    }
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold text-[11px] transition"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>Thêm phân loại SKU</span>
+                  </button>
+                </div>
+
+                <div className="max-h-52 overflow-y-auto rounded-xl border border-gray-200 divide-y divide-gray-100 bg-gray-50/50">
+                  {(newProduct.initialVariants || []).map((v, idx) => (
+                    <div key={idx} className="grid grid-cols-12 items-center gap-2 p-2 text-[11px]">
+                      <div className="col-span-4">
+                        <span className="block text-[10px] text-gray-400">Màu sắc</span>
+                        <input
+                          type="text"
+                          value={v.color}
+                          onChange={(e) => {
+                            const next = [...newProduct.initialVariants];
+                            next[idx] = { ...next[idx], color: e.target.value };
+                            setNewProduct({ ...newProduct, initialVariants: next });
+                          }}
+                          className="w-full px-2 py-1 bg-white border border-gray-200 rounded font-semibold text-gray-800"
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <span className="block text-[10px] text-gray-400">Size</span>
+                        <input
+                          type="text"
+                          value={v.size}
+                          onChange={(e) => {
+                            const next = [...newProduct.initialVariants];
+                            next[idx] = { ...next[idx], size: e.target.value };
+                            setNewProduct({ ...newProduct, initialVariants: next });
+                          }}
+                          className="w-full px-2 py-1 bg-white border border-gray-200 rounded font-bold text-gray-900"
+                        />
+                      </div>
+                      <div className="col-span-4">
+                        <span className="block text-[10px] text-gray-400">Số lượng tồn kho</span>
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            min="0"
+                            value={v.stockQuantity}
+                            onChange={(e) => {
+                              const next = [...newProduct.initialVariants];
+                              next[idx] = {
+                                ...next[idx],
+                                stockQuantity: Math.max(0, parseInt(e.target.value, 10) || 0),
+                              };
+                              setNewProduct({ ...newProduct, initialVariants: next });
+                            }}
+                            className={`w-full px-2 py-1 bg-white border rounded font-bold ${
+                              Number(v.stockQuantity) <= 0
+                                ? 'border-rose-300 text-rose-600 bg-rose-50/40'
+                                : 'border-gray-200 text-emerald-800'
+                            }`}
+                          />
+                        </div>
+                      </div>
+                      <div className="col-span-1 pt-3 text-right">
+                        {newProduct.initialVariants.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = newProduct.initialVariants.filter((_, i) => i !== idx);
+                              setNewProduct({ ...newProduct, initialVariants: next });
+                            }}
+                            className="p-1 text-gray-400 hover:text-rose-600"
+                            title="Xóa phân loại"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div className="pt-2 flex items-center justify-between border-t border-gray-100">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -932,6 +1109,119 @@ export default function ProductsPage() {
                 />
               </div>
 
+              {/* Phân loại (Size / Màu) trong Modal Sửa: Tồn kho hiện tại chỉ xem, muốn tăng số lượng thì bấm Nhập kho */}
+              <div className="space-y-2 border-t border-gray-100 pt-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <label className="text-gray-700 font-bold flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Phân loại (Size / Màu sắc) &amp; Tồn kho hiện tại</span>
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const prodToImport = editingProduct;
+                        setIsEditModalOpen(false);
+                        handleOpenImportModal(prodToImport);
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-[11px] transition shadow-2xs"
+                    >
+                      <Plus className="w-3 h-3 stroke-[2.5]" />
+                      <span>Nhập kho bổ sung SL</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditingProduct({
+                          ...editingProduct,
+                          variants: [
+                            ...(editingProduct.variants || []),
+                            {
+                              id: null,
+                              color: 'Đen',
+                              size: 'XL',
+                              stockQuantity: 0,
+                              costPrice: Number(editingProduct.costPrice) || 120000,
+                            },
+                          ],
+                        })
+                      }
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold text-[11px] transition"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>Thêm SKU mới</span>
+                    </button>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-gray-500">
+                  Số lượng tồn kho được cộng tự động thông qua chức năng <strong>Nhập kho (Goods Receipts)</strong>.
+                </p>
+
+                <div className="max-h-52 overflow-y-auto rounded-xl border border-gray-200 divide-y divide-gray-100 bg-gray-50/50">
+                  {(editingProduct.variants || []).map((v, idx) => (
+                    <div key={v.id || idx} className="grid grid-cols-12 items-center gap-2 p-2 text-[11px]">
+                      <div className="col-span-4">
+                        <span className="block text-[10px] text-gray-400">Màu sắc</span>
+                        <input
+                          type="text"
+                          value={v.color}
+                          onChange={(e) => {
+                            const next = [...editingProduct.variants];
+                            next[idx] = { ...next[idx], color: e.target.value };
+                            setEditingProduct({ ...editingProduct, variants: next });
+                          }}
+                          className="w-full px-2 py-1 bg-white border border-gray-200 rounded font-semibold text-gray-800"
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <span className="block text-[10px] text-gray-400">Size</span>
+                        <input
+                          type="text"
+                          value={v.size}
+                          onChange={(e) => {
+                            const next = [...editingProduct.variants];
+                            next[idx] = { ...next[idx], size: e.target.value };
+                            setEditingProduct({ ...editingProduct, variants: next });
+                          }}
+                          className="w-full px-2 py-1 bg-white border border-gray-200 rounded font-bold text-gray-900"
+                        />
+                      </div>
+                      <div className="col-span-4">
+                        <span className="block text-[10px] text-gray-400">Tồn kho (Cộng qua Nhập kho)</span>
+                        <div
+                          className={`w-full px-2.5 py-1 border rounded font-bold flex items-center justify-between ${
+                            Number(v.stockQuantity) <= 0
+                              ? 'border-rose-200 text-rose-600 bg-rose-50/60'
+                              : 'border-gray-200 text-gray-700 bg-gray-100/80'
+                          }`}
+                        >
+                          <span>{v.stockQuantity ?? 0} chiếc</span>
+                          {Number(v.stockQuantity) <= 0 && (
+                            <span className="text-[9px] font-extrabold uppercase text-rose-600">Hết hàng</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="col-span-1 pt-3 text-right">
+                        {editingProduct.variants.length > 1 && !v.id && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const next = editingProduct.variants.filter((_, i) => i !== idx);
+                              setEditingProduct({ ...editingProduct, variants: next });
+                            }}
+                            className="p-1 text-gray-400 hover:text-rose-600"
+                            title="Xóa phân loại mới thêm"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <div className="pt-2 flex items-center justify-between border-t border-gray-100">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
@@ -959,6 +1249,241 @@ export default function ProductsPage() {
                 >
                   {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
                   <span>{submitting ? 'Đang lưu...' : 'Lưu thay đổi'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          8. MODAL LẬP PHIẾU NHẬP KHO BỔ SUNG TỒN KHO (POST /api/goods-receipts)
+          ========================================================================= */}
+      {isImportModalOpen && importingProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
+            {/* Header */}
+            <div className="p-4 px-6 bg-gradient-to-r from-emerald-800 to-emerald-900 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center">
+                  <Package className="w-5 h-5 text-emerald-200" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold">Lập Phiếu Nhập Kho Bổ Sung Số Lượng</h3>
+                  <p className="text-[11px] text-emerald-100/90">
+                    Sản phẩm: <strong>{importingProduct.name}</strong> (#{importingProduct.id})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsImportModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition"
+              >
+                <X className="w-4 h-4 text-white" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <form onSubmit={(e) => handleConfirmImportReceipt(e, true)} className="p-6 space-y-4 overflow-y-auto text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">
+                    Xưởng may / Nhà cung cấp <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={importForm.supplierId}
+                    onChange={(e) => setImportForm({ ...importForm, supplierId: e.target.value })}
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:outline-none focus:border-emerald-600"
+                    required
+                  >
+                    {suppliers.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.code || `#${s.id}`})
+                      </option>
+                    ))}
+                    {suppliers.length === 0 && (
+                      <option value="1">Xưởng May Thời Trang Mặc Định (#1)</option>
+                    )}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-gray-700 mb-1">Ghi chú phiếu nhập kho</label>
+                  <input
+                    type="text"
+                    value={importForm.note}
+                    onChange={(e) => setImportForm({ ...importForm, note: e.target.value })}
+                    placeholder="VD: Nhập bổ sung các size hết hàng"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+              </div>
+
+              {/* Bảng nhập số lượng cho từng biến thể SKU */}
+              <div className="border border-gray-200 rounded-xl overflow-hidden">
+                <div className="p-2.5 px-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                  <span className="font-bold text-gray-800">
+                    Chọn số lượng nhập thêm theo từng phân loại (Màu sắc / Size)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setImportForm((prev) => ({
+                        ...prev,
+                        items: prev.items.map((it) => ({
+                          ...it,
+                          quantity: (Number(it.quantity) || 0) + 20,
+                        })),
+                      }))
+                    }
+                    className="px-2 py-1 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-[10px] transition"
+                  >
+                    +20 cho tất cả SKU
+                  </button>
+                </div>
+
+                <div className="divide-y divide-gray-100 max-h-64 overflow-y-auto">
+                  {(importForm.items || []).map((item, idx) => {
+                    const isZero = item.currentStock <= 0;
+                    const nextStock = item.currentStock + (Number(item.quantity) || 0);
+                    return (
+                      <div
+                        key={item.variantId || idx}
+                        className={`p-3 grid grid-cols-12 items-center gap-2.5 ${
+                          isZero ? 'bg-rose-50/30' : 'bg-white'
+                        }`}
+                      >
+                        <div className="col-span-4">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`w-3 h-3 rounded-full border ${getColorDotClass(item.color)}`} />
+                            <span className="font-bold text-gray-900">{item.color}</span>
+                            <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-800 font-black text-[10px]">
+                              Size {item.size}
+                            </span>
+                          </div>
+                          <div className="text-[10px] mt-0.5">
+                            Tồn hiện tại:{' '}
+                            <strong className={isZero ? 'text-rose-600' : 'text-gray-700'}>
+                              {item.currentStock} chiếc {isZero ? '(Hết hàng)' : ''}
+                            </strong>
+                          </div>
+                        </div>
+
+                        <div className="col-span-4">
+                          <label className="block text-[10px] text-gray-500 font-semibold mb-0.5">
+                            Số lượng nhập thêm
+                          </label>
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              min="0"
+                              value={item.quantity}
+                              onChange={(e) => {
+                                const val = Math.max(0, parseInt(e.target.value, 10) || 0);
+                                const next = [...importForm.items];
+                                next[idx] = { ...next[idx], quantity: val };
+                                setImportForm({ ...importForm, items: next });
+                              }}
+                              className="w-20 px-2 py-1.5 bg-white border border-gray-300 rounded-lg font-extrabold text-emerald-800 text-center focus:outline-none focus:border-emerald-600"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = [...importForm.items];
+                                next[idx] = { ...next[idx], quantity: (Number(item.quantity) || 0) + 20 };
+                                setImportForm({ ...importForm, items: next });
+                              }}
+                              className="px-1.5 py-1 rounded bg-gray-100 hover:bg-emerald-50 text-gray-700 hover:text-emerald-700 font-bold text-[10px]"
+                            >
+                              +20
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const next = [...importForm.items];
+                                next[idx] = { ...next[idx], quantity: 0 };
+                                setImportForm({ ...importForm, items: next });
+                              }}
+                              className="px-1.5 py-1 rounded bg-gray-100 hover:bg-rose-50 text-gray-500 hover:text-rose-600 font-semibold text-[10px]"
+                            >
+                              0
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="col-span-4">
+                          <label className="block text-[10px] text-gray-500 font-semibold mb-0.5">
+                            Giá vốn nhập (VNĐ/chiếc)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="1000"
+                            value={item.importPrice}
+                            onChange={(e) => {
+                              const val = Math.max(0, parseFloat(e.target.value) || 0);
+                              const next = [...importForm.items];
+                              next[idx] = { ...next[idx], importPrice: val };
+                              setImportForm({ ...importForm, items: next });
+                            }}
+                            className="w-full px-2 py-1.5 bg-white border border-gray-200 rounded-lg font-mono text-gray-800 focus:outline-none focus:border-emerald-600"
+                          />
+                          <div className="text-[10px] text-emerald-700 font-semibold mt-0.5">
+                            Tồn sau nhập: <strong>{nextStock} chiếc</strong>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Tổng kết phiếu */}
+                <div className="p-3 bg-emerald-50/60 border-t border-emerald-100 flex items-center justify-between font-bold">
+                  <span className="text-gray-700">
+                    Tổng cộng nhập thêm:{' '}
+                    <strong className="text-emerald-800">
+                      {(importForm.items || []).reduce((sum, it) => sum + (Number(it.quantity) || 0), 0)} chiếc
+                    </strong>
+                  </span>
+                  <span className="text-gray-700">
+                    Tổng tiền phiếu nhập:{' '}
+                    <strong className="text-emerald-900 text-sm">
+                      {formatMoney(
+                        (importForm.items || []).reduce(
+                          (sum, it) => sum + (Number(it.quantity) || 0) * (Number(it.importPrice) || 0),
+                          0
+                        )
+                      )}
+                    </strong>
+                  </span>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="pt-2 flex flex-wrap items-center justify-end gap-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setIsImportModalOpen(false)}
+                  className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={(e) => handleConfirmImportReceipt(e, false)}
+                  className="px-4 py-2 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold transition disabled:opacity-50"
+                >
+                  Lưu Phiếu Nháp (Chờ duyệt)
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-5 py-2 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white font-bold shadow-sm transition flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                  <span>{submitting ? 'Đang nhập kho...' : 'Nhập Kho & Cộng Tồn Kho Ngay'}</span>
                 </button>
               </div>
             </form>

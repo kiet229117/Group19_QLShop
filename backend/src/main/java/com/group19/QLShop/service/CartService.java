@@ -52,12 +52,18 @@ public class CartService {
         // =========================
         // XEM GIỎ HÀNG (USER + ADMIN)
         // =========================
-        @Transactional(readOnly = true)
         public CartReponse getCart(Long userId) {
 
-                // Tìm Cart của User
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> new RuntimeException("Không tìm thấy User"));
+
+                // Tìm hoặc tạo Cart rỗng nếu User chưa có giỏ hàng
                 Cart cart = cartRepository.findByUserId(userId)
-                                .orElseThrow(() -> new RuntimeException("User chưa có giỏ hàng"));
+                                .orElseGet(() -> {
+                                        Cart newCart = new Cart();
+                                        newCart.setUser(user);
+                                        return cartRepository.save(newCart);
+                                });
 
                 return toCartReponse(cart);
         }
@@ -204,12 +210,9 @@ public class CartService {
         // =========================
         public void clearCart(Long userId) {
 
-                // Tìm Cart của User
-                Cart cart = cartRepository.findByUserId(userId)
-                                .orElseThrow(() -> new RuntimeException("User chưa có giỏ hàng"));
-
-                // Xóa tất cả sản phẩm
-                cartItemRepository.deleteByCartId(cart.getId());
+                // Tìm Cart của User (nếu có thì xóa sạch sản phẩm)
+                cartRepository.findByUserId(userId)
+                                .ifPresent(cart -> cartItemRepository.deleteByCartId(cart.getId()));
         }
 
         // =========================
@@ -237,7 +240,8 @@ public class CartService {
                 Product product = cartItem.getProduct();
 
                 // 1. Mặc định lấy giá gốc từ Product
-                double finalPrice = (product != null) ? product.getPrice() : 0.0;
+                double originalPrice = (product != null) ? product.getPrice() : 0.0;
+                double finalPrice = originalPrice;
 
                 // 2. Nếu có bảng ProductPrice và có giá sale > 0 thì áp dụng giá sale
                 if (product != null && product.getProductPrice() != null) {
@@ -247,11 +251,28 @@ public class CartService {
                         }
                 }
 
+                String primaryImage = null;
+                if (product != null && product.getImages() != null && !product.getImages().isEmpty()) {
+                        primaryImage = product.getImages().stream()
+                                        .filter(img -> Boolean.TRUE.equals(img.getIsPrimary()))
+                                        .map(com.group19.QLShop.entity.ProductImage::getImageUrl)
+                                        .findFirst()
+                                        .orElse(product.getImages().get(0).getImageUrl());
+                }
+
+                String brandName = (product != null && product.getBrand() != null)
+                                ? product.getBrand().getName()
+                                : "QLShop Fashion";
+
                 return CartItemReponse.builder()
                                 .id(cartItem.getId())
                                 .productId(product != null ? product.getId() : null)
                                 .productName(product != null ? product.getName() : null)
+                                .productSlug(product != null ? product.getSlug() : null)
+                                .productImage(primaryImage)
+                                .brandName(brandName)
                                 .price(finalPrice)
+                                .originalPrice(originalPrice)
                                 .quantity(cartItem.getQuantity())
                                 .total(finalPrice * cartItem.getQuantity())
                                 .build();

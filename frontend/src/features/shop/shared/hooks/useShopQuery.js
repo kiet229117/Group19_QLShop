@@ -47,6 +47,18 @@ export default function useShopQuery(queryFn, key, { enabled = true } = {}) {
 
   const refetch = useCallback(() => setReloadToken((t) => t + 1), []);
 
+  // Tự động làm mới dữ liệu khi có đơn hàng vừa đặt/hủy hoặc khi Admin cập nhật tồn kho sản phẩm
+  useEffect(() => {
+    if (!enabled) return undefined;
+    const handleRefresh = () => setReloadToken((t) => t + 1);
+    window.addEventListener('qlshop:products-updated', handleRefresh);
+    window.addEventListener('focus', handleRefresh);
+    return () => {
+      window.removeEventListener('qlshop:products-updated', handleRefresh);
+      window.removeEventListener('focus', handleRefresh);
+    };
+  }, [enabled]);
+
   const isCurrent = result.requestKey === requestKey;
 
   return {
