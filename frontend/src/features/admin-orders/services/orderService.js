@@ -13,13 +13,37 @@ export const orderService = {
     return res.data || res;
   },
 
-  // Cập nhật trạng thái đơn hàng (PENDING, CONFIRMED, SHIPPING, COMPLETED, CANCELLED)
+  // Cập nhật trạng thái đơn hàng (PENDING, CONFIRMED, SHIPPING, COMPLETED, CANCELLED, CANCEL_REQUESTED)
   updateOrderStatus: async (id, status) => {
     const res = await api.put(`/orders/${id}/status`, { status });
     return res.data || res;
   },
 
-  // Hủy đơn hàng
+  // Duyệt hàng loạt toàn bộ đơn hàng PENDING (Admin Bulk Confirm)
+  confirmAllPendingOrders: async () => {
+    const res = await api.put('/orders/confirm-all-pending');
+    return res.data || res;
+  },
+
+  // Kích hoạt tự động duyệt theo ngưỡng phút (Phương án 4: mặc định 15 phút)
+  triggerAutoConfirm: async (thresholdMinutes = 15) => {
+    const res = await api.put(`/orders/auto-confirm?thresholdMinutes=${thresholdMinutes}`);
+    return res.data || res;
+  },
+
+  // Duyệt yêu cầu hủy đơn hàng (Admin)
+  approveCancelOrder: async (id) => {
+    const res = await api.put(`/orders/${id}/cancel-approve`);
+    return res.data || res;
+  },
+
+  // Từ chối yêu cầu hủy đơn hàng (Admin)
+  rejectCancelOrder: async (id, reason) => {
+    const res = await api.put(`/orders/${id}/cancel-reject`, { reason });
+    return res.data || res;
+  },
+
+  // Hủy đơn hàng trực tiếp
   cancelOrder: async (id) => {
     const res = await api.put(`/orders/${id}/cancel`);
     return res.data || res;
@@ -33,4 +57,3 @@ export const orderService = {
 };
 
 export default orderService;
-

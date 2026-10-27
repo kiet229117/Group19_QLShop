@@ -38,6 +38,8 @@ public class OrderResponse {
 
     private OrderStatus status;
 
+    private String cancelReason;
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;

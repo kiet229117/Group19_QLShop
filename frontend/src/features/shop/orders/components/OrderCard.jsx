@@ -34,6 +34,12 @@ export default function OrderCard({ order, onReorder }) {
         <OrderStatus status={order.status} />
       </div>
 
+      {order.status === 'CANCEL_REQUESTED' && (
+        <div className="bg-orange-50 border-b border-orange-200 px-6 py-2 text-xs text-orange-900">
+          <span className="font-bold">Đang chờ Admin duyệt hủy đơn:</span> {order.cancelReason || 'Khách yêu cầu hủy'}
+        </div>
+      )}
+
       {/* Danh sách sản phẩm rút gọn */}
       <div className="divide-y divide-zinc-100 px-6 py-4">
         {firstItems.map((item) => (

@@ -1,7 +1,7 @@
-import { CheckCircle2, Circle, XCircle } from 'lucide-react';
+import { CheckCircle2, Circle, XCircle, AlertTriangle } from 'lucide-react';
 
 /**
- * Tiến trình đơn hàng (Đặt hàng → Xác nhận → Đang giao → Hoàn thành).
+ * Tiến trình đơn hàng (Đặt hàng → Xác nhận → Đang giao → Hoàn thành / Chờ duyệt hủy / Đã hủy).
  */
 export default function OrderTimeline({ timeline = [], status = 'PENDING' }) {
   if (!Array.isArray(timeline) || timeline.length === 0) return null;
@@ -14,7 +14,8 @@ export default function OrderTimeline({ timeline = [], status = 'PENDING' }) {
 
       <div className="mt-6 grid gap-4 sm:grid-cols-4">
         {timeline.map((step, idx) => {
-          const isCancelledStep = step.step === 'CANCELLED' || status === 'CANCELLED';
+          const isCancelled = step.step === 'CANCELLED' || status === 'CANCELLED';
+          const isCancelRequested = step.step === 'CANCEL_REQUESTED' || status === 'CANCEL_REQUESTED';
           const isDone = Boolean(step.done);
 
           return (
@@ -22,8 +23,10 @@ export default function OrderTimeline({ timeline = [], status = 'PENDING' }) {
               key={`${step.step}-${idx}`}
               className={`relative flex items-start gap-3 rounded-2xl border p-4 sm:flex-col ${
                 isDone
-                  ? isCancelledStep && step.step === 'CANCELLED'
+                  ? isCancelled && step.step === 'CANCELLED'
                     ? 'border-rose-200 bg-rose-50/50'
+                    : isCancelRequested && step.step === 'CANCEL_REQUESTED'
+                    ? 'border-orange-300 bg-orange-50/70'
                     : 'border-emerald-200 bg-emerald-50/40'
                   : 'border-zinc-200/70 bg-zinc-50/60'
               }`}
@@ -32,6 +35,8 @@ export default function OrderTimeline({ timeline = [], status = 'PENDING' }) {
                 {isDone ? (
                   step.step === 'CANCELLED' ? (
                     <XCircle className="h-5 w-5 text-rose-600" aria-hidden="true" />
+                  ) : step.step === 'CANCEL_REQUESTED' ? (
+                    <AlertTriangle className="h-5 w-5 text-orange-600" aria-hidden="true" />
                   ) : (
                     <CheckCircle2 className="h-5 w-5 text-emerald-600" aria-hidden="true" />
                   )

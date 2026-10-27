@@ -1,6 +1,12 @@
-import { Clock, CheckCircle2, Truck, Check, XCircle } from 'lucide-react';
+import { Clock, CheckCircle2, Truck, Check, XCircle, AlertTriangle } from 'lucide-react';
 
 export const STATUS_CONFIG = {
+  CANCEL_REQUESTED: {
+    label: 'Chờ duyệt hủy',
+    color: 'bg-orange-50 text-orange-800 border-orange-300 ring-1 ring-orange-400/20',
+    dot: 'bg-orange-500',
+    icon: AlertTriangle
+  },
   PENDING: {
     label: 'Chờ xác nhận',
     color: 'bg-amber-50 text-amber-800 border-amber-200/80',
@@ -43,4 +49,3 @@ export const getOrderStatus = (status) => {
 };
 
 export default STATUS_CONFIG;
-

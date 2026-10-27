@@ -26,6 +26,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     Page<Order> findByStatus(OrderStatus status, Pageable pageable);
 
+    // Tìm các đơn hàng ở trạng thái PENDING được tạo trước thời điểm cutOff (dùng cho tự động duyệt)
+    List<Order> findByStatusAndCreatedAtBefore(OrderStatus status, LocalDateTime cutOff);
+
     // ==========================================
     // CÁC HÀM PHỤC VỤ THỐNG KÊ DASHBOARD
     // ==========================================

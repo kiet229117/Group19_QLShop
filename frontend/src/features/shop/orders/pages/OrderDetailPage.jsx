@@ -11,18 +11,22 @@ import {
   Sparkles,
   User,
   XCircle,
+  AlertTriangle,
+  Clock,
+  PackageCheck,
 } from 'lucide-react';
 import ProductBreadcrumb from '../../../../components/shop/common/ProductBreadcrumb';
 import ProductImage from '../../../../components/shop/common/ProductImage';
 import ShopButton from '../../../../components/shop/common/ShopButton';
 import ShopEmptyState from '../../../../components/shop/common/ShopEmptyState';
-import ConfirmDialog from '../../../../components/shop/common/ConfirmDialog';
+import CancelOrderModal from '../components/CancelOrderModal';
 import { useShopState } from '../../shared/context/ShopStateContext';
 import { formatCurrency } from '../../shared/utils/formatters';
 import { resolveShopImageUrl } from '../../shared/utils/productUtils';
 import { shopPaths } from '../../shopPaths';
 import OrderStatus from '../components/OrderStatus';
 import OrderTimeline from '../components/OrderTimeline';
+import VietQRPaymentCard from '../../checkout/components/VietQRPaymentCard';
 
 /**
  * Trang Chi tiết đơn hàng (`/shop/orders/:id`).
@@ -32,7 +36,7 @@ import OrderTimeline from '../components/OrderTimeline';
 export default function OrderDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { orders, cancelOrder, reorderToCart } = useShopState();
+  const { orders, requestCancelOrder, cancelOrder, reorderToCart } = useShopState();
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [actionBanner, setActionBanner] = useState('');
 
@@ -72,11 +76,42 @@ export default function OrderDetailPage() {
         ]}
       />
 
-      {/* Thông báo mô phỏng sau khi hủy đơn */}
+      {/* Thông báo sau khi gửi yêu cầu hủy hoặc cập nhật */}
       {actionBanner && (
         <div className="flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900">
           <Sparkles className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
           <span>{actionBanner}</span>
+        </div>
+      )}
+
+      {order.status === 'PENDING' && (
+        <div className="flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50/90 p-4 text-xs text-amber-950 shadow-2xs">
+          <Clock className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+          <div className="space-y-1">
+            <p className="font-extrabold text-amber-950">
+              Đơn hàng đang trong thời gian chờ xác nhận (15 phút)
+            </p>
+            <p className="text-amber-900 leading-relaxed">
+              Bạn có thể kiểm tra lại thông tin đơn hàng hoặc bấm <strong>"Yêu cầu hủy đơn"</strong> nếu cần thay đổi địa chỉ nhận hàng, màu sắc, size áo. Sau 15 phút kể từ lúc đặt, hệ thống sẽ tự động xác nhận đơn để shop tiến hành đóng gói.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {order.status === 'CANCEL_REQUESTED' && (
+        <div className="flex items-start gap-3 rounded-2xl border border-orange-300 bg-orange-50/90 p-4 text-xs text-orange-950 shadow-2xs">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-orange-600 mt-0.5" />
+          <div className="space-y-1">
+            <p className="font-extrabold text-orange-950">
+              Bạn đã gửi yêu cầu hủy đơn hàng này — Đang chờ Admin xét duyệt
+            </p>
+            <p className="text-orange-900">
+              <span className="font-bold">Lý do đã gửi:</span> {order.cancelReason || 'Khách yêu cầu hủy đơn'}
+            </p>
+            <p className="text-orange-800 text-[11px]">
+              Đơn hàng đang chờ Admin kiểm tra trước khi xác nhận hủy chính thức. Sau khi được duyệt, số lượng tồn kho và mã voucher (nếu có) sẽ được hoàn lại tài khoản của bạn.
+            </p>
+          </div>
         </div>
       )}
 
@@ -109,8 +144,15 @@ export default function OrderDetailPage() {
               className="border-rose-200 text-rose-600 hover:border-rose-600 hover:bg-rose-50 hover:text-rose-700"
             >
               <XCircle className="h-4 w-4" aria-hidden="true" />
-              Hủy đơn hàng
+              Yêu cầu hủy đơn
             </ShopButton>
+          )}
+
+          {order.status === 'CANCEL_REQUESTED' && (
+            <div className="inline-flex items-center gap-1.5 rounded-xl border border-orange-200 bg-orange-50 px-3 py-1.5 text-xs font-bold text-orange-800">
+              <AlertTriangle className="h-3.5 w-3.5 text-orange-600" />
+              <span>Chờ Admin duyệt hủy</span>
+            </div>
           )}
 
           <ShopButton variant="primary" size="sm" onClick={handleReorder}>
@@ -179,6 +221,11 @@ export default function OrderDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Hiển thị mã thanh toán VietQR nếu phương thức là chuyển khoản ngân hàng và đơn chưa hoàn thành */}
+      {order.paymentMethod === 'BANK_TRANSFER' && (order.status === 'PENDING' || order.status === 'CONFIRMED') && (
+        <VietQRPaymentCard order={order} />
+      )}
 
       {/* Danh sách sản phẩm trong đơn & Tổng kết tiền */}
       <div className="overflow-hidden rounded-3xl border border-zinc-200/80 bg-white">
@@ -279,19 +326,18 @@ export default function OrderDetailPage() {
         </ShopButton>
       </div>
 
-      <ConfirmDialog
+      <CancelOrderModal
         open={confirmCancel}
-        title="Xác nhận hủy đơn hàng"
-        description={`Bạn có chắc muốn hủy đơn hàng #${order.code || order.id}?`}
-        confirmLabel="Xác nhận hủy đơn"
-        onConfirm={() => {
-          cancelOrder(order.id);
+        orderId={order.id}
+        orderCode={order.code}
+        onClose={() => setConfirmCancel(false)}
+        onSubmit={async (reason) => {
+          await requestCancelOrder({ orderId: order.id, reason });
           setConfirmCancel(false);
           setActionBanner(
-            `Đơn hàng #${order.code || order.id} đã được hủy thành công.`
+            `Yêu cầu hủy đơn hàng #${order.code || order.id} đã được gửi thành công. Vui lòng chờ phản hồi từ Admin.`
           );
         }}
-        onClose={() => setConfirmCancel(false)}
       />
     </div>
   );

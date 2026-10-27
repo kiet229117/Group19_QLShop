@@ -554,6 +554,39 @@ public class VoucherService {
         }
     }
 
+    // Hoàn lại quyền sở hữu voucher và giảm lượt sử dụng khi đơn hàng bị hủy
+    @Transactional
+    public void restoreVoucherUsage(User user, String code) {
+        if (code == null || code.isBlank()) return;
+        String normCode = normalizeCode(code);
+
+        // Giảm lượt dùng trong bảng Voucher
+        Voucher v = voucherRepository.findByCodeIgnoreCase(code.trim())
+                .orElseGet(() -> {
+                    if ("POLO10".equalsIgnoreCase(code.trim())) {
+                        return voucherRepository.findByCodeIgnoreCase("AOPOLO10").orElse(null);
+                    }
+                    return null;
+                });
+        if (v != null && v.getUsedCount() != null && v.getUsedCount() > 0) {
+            v.setUsedCount(v.getUsedCount() - 1);
+            voucherRepository.save(v);
+        }
+
+        // Hoàn quyền sở hữu mã voucher cho User
+        if (user != null) {
+            Set<String> used = parseCodeSet(user.getUsedVouchers());
+            Set<String> unlocked = parseCodeSet(user.getUnlockedVouchers());
+
+            used.remove(normCode);
+            unlocked.add(normCode);
+
+            user.setUsedVouchers(joinCodeSet(used));
+            user.setUnlockedVouchers(joinCodeSet(unlocked));
+            userRepository.save(user);
+        }
+    }
+
     // 4. Cho Admin: Thêm voucher mới
     @Transactional
     public VoucherResponse createVoucher(VoucherRequest request) {
