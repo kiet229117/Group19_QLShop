@@ -210,8 +210,19 @@ export default function CheckoutPage() {
         backendData?.message ||
         (typeof backendData === 'string' ? backendData : null) ||
         err?.message ||
-        'Không thể đặt hàng. Vui lòng kiểm tra lại địa chỉ giao hàng!';
+        'Không thể đặt hàng. Vui lòng kiểm tra lại thông tin giao hàng!';
       toast.error(backendMsg);
+
+      // Nếu lỗi do tồn kho hoặc hết hàng đồng thời
+      const lower = String(backendMsg).toLowerCase();
+      if (
+        lower.includes('trong kho') ||
+        lower.includes('chỉ còn') ||
+        lower.includes('hết hàng') ||
+        lower.includes('không đủ')
+      ) {
+        toast.warning('Tồn kho đã thay đổi do có khách vừa đặt. Vui lòng quay lại giỏ hàng kiểm tra lại số lượng.');
+      }
     }
   };
 

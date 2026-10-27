@@ -254,6 +254,7 @@ public class DashboardService {
                 case SHIPPING -> "Đang giao hàng";
                 case COMPLETED -> "Đã hoàn thành";
                 case CANCELLED -> "Đã hủy";
+                case CANCEL_REQUESTED -> "Chờ duyệt hủy";
             };
 
             list.add(OrderStatusDistributionResponse.builder()

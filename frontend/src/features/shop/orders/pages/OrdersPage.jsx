@@ -10,6 +10,7 @@ import OrderCard from '../components/OrderCard';
 
 const STATUS_TABS = [
   { key: 'ALL', label: 'Tất cả đơn' },
+  { key: 'CANCEL_REQUESTED', label: 'Chờ duyệt hủy' },
   { key: 'PENDING', label: 'Chờ xác nhận' },
   { key: 'SHIPPING', label: 'Đang giao' },
   { key: 'COMPLETED', label: 'Hoàn thành' },

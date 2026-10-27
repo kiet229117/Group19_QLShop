@@ -450,6 +450,7 @@ export function ShopStateProvider({ children }) {
       setOrders([]);
       setProfile(EMPTY_PROFILE);
       setVouchers([]);
+
       setAppliedVoucherCode('');
       setServerDiscount(0);
       setRewardPopupVouchers([]);
@@ -518,6 +519,7 @@ export function ShopStateProvider({ children }) {
         recipientPhone: o.receiverPhone || o.recipientPhone || user.phone || '',
         shippingAddress: o.shippingAddress || '',
         note: o.note || '',
+        cancelReason: o.cancelReason || '',
         subtotal: Number(o.totalAmount || 0) + Number(o.discountAmount || 0),
         shippingFee: 0,
         discount: Number(o.discountAmount || 0),
@@ -1197,7 +1199,44 @@ export function ShopStateProvider({ children }) {
     return newOrder;
   };
 
-  // Hủy đơn hàng
+  // Khách hàng gửi yêu cầu hủy đơn hàng (kèm lý do hủy)
+  const requestCancelOrder = async ({ orderId, reason }) => {
+    try {
+      if (typeof orderId === 'number' || /^\d+$/.test(String(orderId))) {
+        await shopOrderService.requestCancelOrder(orderId, reason);
+      }
+      setOrders((prev) =>
+        prev.map((order) => {
+          if (String(order.id) !== String(orderId)) return order;
+          return {
+            ...order,
+            status: 'CANCEL_REQUESTED',
+            cancelReason: reason,
+            paymentStatusLabel: 'Chờ duyệt hủy đơn',
+            timeline: [
+              ...order.timeline.filter((t) => t.done),
+              {
+                step: 'CANCEL_REQUESTED',
+                label: `Đã gửi yêu cầu hủy (Lý do: ${reason || 'Không có'})`,
+                time: new Date().toLocaleString('vi-VN'),
+                done: true,
+              },
+            ],
+          };
+        })
+      );
+      await fetchUserOrders();
+      toast.success(`Đã gửi yêu cầu hủy đơn hàng #${orderId} tới Admin. Vui lòng chờ xét duyệt!`);
+      return true;
+    } catch (err) {
+      console.warn('Lỗi khi gửi yêu cầu hủy đơn:', err);
+      const apiErr = err?.response?.data?.message || err?.message || 'Không thể gửi yêu cầu hủy đơn. Vui lòng liên hệ CSKH.';
+      toast.error(apiErr);
+      throw err;
+    }
+  };
+
+  // Hủy đơn hàng trực tiếp
   const cancelOrder = async (orderId) => {
     try {
       if (typeof orderId === 'number' || /^\d+$/.test(String(orderId))) {
@@ -1222,12 +1261,19 @@ export function ShopStateProvider({ children }) {
           };
         })
       );
+<<<<<<< HEAD
       await fetchVouchers();
       toast.success(`Đã hủy thành công đơn hàng #${orderId}!`);
       window.dispatchEvent(new CustomEvent('qlshop:products-updated'));
+=======
+      // Đồng bộ lại Ví Voucher & Lịch sử đơn hàng để hoàn voucher và cập nhật mã ngay lập tức
+      await Promise.allSettled([fetchVouchers(), fetchUserOrders()]);
+      toast.success(`Đã hủy thành công đơn hàng #${orderId}! Số lượng tồn kho và mã giảm giá (nếu có) đã được hoàn lại.`);
+>>>>>>> VoAnhKiet_2124110089
     } catch (err) {
       console.warn('Lỗi khi hủy đơn hàng:', err);
-      toast.error('Không thể hủy đơn hàng này. Vui lòng liên hệ CSKH.');
+      const apiErr = err?.response?.data?.message || err?.message || 'Không thể hủy đơn hàng này. Vui lòng liên hệ CSKH.';
+      toast.error(apiErr);
     }
   };
 
@@ -1391,6 +1437,7 @@ export function ShopStateProvider({ children }) {
     loadingOrders,
     placeOrder,
     placeSimulatedOrder: placeOrder,
+    requestCancelOrder,
     cancelOrder,
     cancelOrderSimulated: cancelOrder,
     reorderToCart,

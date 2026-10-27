@@ -4,6 +4,7 @@ import ShopButton from '../../../../components/shop/common/ShopButton';
 import { useShopState } from '../../shared/context/ShopStateContext';
 import { formatCurrency } from '../../shared/utils/formatters';
 import { shopPaths } from '../../shopPaths';
+import VietQRPaymentCard from '../components/VietQRPaymentCard';
 
 /**
  * Trang Xác nhận đặt hàng thành công (`/shop/checkout/success`).
@@ -15,6 +16,8 @@ export default function OrderSuccessPage() {
 
   const order =
     orders.find((o) => String(o.id) === String(orderId) || String(o.code) === String(orderId)) || orders[0] || null;
+
+  const isBankTransfer = order?.paymentMethod === 'BANK_TRANSFER';
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
@@ -62,6 +65,13 @@ export default function OrderSuccessPage() {
             <div className="mt-3 border-t border-zinc-200/70 pt-3 text-xs text-zinc-600">
               <strong className="text-zinc-800">Địa chỉ giao hàng:</strong> {order.shippingAddress}
             </div>
+          </div>
+        )}
+
+        {/* Khung hướng dẫn quét mã VietQR nếu chọn chuyển khoản ngân hàng */}
+        {order && isBankTransfer && (
+          <div className="mt-6">
+            <VietQRPaymentCard order={order} />
           </div>
         )}
 

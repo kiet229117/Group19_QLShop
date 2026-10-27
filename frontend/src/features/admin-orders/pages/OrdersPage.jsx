@@ -26,7 +26,8 @@ import {
   Check,
   Send,
   ArrowUpDown,
-  FileSpreadsheet
+  FileSpreadsheet,
+  AlertTriangle
 } from 'lucide-react';
 import useOrders from '../hooks/useOrders';
 import { toast } from '../../../components/common/Toast';
@@ -53,6 +54,9 @@ export default function OrdersPage() {
     updatingStatusId,
     fetchOrders,
     handleUpdateStatus,
+    handleConfirmAllPending,
+    handleApproveCancel,
+    handleRejectCancel,
     handleCancelOrder,
     handleDeleteOrder,
     filteredOrders,
@@ -127,7 +131,7 @@ export default function OrdersPage() {
             <Clock className="w-4 h-4 text-amber-500" />
           </div>
           <div className="text-xl font-black text-amber-700">{stats.pending}</div>
-          <div className="text-[10px] text-amber-600/80 mt-0.5">Cần duyệt đóng hàng</div>
+          <div className="text-[10px] text-amber-700 font-medium mt-0.5">Tự động duyệt sau 15p</div>
         </div>
 
         <div className="bg-white p-3.5 rounded-xl border border-gray-200/80 shadow-2xs">
@@ -168,7 +172,8 @@ export default function OrdersPage() {
         <div className="flex items-center gap-1 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 scrollbar-none">
           {[
             { id: 'ALL', label: 'Tất cả' },
-            { id: 'PENDING', label: 'Chờ duyệt', count: stats.pending },
+            { id: 'CANCEL_REQUESTED', label: 'Chờ duyệt hủy', count: stats.cancelRequested },
+            { id: 'PENDING', label: 'Chờ xác nhận', count: stats.pending },
             { id: 'CONFIRMED', label: 'Đã xác nhận' },
             { id: 'SHIPPING', label: 'Đang giao', count: stats.shipping },
             { id: 'COMPLETED', label: 'Hoàn tất' },
@@ -197,6 +202,18 @@ export default function OrdersPage() {
               )}
             </button>
           ))}
+
+          {stats.pending > 0 && (
+            <button
+              type="button"
+              onClick={handleConfirmAllPending}
+              className="ml-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-2xs transition shrink-0"
+              title="Duyệt tất cả các đơn hàng đang chờ xác nhận ngay lập tức mà không cần chờ 15 phút"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Duyệt tất cả ({stats.pending})</span>
+            </button>
+          )}
         </div>
 
         {/* Ô tìm kiếm & Sắp xếp */}
@@ -352,6 +369,7 @@ export default function OrdersPage() {
                             onChange={(e) => handleUpdateStatus(order.id, e.target.value)}
                             className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition cursor-pointer disabled:cursor-not-allowed ${statusInfo.color} focus:outline-none`}
                           >
+                            <option value="CANCEL_REQUESTED">Chờ duyệt hủy</option>
                             <option value="PENDING">Chờ xác nhận</option>
                             <option value="CONFIRMED">Đã xác nhận</option>
                             <option value="SHIPPING">Đang vận chuyển</option>
@@ -385,15 +403,36 @@ export default function OrdersPage() {
                             <Printer className="w-3.5 h-3.5 text-gray-600" />
                           </button>
 
-                          {order.status !== 'COMPLETED' && order.status !== 'CANCELLED' && (
-                            <button
-                              type="button"
-                              onClick={() => handleCancelOrder(order.id)}
-                              className="p-1.5 rounded-lg border border-gray-200 bg-white hover:bg-rose-50 text-rose-600 transition shadow-2xs"
-                              title="Hủy đơn hàng này"
-                            >
-                              <XCircle className="w-3.5 h-3.5" />
-                            </button>
+                          {order.status === 'CANCEL_REQUESTED' ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleApproveCancel(order.id)}
+                                className="px-2 py-1 rounded-md bg-rose-600 hover:bg-rose-700 text-white text-[10px] font-bold shadow-2xs transition"
+                                title="Duyệt hủy đơn này (hoàn kho & voucher)"
+                              >
+                                Duyệt hủy
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRejectCancel(order.id)}
+                                className="px-2 py-1 rounded-md border border-gray-300 bg-white hover:bg-gray-100 text-gray-700 text-[10px] font-bold shadow-2xs transition"
+                                title="Từ chối yêu cầu hủy đơn"
+                              >
+                                Từ chối
+                              </button>
+                            </>
+                          ) : (
+                            order.status !== 'COMPLETED' && order.status !== 'CANCELLED' && (
+                              <button
+                                type="button"
+                                onClick={() => handleCancelOrder(order.id)}
+                                className="p-1.5 rounded-lg border border-gray-200 bg-white hover:bg-rose-50 text-rose-600 transition shadow-2xs"
+                                title="Hủy đơn hàng này"
+                              >
+                                <XCircle className="w-3.5 h-3.5" />
+                              </button>
+                            )
                           )}
 
                           <button
@@ -476,6 +515,20 @@ export default function OrdersPage() {
 
             {/* Modal Body */}
             <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto text-xs">
+              {selectedOrder.status === 'CANCEL_REQUESTED' && (
+                <div className="bg-orange-50 border border-orange-200 rounded-xl p-3.5 flex items-start gap-3 shadow-2xs">
+                  <AlertTriangle className="w-5 h-5 text-orange-600 shrink-0 mt-0.5" />
+                  <div className="flex-1 space-y-1">
+                    <div className="font-black text-orange-950 text-xs uppercase tracking-wide">Khách hàng đang yêu cầu hủy đơn hàng này</div>
+                    <div className="text-orange-900 text-xs">
+                      <span className="font-bold">Lý do khách cung cấp:</span> {selectedOrder.cancelReason || 'Khách hàng yêu cầu hủy đơn'}
+                    </div>
+                    <div className="text-orange-800 text-[11px]">
+                      Khi bấm <strong>Duyệt hủy đơn</strong>: Hệ thống sẽ hủy đơn, hoàn lại số lượng sản phẩm vào kho và hoàn lại mã voucher cho khách hàng.
+                    </div>
+                  </div>
+                </div>
+              )}
               {/* Tiến trình đơn hàng (Stepper) */}
               <div className="bg-gray-50/80 p-3.5 rounded-xl border border-gray-200">
                 <div className="text-[11px] font-bold text-gray-700 mb-2">Tiến trình xử lý đơn hàng</div>
@@ -611,6 +664,30 @@ export default function OrdersPage() {
               </button>
 
               <div className="flex items-center gap-2">
+                {selectedOrder.status === 'CANCEL_REQUESTED' && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await handleRejectCancel(selectedOrder.id);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold text-xs transition"
+                    >
+                      <XCircle className="w-3.5 h-3.5 text-amber-700" />
+                      <span>Từ chối hủy</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await handleApproveCancel(selectedOrder.id);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Duyệt hủy đơn</span>
+                    </button>
+                  </>
+                )}
                 <button
                   type="button"
                   onClick={() => setIsDetailModalOpen(false)}

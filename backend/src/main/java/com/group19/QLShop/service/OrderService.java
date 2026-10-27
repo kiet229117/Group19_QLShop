@@ -294,7 +294,95 @@ public class OrderService {
     }
 
     // ==========================================
-    // 6. HỦY ĐƠN HÀNG
+    // 6. YÊU CẦU HỦY ĐƠN HÀNG (CHỜ ADMIN DUYỆT + LÝ DO HỦY)
+    // ==========================================
+    @Transactional
+    public OrderResponse requestCancelOrder(Long orderId, String reason) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng với ID: " + orderId));
+
+        if (order.getStatus() == OrderStatus.COMPLETED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng đã hoàn thành, không thể yêu cầu hủy");
+        }
+        if (order.getStatus() == OrderStatus.SHIPPING) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng đang được vận chuyển, không thể hủy đơn trực tiếp");
+        }
+        if (order.getStatus() == OrderStatus.CANCELLED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng đã ở trạng thái hủy trước đó");
+        }
+        if (order.getStatus() == OrderStatus.CANCEL_REQUESTED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng đã gửi yêu cầu hủy và đang chờ Admin duyệt");
+        }
+
+        order.setStatus(OrderStatus.CANCEL_REQUESTED);
+        String finalReason = (reason != null && !reason.trim().isEmpty()) ? reason.trim() : "Khách hàng yêu cầu hủy đơn";
+        order.setCancelReason(finalReason);
+        order.setUpdatedAt(LocalDateTime.now());
+
+        Order updated = orderRepository.save(order);
+        return toOrderResponse(updated);
+    }
+
+    // ==========================================
+    // [ADMIN] DUYỆT YÊU CẦU HỦY ĐƠN (HOÀN TỒN KHO & HOÀN VOUCHER)
+    // ==========================================
+    @Transactional
+    public OrderResponse approveCancelOrder(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng với ID: " + orderId));
+
+        if (order.getStatus() == OrderStatus.CANCELLED) {
+            return toOrderResponse(order);
+        }
+
+        order.setStatus(OrderStatus.CANCELLED);
+        order.setUpdatedAt(LocalDateTime.now());
+
+        // 1. HOÀN LẠI SỐ LƯỢNG TỒN KHO CHO BIẾN THỂ SẢN PHẨM
+        if (order.getOrderItems() != null) {
+            for (OrderItem item : order.getOrderItems()) {
+                ProductVariant variant = item.getProductVariant();
+                if (variant != null) {
+                    variant.setStockQuantity(variant.getStockQuantity() + item.getQuantity());
+                    productVariantRepository.save(variant);
+                }
+            }
+        }
+
+        // 2. HOÀN LẠI MÃ VOUCHER ĐÃ DÙNG CHO TÀI KHOẢN
+        if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
+            voucherService.restoreVoucherUsage(order.getUser(), order.getVoucherCode());
+        }
+
+        Order updated = orderRepository.save(order);
+        return toOrderResponse(updated);
+    }
+
+    // ==========================================
+    // [ADMIN] TỪ CHỐI YÊU CẦU HỦY ĐƠN
+    // ==========================================
+    @Transactional
+    public OrderResponse rejectCancelOrder(Long orderId, String rejectReason) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng với ID: " + orderId));
+
+        if (order.getStatus() != OrderStatus.CANCEL_REQUESTED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng không ở trạng thái yêu cầu hủy");
+        }
+
+        order.setStatus(OrderStatus.PENDING);
+        String note = (rejectReason != null && !rejectReason.trim().isEmpty())
+                ? "Admin từ chối hủy: " + rejectReason.trim()
+                : null;
+        order.setCancelReason(note);
+        order.setUpdatedAt(LocalDateTime.now());
+
+        Order updated = orderRepository.save(order);
+        return toOrderResponse(updated);
+    }
+
+    // ==========================================
+    // 6. HỦY ĐƠN HÀNG TRỰC TIẾP (ADMIN) (HOÀN TỒN KHO & HOÀN VOUCHER)
     // ==========================================
     @Transactional
     public OrderResponse cancelOrder(Long orderId) {
@@ -314,6 +402,7 @@ public class OrderService {
         order.setStatus(OrderStatus.CANCELLED);
         order.setUpdatedAt(LocalDateTime.now());
 
+<<<<<<< HEAD
         // Hoàn lại tồn kho các biến thể sản phẩm khi đơn hàng bị hủy
         if (order.getOrderItems() != null) {
             for (OrderItem item : order.getOrderItems()) {
@@ -321,9 +410,25 @@ public class OrderService {
                 if (v != null) {
                     v.setStockQuantity(v.getStockQuantity() + item.getQuantity());
                     productVariantRepository.save(v);
+
+        // 1. HOÀN LẠI SỐ LƯỢNG TỒN KHO CHO SẢN PHẨM / BIẾN THỂ
+        if (order.getOrderItems() != null) {
+            for (OrderItem item : order.getOrderItems()) {
+                ProductVariant variant = item.getProductVariant();
+                if (variant != null) {
+                    variant.setStockQuantity(variant.getStockQuantity() + item.getQuantity());
+                    productVariantRepository.save(variant);
+
                 }
             }
         }
+
+
+        // 2. HOÀN LẠI MÃ VOUCHER ĐÃ DÙNG CHO TÀI KHOẢN (ĐỂ KHÁCH CÓ THỂ DÙNG LẠI Ở ĐƠN SAU)
+        if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
+            voucherService.restoreVoucherUsage(order.getUser(), order.getVoucherCode());
+        }
+
 
         Order updated = orderRepository.save(order);
         return toOrderResponse(updated);
@@ -337,6 +442,50 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng với ID: " + orderId));
         orderRepository.delete(order);
+    }
+
+    // ==========================================
+    // 8. TỰ ĐỘNG DUYỆT ĐƠN HÀNG CHỜ QUÁ THỜI GIAN ĐỆM (PHƯƠNG ÁN 4: 15 PHÚT)
+    // ==========================================
+    @Transactional
+    public int autoConfirmPendingOrders(int thresholdMinutes) {
+        return autoConfirmPendingOrdersBySeconds(thresholdMinutes * 60);
+    }
+
+    @Transactional
+    public int autoConfirmPendingOrdersBySeconds(int thresholdSeconds) {
+        LocalDateTime cutOff = LocalDateTime.now().minusSeconds(thresholdSeconds);
+        List<Order> pendingOrders = orderRepository.findByStatusAndCreatedAtBefore(OrderStatus.PENDING, cutOff);
+        if (pendingOrders.isEmpty()) {
+            return 0;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        for (Order order : pendingOrders) {
+            order.setStatus(OrderStatus.CONFIRMED);
+            order.setUpdatedAt(now);
+        }
+        orderRepository.saveAll(pendingOrders);
+        return pendingOrders.size();
+    }
+
+    // ==========================================
+    // 9. [ADMIN] DUYỆT HÀNG LOẠT TOÀN BỘ ĐƠN CHỜ XÁC NHẬN (CONFIRM ALL)
+    // ==========================================
+    @Transactional
+    public int confirmAllPendingOrders() {
+        List<Order> pendingOrders = orderRepository.findByStatus(OrderStatus.PENDING);
+        if (pendingOrders.isEmpty()) {
+            return 0;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        for (Order order : pendingOrders) {
+            order.setStatus(OrderStatus.CONFIRMED);
+            order.setUpdatedAt(now);
+        }
+        orderRepository.saveAll(pendingOrders);
+        return pendingOrders.size();
     }
 
     // ==========================================
@@ -381,6 +530,7 @@ public class OrderService {
                 .voucherCode(order.getVoucherCode())
                 .discountAmount(order.getDiscountAmount())
                 .status(order.getStatus())
+                .cancelReason(order.getCancelReason())
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
                 .items(itemResponses)

@@ -1,5 +1,7 @@
 package com.group19.QLShop.controller;
 
+import java.util.Map;
+
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.group19.QLShop.dto.reponse.OrderResponse;
 import com.group19.QLShop.dto.request.OrderRequest;
+import com.group19.QLShop.dto.request.CancelOrderRequest;
 import com.group19.QLShop.dto.request.OrderStatusUpdateRequest;
 import com.group19.QLShop.service.OrderService;
 
@@ -88,13 +91,77 @@ public class OrderController {
     }
 
     // ==========================================
-    // HỦY ĐƠN HÀNG
+    // KHÁCH HÀNG GỬI YÊU CẦU HỦY ĐƠN (KÈM LÝ DO HỦY)
+    // PUT /api/orders/{id}/cancel-request
+    // ==========================================
+    @PutMapping("/{id}/cancel-request")
+    public ResponseEntity<OrderResponse> requestCancelOrder(
+            @PathVariable Long id,
+            @RequestBody(required = false) CancelOrderRequest request) {
+        String reason = request != null ? request.getReason() : null;
+        OrderResponse response = orderService.requestCancelOrder(id, reason);
+        return ResponseEntity.ok(response);
+    }
+
+    // ==========================================
+    // [ADMIN] DUYỆT YÊU CẦU HỦY ĐƠN
+    // PUT /api/orders/{id}/cancel-approve
+    // ==========================================
+    @PutMapping("/{id}/cancel-approve")
+    public ResponseEntity<OrderResponse> approveCancelOrder(@PathVariable Long id) {
+        OrderResponse response = orderService.approveCancelOrder(id);
+        return ResponseEntity.ok(response);
+    }
+
+    // ==========================================
+    // [ADMIN] TỪ CHỐI YÊU CẦU HỦY ĐƠN
+    // PUT /api/orders/{id}/cancel-reject
+    // ==========================================
+    @PutMapping("/{id}/cancel-reject")
+    public ResponseEntity<OrderResponse> rejectCancelOrder(
+            @PathVariable Long id,
+            @RequestBody(required = false) CancelOrderRequest request) {
+        String reason = request != null ? request.getReason() : null;
+        OrderResponse response = orderService.rejectCancelOrder(id, reason);
+        return ResponseEntity.ok(response);
+    }
+
+    // ==========================================
+    // [ADMIN] HỦY ĐƠN HÀNG TRỰC TIẾP (HOÀN TỒN KHO & HOÀN VOUCHER)
     // PUT /api/orders/{id}/cancel
     // ==========================================
     @PutMapping("/{id}/cancel")
     public ResponseEntity<OrderResponse> cancelOrder(@PathVariable Long id) {
         OrderResponse response = orderService.cancelOrder(id);
         return ResponseEntity.ok(response);
+    }
+
+    // ==========================================
+    // [ADMIN] DUYỆT TẤT CẢ ĐƠN HÀNG CHỜ XÁC NHẬN HÀNG LOẠT (BULK CONFIRM)
+    // PUT /api/orders/confirm-all-pending
+    // ==========================================
+    @PutMapping("/confirm-all-pending")
+    public ResponseEntity<Map<String, Object>> confirmAllPendingOrders() {
+        int count = orderService.confirmAllPendingOrders();
+        return ResponseEntity.ok(Map.of(
+            "message", "Đã duyệt thành công " + count + " đơn hàng chờ xác nhận",
+            "confirmedCount", count
+        ));
+    }
+
+    // ==========================================
+    // [ADMIN / SYSTEM] KÍCH HOẠT TỰ ĐỘNG DUYỆT ĐƠN HÀNG CHỜ QUÁ HẠN (MẶC ĐỊNH 15 PHÚT)
+    // PUT /api/orders/auto-confirm
+    // ==========================================
+    @PutMapping("/auto-confirm")
+    public ResponseEntity<Map<String, Object>> triggerAutoConfirm(
+            @RequestParam(defaultValue = "15") int thresholdMinutes) {
+        int count = orderService.autoConfirmPendingOrders(thresholdMinutes);
+        return ResponseEntity.ok(Map.of(
+            "message", "Đã tự động duyệt " + count + " đơn hàng quá " + thresholdMinutes + " phút",
+            "confirmedCount", count,
+            "thresholdMinutes", thresholdMinutes
+        ));
     }
 
     // ==========================================

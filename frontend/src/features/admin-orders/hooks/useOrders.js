@@ -56,19 +56,85 @@ export default function useOrders(initialPageSize = 10) {
     }
   };
 
-  // 3. Hủy đơn hàng (PUT /api/orders/{id}/cancel)
-  const handleCancelOrder = async (orderId) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn hủy đơn hàng #${orderId}?`)) return;
+  // 3. Duyệt yêu cầu hủy đơn hàng (PUT /api/orders/{id}/cancel-approve)
+  const handleApproveCancel = async (orderId) => {
+    if (!window.confirm(`Xác nhận duyệt hủy đơn hàng #${orderId}? Sau khi duyệt, tồn kho sẽ được hoàn lại và mã voucher của khách sẽ được khôi phục.`)) {
+      return;
+    }
+    setUpdatingStatusId(orderId);
     try {
-      await orderService.cancelOrder(orderId);
-      toast.success(`Đã hủy thành công đơn hàng #${orderId}!`);
-      fetchOrders(true);
+      await orderService.approveCancelOrder(orderId);
+      toast.success(`Đã duyệt hủy thành công đơn hàng #${orderId}! Tồn kho và mã voucher đã được hoàn lại.`);
+      await fetchOrders(true);
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder(prev => ({ ...prev, status: 'CANCELLED' }));
+      }
     } catch (err) {
-      toast.error(getFriendlyErrorMessage(err, 'Không thể hủy đơn hàng này'));
+      toast.error(getFriendlyErrorMessage(err, 'Không thể duyệt hủy đơn hàng này'));
+    } finally {
+      setUpdatingStatusId(null);
     }
   };
 
-  // 4. Xóa đơn hàng (DELETE /api/orders/{id})
+  // 4. Từ chối yêu cầu hủy đơn hàng (PUT /api/orders/{id}/cancel-reject)
+  const handleRejectCancel = async (orderId, reason) => {
+    const rejectReason = prompt('Nhập lý do từ chối yêu cầu hủy đơn (tùy chọn):', 'Shop đã đóng gói và chuẩn bị giao hàng');
+    if (rejectReason === null) return; // Khách bấm Hủy bỏ prompt
+
+    setUpdatingStatusId(orderId);
+    try {
+      await orderService.rejectCancelOrder(orderId, rejectReason);
+      toast.success(`Đã từ chối yêu cầu hủy đơn hàng #${orderId}! Đơn hàng tiếp tục được xử lý.`);
+      await fetchOrders(true);
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder(prev => ({ ...prev, status: 'PENDING' }));
+      }
+    } catch (err) {
+      toast.error(getFriendlyErrorMessage(err, 'Không thể từ chối hủy đơn hàng'));
+    } finally {
+      setUpdatingStatusId(null);
+    }
+  };
+
+  // 4b. Duyệt tất cả đơn hàng chờ xác nhận hàng loạt (Bulk Confirm)
+  const handleConfirmAllPending = async () => {
+    const pendingCount = orders.filter(o => o.status === 'PENDING').length;
+    if (pendingCount === 0) {
+      toast.info('Hiện không có đơn hàng nào ở trạng thái Chờ xác nhận.');
+      return;
+    }
+    if (!window.confirm(`Xác nhận duyệt tất cả ${pendingCount} đơn hàng đang chờ xác nhận sang trạng thái "Đã xác nhận"?`)) {
+      return;
+    }
+    try {
+      const res = await orderService.confirmAllPendingOrders();
+      const count = res?.confirmedCount ?? pendingCount;
+      toast.success(`Đã duyệt thành công ${count} đơn hàng sang trạng thái "Đã xác nhận"!`);
+      await fetchOrders(true);
+    } catch (err) {
+      toast.error(getFriendlyErrorMessage(err, 'Không thể duyệt hàng loạt đơn hàng'));
+    }
+  };
+
+  // 5. Hủy đơn hàng trực tiếp bởi Admin (PUT /api/orders/{id}/cancel)
+  const handleCancelOrder = async (orderId) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn hủy đơn hàng #${orderId}? Hệ thống sẽ hoàn lại số lượng tồn kho và voucher cho khách hàng.`)) return;
+    setUpdatingStatusId(orderId);
+    try {
+      await orderService.cancelOrder(orderId);
+      toast.success(`Đã hủy thành công đơn hàng #${orderId}!`);
+      await fetchOrders(true);
+      if (selectedOrder?.id === orderId) {
+        setSelectedOrder(prev => ({ ...prev, status: 'CANCELLED' }));
+      }
+    } catch (err) {
+      toast.error(getFriendlyErrorMessage(err, 'Không thể hủy đơn hàng này'));
+    } finally {
+      setUpdatingStatusId(null);
+    }
+  };
+
+  // 6. Xóa đơn hàng (DELETE /api/orders/{id})
   const handleDeleteOrder = async (orderId) => {
     if (!window.confirm(`Hành động này sẽ xóa hoàn toàn đơn hàng #${orderId} khỏi cơ sở dữ liệu. Bạn có chắc không?`)) return;
     try {
@@ -81,7 +147,7 @@ export default function useOrders(initialPageSize = 10) {
     }
   };
 
-  // 5. Lọc & Tìm kiếm danh sách
+  // 7. Lọc & Tìm kiếm danh sách
   const filteredOrders = useMemo(() => {
     return orders
       .filter(o => {
@@ -102,16 +168,17 @@ export default function useOrders(initialPageSize = 10) {
       });
   }, [orders, statusFilter, searchTerm, sortBy]);
 
-  // 6. Thống kê nhanh
+  // 8. Thống kê nhanh
   const stats = useMemo(() => {
     const total = orders.length;
+    const cancelRequested = orders.filter(o => o.status === 'CANCEL_REQUESTED').length;
     const pending = orders.filter(o => o.status === 'PENDING').length;
     const shipping = orders.filter(o => o.status === 'SHIPPING').length;
     const completed = orders.filter(o => o.status === 'COMPLETED').length;
     const revenue = orders
       .filter(o => o.status === 'COMPLETED')
       .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
-    return { total, pending, shipping, completed, revenue };
+    return { total, cancelRequested, pending, shipping, completed, revenue };
   }, [orders]);
 
   const totalPages = Math.ceil(totalElements / pageSize) || 1;
@@ -138,10 +205,12 @@ export default function useOrders(initialPageSize = 10) {
     updatingStatusId,
     fetchOrders,
     handleUpdateStatus,
+    handleConfirmAllPending,
+    handleApproveCancel,
+    handleRejectCancel,
     handleCancelOrder,
     handleDeleteOrder,
     filteredOrders,
     stats
   };
 }
-

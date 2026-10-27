@@ -1,6 +1,11 @@
-import { CheckCircle2, Clock, PackageCheck, Truck, XCircle } from 'lucide-react';
+import { CheckCircle2, Clock, PackageCheck, Truck, XCircle, AlertTriangle } from 'lucide-react';
 
 const STATUS_CONFIG = {
+  CANCEL_REQUESTED: {
+    label: 'Chờ duyệt hủy đơn',
+    badgeClass: 'bg-orange-50 text-orange-800 ring-orange-300 font-bold',
+    icon: AlertTriangle,
+  },
   PENDING: {
     label: 'Chờ xác nhận',
     badgeClass: 'bg-amber-50 text-amber-800 ring-amber-200',
