@@ -402,14 +402,6 @@ public class OrderService {
         order.setStatus(OrderStatus.CANCELLED);
         order.setUpdatedAt(LocalDateTime.now());
 
-<<<<<<< HEAD
-        // Hoàn lại tồn kho các biến thể sản phẩm khi đơn hàng bị hủy
-        if (order.getOrderItems() != null) {
-            for (OrderItem item : order.getOrderItems()) {
-                ProductVariant v = item.getProductVariant();
-                if (v != null) {
-                    v.setStockQuantity(v.getStockQuantity() + item.getQuantity());
-                    productVariantRepository.save(v);
 
         // 1. HOÀN LẠI SỐ LƯỢNG TỒN KHO CHO SẢN PHẨM / BIẾN THỂ
         if (order.getOrderItems() != null) {
@@ -418,7 +410,6 @@ public class OrderService {
                 if (variant != null) {
                     variant.setStockQuantity(variant.getStockQuantity() + item.getQuantity());
                     productVariantRepository.save(variant);
-
                 }
             }
         }

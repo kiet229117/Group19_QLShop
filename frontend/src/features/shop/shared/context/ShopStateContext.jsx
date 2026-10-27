@@ -1,4 +1,4 @@
-/* eslint-disable react-refresh/only-export-components */
+/* eslint-disable react-refresh/only-export-components, react-hooks/set-state-in-effect, react-hooks/preserve-manual-memoization */
 import { createContext, useContext, useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { Ticket, Sparkles, Gift, CheckCircle2, Copy, X } from 'lucide-react';
 import { useAuth } from '../../../auth/context/AuthContext';
@@ -443,6 +443,50 @@ export function ShopStateProvider({ children }) {
     };
   }, [isAuthenticated, syncCartStockWithServer]);
 
+  // 2. Danh sách Voucher lấy chuẩn 100% từ API Backend
+  // - catalogVouchers: Toàn bộ voucher đang chạy trên hệ thống (GET /api/vouchers/catalog)
+  // - vouchers: Các voucher hiện có trong Ví cá nhân của User đang đăng nhập (GET /api/vouchers/available?userId=...)
+  const [catalogVouchers, setCatalogVouchers] = useState([]);
+  const [vouchers, setVouchers] = useState([]);
+  const [appliedVoucherCode, setAppliedVoucherCode] = useState('');
+  const [serverDiscount, setServerDiscount] = useState(0);
+
+  // State hiển thị Popup / Toast nổi bật khi User vừa nhận được Voucher mới
+  const [rewardPopupVouchers, setRewardPopupVouchers] = useState([]);
+  const prevUserKeyRef = useRef(null);
+
+  // 3. Đơn hàng của User (GET /api/orders/user/{userId})
+  const [orders, setOrders] = useState([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+
+  // 4. Thông tin cá nhân Profile
+  const [profile, setProfile] = useState(() => {
+    try {
+      const token =
+        sessionStorage.getItem('qlshop_token') || localStorage.getItem('qlshop_token');
+      const savedUser =
+        sessionStorage.getItem('qlshop_user') || localStorage.getItem('qlshop_user');
+      if (token && savedUser) {
+        const u = JSON.parse(savedUser);
+        const initAddr = cleanSavedAddress(u.address);
+        return {
+          ...EMPTY_PROFILE,
+          id: u.id,
+          username: u.username || '',
+          fullname: u.fullname || u.name || u.username || '',
+          email: u.email || '',
+          phone: u.phone || '',
+          gender: u.gender || '',
+          defaultAddress: initAddr,
+          avatar: u.avatar || '',
+        };
+      }
+      return EMPTY_PROFILE;
+    } catch {
+      return EMPTY_PROFILE;
+    }
+  });
+
   // Xóa sạch giỏ hàng & state khi đăng xuất
   useEffect(() => {
     const handleLogout = () => {
@@ -464,22 +508,6 @@ export function ShopStateProvider({ children }) {
     return () => window.removeEventListener('auth:logout', handleLogout);
   }, []);
 
-  // 2. Danh sách Voucher lấy chuẩn 100% từ API Backend
-  // - catalogVouchers: Toàn bộ voucher đang chạy trên hệ thống (GET /api/vouchers/catalog)
-  // - vouchers: Các voucher hiện có trong Ví cá nhân của User đang đăng nhập (GET /api/vouchers/available?userId=...)
-  const [catalogVouchers, setCatalogVouchers] = useState([]);
-  const [vouchers, setVouchers] = useState([]);
-  const [appliedVoucherCode, setAppliedVoucherCode] = useState('');
-  const [serverDiscount, setServerDiscount] = useState(0);
-
-  // State hiển thị Popup / Toast nổi bật khi User vừa nhận được Voucher mới
-  const [rewardPopupVouchers, setRewardPopupVouchers] = useState([]);
-  const prevUserKeyRef = useRef(null);
-
-  // 3. Đơn hàng của User (GET /api/orders/user/{userId})
-  const [orders, setOrders] = useState([]);
-  const [loadingOrders, setLoadingOrders] = useState(false);
-
   const fetchUserOrders = useCallback(async () => {
     if (!user?.id) {
       setOrders([]);
@@ -488,7 +516,7 @@ export function ShopStateProvider({ children }) {
 
     let cachedOrders = [];
     try {
-      const rawUserOrders = localStorage.getItem(`qlshop_client_orders_${userKey}`);
+      const rawUserOrders = localStorage.getItem(ordersStorageKey);
       const rawLegacyOrders = localStorage.getItem('qlshop_client_orders');
       if (rawUserOrders) {
         cachedOrders = JSON.parse(rawUserOrders) || [];
@@ -562,15 +590,22 @@ export function ShopStateProvider({ children }) {
           },
         ],
       }));
-      setOrders(formatted);
-      return formatted;
+      const finalOrders = formatted.length > 0 ? formatted : cachedOrders;
+      setOrders(finalOrders);
+      try {
+        localStorage.setItem(ordersStorageKey, JSON.stringify(finalOrders));
+      } catch {
+        // ignore
+      }
+      return finalOrders;
     } catch (err) {
       console.warn('Lỗi tải đơn hàng của người dùng:', err);
-      return [];
+      setOrders(cachedOrders);
+      return cachedOrders;
     } finally {
       setLoadingOrders(false);
     }
-  }, [user?.id, user?.name, user?.phone, user?.email, isAuthenticated, userKey]);
+  }, [user?.id, user?.name, user?.phone, ordersStorageKey]);
 
   // Tập hợp mã voucher tài khoản này đã từng sử dụng (mỗi voucher chỉ dùng 1 lần và không được nhận lại)
   const usedVoucherCodes = useMemo(() => {
@@ -676,34 +711,6 @@ export function ShopStateProvider({ children }) {
     }
     prevUserKeyRef.current = userKey;
   }, [isAuthenticated, userKey, orders.length, vouchers]);
-
-  // 4. Thông tin cá nhân Profile
-  const [profile, setProfile] = useState(() => {
-    try {
-      const token =
-        sessionStorage.getItem('qlshop_token') || localStorage.getItem('qlshop_token');
-      const savedUser =
-        sessionStorage.getItem('qlshop_user') || localStorage.getItem('qlshop_user');
-      if (token && savedUser) {
-        const u = JSON.parse(savedUser);
-        const initAddr = cleanSavedAddress(u.address);
-        return {
-          ...EMPTY_PROFILE,
-          id: u.id,
-          username: u.username || '',
-          fullname: u.fullname || u.name || u.username || '',
-          email: u.email || '',
-          phone: u.phone || '',
-          gender: u.gender || '',
-          defaultAddress: initAddr,
-          avatar: u.avatar || '',
-        };
-      }
-      return EMPTY_PROFILE;
-    } catch {
-      return EMPTY_PROFILE;
-    }
-  });
 
   useEffect(() => {
     if (user && isAuthenticated) {
@@ -1261,15 +1268,10 @@ export function ShopStateProvider({ children }) {
           };
         })
       );
-<<<<<<< HEAD
-      await fetchVouchers();
-      toast.success(`Đã hủy thành công đơn hàng #${orderId}!`);
-      window.dispatchEvent(new CustomEvent('qlshop:products-updated'));
-=======
       // Đồng bộ lại Ví Voucher & Lịch sử đơn hàng để hoàn voucher và cập nhật mã ngay lập tức
       await Promise.allSettled([fetchVouchers(), fetchUserOrders()]);
       toast.success(`Đã hủy thành công đơn hàng #${orderId}! Số lượng tồn kho và mã giảm giá (nếu có) đã được hoàn lại.`);
->>>>>>> VoAnhKiet_2124110089
+      window.dispatchEvent(new CustomEvent('qlshop:products-updated'));
     } catch (err) {
       console.warn('Lỗi khi hủy đơn hàng:', err);
       const apiErr = err?.response?.data?.message || err?.message || 'Không thể hủy đơn hàng này. Vui lòng liên hệ CSKH.';
