@@ -3,6 +3,7 @@ package com.group19.QLShop.service;
 import com.group19.QLShop.entity.Cart;
 import com.group19.QLShop.entity.CartItems;
 import com.group19.QLShop.entity.Product;
+import com.group19.QLShop.entity.ProductVariant;
 
 import com.group19.QLShop.entity.User;
 import com.group19.QLShop.repository.CartItemRepository;
@@ -12,6 +13,8 @@ import com.group19.QLShop.repository.UserRepository;
 import com.group19.QLShop.dto.request.CartItemRequest;
 import com.group19.QLShop.dto.reponse.CartReponse;
 import com.group19.QLShop.dto.reponse.CartItemReponse;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -72,59 +75,70 @@ public class CartService {
         // THÊM SẢN PHẨM VÀO GIỎ
         // =========================
         public CartItemReponse addProduct(
-                        Long userId,
-                        CartItemRequest request) {
+			Long userId,
+			CartItemRequest request) {
 
-                if (request.getQuantity() <= 0) {
-                        throw new RuntimeException("Số lượng phải lớn hơn 0");
-                }
+		if (request.getQuantity() <= 0) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số lượng phải lớn hơn 0");
+		}
 
-                // Tìm User
-                User user = userRepository.findById(userId)
-                                .orElseThrow(() -> new RuntimeException("Không tìm thấy User"));
+		// Tìm User
+		User user = userRepository.findById(userId)
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy User"));
 
-                // Tìm hoặc tạo Cart
-                Cart cart = cartRepository.findByUserId(userId)
-                                .orElseGet(() -> {
-                                        Cart newCart = new Cart();
-                                        newCart.setUser(user);
-                                        return cartRepository.save(newCart);
-                                });
+		// Tìm hoặc tạo Cart
+		Cart cart = cartRepository.findByUserId(userId)
+				.orElseGet(() -> {
+					Cart newCart = new Cart();
+					newCart.setUser(user);
+					return cartRepository.save(newCart);
+				});
 
-                // Tìm Product
-                Product product = productRepository.findById(request.getProductId())
-                                .orElseThrow(() -> new RuntimeException("Không tìm thấy Product"));
+		// Tìm Product
+		Product product = productRepository.findById(request.getProductId())
+				.orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy Product"));
 
-                // Kiểm tra sản phẩm đã có trong Cart chưa
-                var existingItem = cartItemRepository.findByCartIdAndProductId(
-                                cart.getId(),
-                                request.getProductId());
+		int totalStock = product.getVariants() != null
+				? product.getVariants().stream().mapToInt(ProductVariant::getStockQuantity).sum()
+				: 0;
 
-                // Nếu đã có → cộng thêm số lượng
-                if (existingItem.isPresent()) {
+		if (totalStock <= 0) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Sản phẩm \"" + product.getName() + "\" hiện đã hết hàng, không thể thêm vào giỏ hàng!");
+		}
 
-                        CartItems cartItem = existingItem.get();
+		// Kiểm tra sản phẩm đã có trong Cart chưa
+		var existingItem = cartItemRepository.findByCartIdAndProductId(
+				cart.getId(),
+				request.getProductId());
 
-                        cartItem.setQuantity(
-                                        cartItem.getQuantity() + request.getQuantity());
+		// Nếu đã có → cộng thêm số lượng
+		if (existingItem.isPresent()) {
+			CartItems cartItem = existingItem.get();
+			int newQty = cartItem.getQuantity() + request.getQuantity();
+			if (newQty > totalStock) {
+				throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số lượng trong giỏ hàng (" + newQty + ") vượt quá tồn kho hiện có (" + totalStock + ")");
+			}
+			cartItem.setQuantity(newQty);
+			return toItemResponse(cartItemRepository.save(cartItem));
+		}
 
-                        return toItemResponse(cartItemRepository.save(cartItem));
-                }
+		if (request.getQuantity() > totalStock) {
+			throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Số lượng yêu cầu (" + request.getQuantity() + ") vượt quá tồn kho hiện có (" + totalStock + ")");
+		}
 
-                // Nếu chưa có → tạo CartItems mới
-                CartItems cartItem = new CartItems();
+		// Nếu chưa có → tạo CartItems mới
+		CartItems cartItem = new CartItems();
+		cartItem.setCart(cart);
+		cartItem.setProduct(product);
+		cartItem.setQuantity(request.getQuantity());
 
-                cartItem.setCart(cart);
-                cartItem.setProduct(product);
-                cartItem.setQuantity(request.getQuantity());
+		return toItemResponse(cartItemRepository.save(cartItem));
+	}
 
-                return toItemResponse(cartItemRepository.save(cartItem));
-        }
-
-        // =========================
-        // TĂNG SỐ LƯỢNG +1
-        // =========================
-        public CartItemReponse increaseQuantity(
+	// =========================
+	// TĂNG SỐ LƯỢNG +1
+	// =========================
+	public CartItemReponse increaseQuantity(
                         Long userId,
                         Long cartItemId) {
 

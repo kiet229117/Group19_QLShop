@@ -82,6 +82,19 @@ public class OrderController {
     // [ADMIN] CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG
     // PUT /api/orders/{id}/status
     // ==========================================
+        // ==========================================
+    // CAP NHAT TRANG THAI THANH TOAN (ADMIN / HE THONG)
+    // PUT /api/orders/{id}/payment-status
+    // ==========================================
+    @PutMapping("/{id}/payment-status")
+    public ResponseEntity<OrderResponse> updatePaymentStatus(
+            @PathVariable Long id,
+            @RequestBody(required = false) Map<String, String> body) {
+        String paymentStatus = (body != null && body.containsKey("paymentStatus"))
+                ? body.get("paymentStatus") : "PAID";
+        OrderResponse response = orderService.updatePaymentStatus(id, paymentStatus);
+        return ResponseEntity.ok(response);
+    }
     @PutMapping("/{id}/status")
     public ResponseEntity<OrderResponse> updateOrderStatus(
             @PathVariable Long id,

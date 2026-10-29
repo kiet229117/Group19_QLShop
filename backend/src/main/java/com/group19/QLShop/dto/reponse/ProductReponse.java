@@ -31,4 +31,7 @@ public class ProductReponse {
     private String image;             
     private String primaryImage;      
     private List<String> images;      
+
+    // Tổng số lượng đã bán thực tế
+    private Long soldQuantity;
 }

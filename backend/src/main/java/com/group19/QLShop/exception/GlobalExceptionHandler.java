@@ -105,7 +105,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneralException(Exception ex) {
-        ErrorResponse error = new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Hệ thống gặp sự cố trong quá trình xử lý. Vui lòng thử lại sau!");
+        ex.printStackTrace();
+        String msg = ex.getMessage() != null && !ex.getMessage().isBlank()
+                ? "Lỗi hệ thống: " + ex.getMessage()
+                : "Hệ thống gặp sự cố trong quá trình xử lý. Vui lòng thử lại sau!";
+        ErrorResponse error = new ErrorResponse(HttpStatus.INTERNAL_SERVER_ERROR.value(), msg);
         return new ResponseEntity<>(error, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 }

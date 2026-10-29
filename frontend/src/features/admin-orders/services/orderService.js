@@ -19,6 +19,12 @@ export const orderService = {
     return res.data || res;
   },
 
+  // Cập nhật trạng thái thanh toán đơn hàng (PAID, UNPAID)
+  updatePaymentStatus: async (id, paymentStatus) => {
+    const res = await api.put(`/orders/${id}/payment-status`, { paymentStatus });
+    return res.data || res;
+  },
+
   // Duyệt hàng loạt toàn bộ đơn hàng PENDING (Admin Bulk Confirm)
   confirmAllPendingOrders: async () => {
     const res = await api.put('/orders/confirm-all-pending');

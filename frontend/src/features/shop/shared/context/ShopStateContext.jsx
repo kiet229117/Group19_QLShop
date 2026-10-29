@@ -450,6 +450,11 @@ export function ShopStateProvider({ children }) {
   const [vouchers, setVouchers] = useState([]);
   const [appliedVoucherCode, setAppliedVoucherCode] = useState('');
   const [serverDiscount, setServerDiscount] = useState(0);
+  const [shippingLocation, setShippingLocation] = useState(null);
+
+  const updateShippingLocation = useCallback((loc) => {
+    setShippingLocation(loc);
+  }, []);
 
   // State hiển thị Popup / Toast nổi bật khi User vừa nhận được Voucher mới
   const [rewardPopupVouchers, setRewardPopupVouchers] = useState([]);
@@ -541,15 +546,15 @@ export function ShopStateProvider({ children }) {
         paymentMethod: o.paymentMethod || 'COD',
         paymentMethodLabel:
           o.paymentMethod === 'BANK_TRANSFER'
-            ? 'Chuyển khoản VietQR'
+            ? 'Chuyển khoản ngân hàng'
             : 'Thanh toán khi nhận hàng (COD)',
         recipientName: o.receiverName || o.recipientName || user.name || 'Khách hàng',
         recipientPhone: o.receiverPhone || o.recipientPhone || user.phone || '',
         shippingAddress: o.shippingAddress || '',
         note: o.note || '',
         cancelReason: o.cancelReason || '',
-        subtotal: Number(o.totalAmount || 0) + Number(o.discountAmount || 0),
-        shippingFee: 0,
+        subtotal: Number(o.totalAmount || 0) + Number(o.discountAmount || 0) - Number(o.shippingFee || 0),
+        shippingFee: Number(o.shippingFee || 0),
         discount: Number(o.discountAmount || 0),
         voucherCode: o.voucherCode ? normalizeVoucherCode(o.voucherCode) : '',
         totalAmount: Number(o.totalAmount || 0),
@@ -759,26 +764,69 @@ export function ShopStateProvider({ children }) {
     }
     const { currentPrice, originalPrice } = getProductPricing(product);
     const unitPrice = currentPrice ?? product.price ?? 0;
-    const variant =
-      (product.variants || []).find(
-        (v) => (!size || v.size === size) && (!color || v.color === color)
-      ) ||
-      (product.variants || [])[0] ||
-      null;
+    const variants = Array.isArray(product.variants) ? product.variants : [];
+
+    // Tìm biến thể khớp chính xác với size và color được chọn
+    const matchedVariant = variants.find(
+      (v) => (!size || v.size === size) && (!color || v.color === color)
+    );
+    const variant = matchedVariant || (variants.length > 0 ? variants[0] : null);
     const variantId = variant?.id || null;
-    const stockQuantity = variant ? Number(variant.stockQuantity) || 20 : 20;
+
+    // Tính toán số lượng tồn kho thực tế chính xác (không gán bừa || 20 khi bằng 0)
+    let stockQuantity = 0;
+    if (variant && variant.stockQuantity !== undefined && variant.stockQuantity !== null) {
+      stockQuantity = Math.max(0, Number(variant.stockQuantity));
+    } else if (product.stockQuantity !== undefined && product.stockQuantity !== null) {
+      stockQuantity = Math.max(0, Number(product.stockQuantity));
+    } else if (variants.length > 0) {
+      stockQuantity = variants.reduce((sum, v) => sum + Math.max(0, Number(v.stockQuantity) || 0), 0);
+    } else {
+      stockQuantity = 0;
+    }
+
+    const variantLabel = [color, size].filter(Boolean).join(' - ');
+    const desc = variantLabel ? ` (${variantLabel})` : '';
+
+    // CHẶN NGAY VÀ THÔNG BÁO TOAST NẾU HẾT HÀNG - TUYỆT ĐỐI KHÔNG CHO VÀO GIỎ
+    if (stockQuantity <= 0) {
+      toast.error(`Sản phẩm "${product.name}"${desc} hiện đã hết hàng, không thể thêm vào giỏ!`);
+      return false;
+    }
+
     const itemId = `cart-${product.id}-${size || 'F'}-${color || 'Default'}`;
     const brandName = product.brandName || product.brand?.name || 'QLShop Fashion';
-    const clampedQty = Math.max(1, Math.min(stockQuantity, Number(quantity) || 1));
+
+    // KIỂM TRA SỐ LƯỢNG ĐÃ CÓ TRONG GIỎ HÀNG
+    const existing = cartItems.find((it) => it.id === itemId);
+    const currentInCart = existing ? (Number(existing.quantity) || 0) : 0;
+
+    if (currentInCart >= stockQuantity) {
+      toast.warning(
+        `Bạn đã có ${currentInCart} sản phẩm "${product.name}"${desc} trong giỏ hàng (đã đạt giới hạn tồn kho tối đa: ${stockQuantity}). Không thể thêm tiếp!`
+      );
+      return false;
+    }
+
+    const requestQty = Math.max(1, Number(quantity) || 1);
+    let clampedQty = requestQty;
+    if (currentInCart + requestQty > stockQuantity) {
+      clampedQty = stockQuantity - currentInCart;
+      toast.info(
+        `Tồn kho chỉ còn ${stockQuantity} sản phẩm. Đã điều chỉnh thêm ${clampedQty} sản phẩm vào giỏ hàng.`
+      );
+    }
 
     setCartItems((prev) => {
-      const existing = prev.find((it) => it.id === itemId);
-      if (existing) {
+      const prevExisting = prev.find((it) => it.id === itemId);
+      if (prevExisting) {
         return prev.map((it) =>
           it.id === itemId
             ? {
                 ...it,
                 quantity: Math.min(stockQuantity, it.quantity + clampedQty),
+                stockQuantity,
+                outOfStock: false,
                 selected: true,
               }
             : it
@@ -799,6 +847,7 @@ export function ShopStateProvider({ children }) {
           originalPrice: originalPrice || product.price,
           quantity: clampedQty,
           stockQuantity,
+          outOfStock: false,
           selected: true,
         },
         ...prev,
@@ -821,10 +870,12 @@ export function ShopStateProvider({ children }) {
             );
           }
         })
-        .catch(() => {});
+        .catch((err) => {
+          console.warn('Lỗi đồng bộ giỏ hàng:', err);
+        });
     }
 
-    toast.success(`Đã thêm "${product.name}" (${color} - ${size}) vào giỏ hàng!`);
+    toast.success(`Đã thêm "${product.name}"${desc} vào giỏ hàng!`);
     return itemId;
   };
 
@@ -933,8 +984,19 @@ export function ShopStateProvider({ children }) {
         : calculateVoucherDiscount(activeVoucher, subtotal)
       : 0;
 
+    const distanceKm = shippingLocation?.distanceKm ?? null;
+    const distanceShippingFee = shippingLocation?.shippingInfo?.fee;
+
     const shippingFee =
-      subtotal === 0 || subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : BASE_SHIPPING_FEE;
+      subtotal === 0 || subtotal >= FREE_SHIPPING_THRESHOLD
+        ? 0
+        : (typeof distanceShippingFee === 'number' ? distanceShippingFee : BASE_SHIPPING_FEE);
+
+    const shippingTier =
+      subtotal >= FREE_SHIPPING_THRESHOLD && subtotal > 0
+        ? 'Miễn phí vận chuyển (Đơn ≥ 500k)'
+        : (shippingLocation?.shippingInfo?.tier || (shippingFee === 0 ? 'Miễn phí' : 'Tiêu chuẩn'));
+
     const totalAmount = Math.max(0, subtotal - discount + shippingFee);
     const allSelected =
       availableItems.length > 0 && selectedItems.length === availableItems.length;
@@ -946,13 +1008,15 @@ export function ShopStateProvider({ children }) {
       selectedCount,
       subtotal,
       shippingFee,
+      shippingTier,
+      shippingDistanceKm: distanceKm,
       discount,
       totalAmount,
       activeVoucher,
       allSelected,
       freeShippingThreshold: FREE_SHIPPING_THRESHOLD,
     };
-  }, [cartItems, vouchers, appliedVoucherCode, serverDiscount]);
+  }, [cartItems, vouchers, appliedVoucherCode, serverDiscount, shippingLocation]);
 
   // Áp dụng mã giảm giá chuẩn qua API Backend (POST /api/vouchers/apply)
   const applyVoucher = async (rawCode) => {
@@ -993,10 +1057,16 @@ export function ShopStateProvider({ children }) {
 
     try {
       const codeForServer = ownedVoucher.backendCode || clean;
+      const activeProductIds = cartItems
+        .filter((it) => it.selected !== false)
+        .map((it) => it.productId)
+        .filter(Boolean);
+
       const res = await shopVoucherService.applyVoucher({
         code: codeForServer,
         orderAmount: cartSummary.subtotal,
         userId: user?.id,
+        productIds: activeProductIds,
       });
 
       if (res && res.valid) {
@@ -1010,11 +1080,9 @@ export function ShopStateProvider({ children }) {
         return { ok: true, voucher: ownedVoucher, message: res.message || 'Mã giảm giá hợp lệ!' };
       }
     } catch (err) {
-      const apiErrMsg = err?.response?.data?.message;
-      if (apiErrMsg) {
-        toast.error(apiErrMsg);
-        return { ok: false, message: apiErrMsg };
-      }
+      const apiErrMsg = err?.response?.data?.message || err?.message || 'Mã giảm giá không áp dụng được cho đơn hàng này.';
+      toast.error(apiErrMsg);
+      return { ok: false, message: apiErrMsg };
     }
 
     const calculatedDiscount = calculateVoucherDiscount(ownedVoucher, cartSummary.subtotal);
@@ -1081,6 +1149,8 @@ export function ShopStateProvider({ children }) {
       receiverName: cleanName,
       receiverPhone: cleanPhone,
       shippingAddress: cleanAddress,
+      shippingFee: cartSummary.shippingFee != null ? cartSummary.shippingFee : 0,
+      paymentMethod: paymentMethod || 'COD',
       note: note || '',
       voucherCode: serverVoucherCode,
       items: itemsToOrder.map((it) => ({
@@ -1104,7 +1174,7 @@ export function ShopStateProvider({ children }) {
       paymentMethod,
       paymentMethodLabel:
         paymentMethod === 'BANK_TRANSFER'
-          ? 'Chuyển khoản VietQR'
+          ? 'Chuyển khoản ngân hàng'
           : 'Thanh toán khi nhận hàng (COD)',
       paymentStatus: 'UNPAID',
       paymentStatusLabel: 'Chờ giao hàng',
@@ -1452,6 +1522,7 @@ export function ShopStateProvider({ children }) {
     fetchVouchers,
     fetchUserOrders,
     syncCartStockWithServer,
+    updateShippingLocation,
   };
 
   return (

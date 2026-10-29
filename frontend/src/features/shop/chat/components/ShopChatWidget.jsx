@@ -162,7 +162,7 @@ export default function ShopChatWidget() {
 
               {/* Vùng hiển thị tin nhắn */}
               <div className="flex-1 space-y-3 overflow-y-auto p-4 text-xs">
-                {loadingMessages && (
+                {loadingMessages && messages.length <= 1 && (
                   <div className="flex justify-center py-2 text-zinc-400">
                     <Loader2 className="h-4 w-4 animate-spin mr-1" />
                     <span>Đang đồng bộ tin nhắn...</span>

@@ -143,6 +143,15 @@ export default function CartSummary({
                       )}
                     </div>
                     <p className="mt-1 truncate text-xs font-semibold text-zinc-800">{voucherTitle}</p>
+                    {v.productName ? (
+                      <p className="truncate text-[11px] font-semibold text-emerald-700">
+                        Áp dụng riêng cho: {v.productName}
+                      </p>
+                    ) : v.unlockCondition ? (
+                      <p className="truncate text-[11px] font-medium text-amber-700">
+                        {v.unlockCondition}
+                      </p>
+                    ) : null}
                     {v.description && (
                       <p className="truncate text-[11px] text-zinc-500">{v.description}</p>
                     )}

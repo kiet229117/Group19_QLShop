@@ -32,6 +32,11 @@ import com.group19.QLShop.dto.request.ProductFilterRequest;
 import com.group19.QLShop.specification.ProductSpecification;
 import com.group19.QLShop.entity.ProductImage;
 import com.group19.QLShop.repository.ProductImageRepository;
+import com.group19.QLShop.repository.OrderItemRepository;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Objects;
 
 @Service
 @Transactional(readOnly = true)
@@ -42,19 +47,22 @@ public class ProductService {
     private final FileStorageService fileStorageService;
     private final ProductImageRepository productImageRepository;
     private final com.group19.QLShop.repository.ProductVariantRepository productVariantRepository;
+    private final OrderItemRepository orderItemRepository;
 
     public ProductService(ProductRepository productRepository,
             BrandRepository brandRepository,
             CategoryRepository categoryRepository,
             FileStorageService fileStorageService,
             ProductImageRepository productImageRepository,
-            com.group19.QLShop.repository.ProductVariantRepository productVariantRepository) {
+            com.group19.QLShop.repository.ProductVariantRepository productVariantRepository,
+            OrderItemRepository orderItemRepository) {
         this.productRepository = productRepository;
         this.brandRepository = brandRepository;
         this.categoryRepository = categoryRepository;
         this.fileStorageService = fileStorageService;
         this.productImageRepository = productImageRepository;
         this.productVariantRepository = productVariantRepository;
+        this.orderItemRepository = orderItemRepository;
     }
 
     private String generateSlug(String text) {
@@ -67,6 +75,28 @@ public class ProductService {
                 .replaceAll("-+", "-")
                 .replaceAll("^-|-$", "");
         return normalized.length() >= 3 ? normalized : normalized + "-" + System.currentTimeMillis();
+    }
+
+    // ==========================================
+    // LẤY SỐ LƯỢNG ĐÃ BÁN CỦA 1 SẢN PHẨM
+    // ==========================================
+    public Long getSoldQuantityByProductId(Long productId) {
+        if (productId == null) return 0L;
+        Long sold = orderItemRepository.sumSoldQuantityByProductId(productId);
+        return sold != null ? sold : 0L;
+    }
+
+    // ==========================================
+    // XEM SẢN PHẨM BẰNG ID
+    // ==========================================
+    public ProductReponse getProductById(Long id) {
+        if (id == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "ID sản phẩm không được để trống");
+        }
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Không tìm thấy sản phẩm với ID: " + id));
+        return toResponse(product);
     }
 
     // Xem sản phẩm bằng slug
@@ -86,28 +116,28 @@ public class ProductService {
 
         Pageable pageable = PageRequest.of(page, size);
         Page<Product> products = productRepository.findAll(pageable);
-        return products.map(this::toResponse);
+        return toResponsePage(products);
     }
 
     // Sản phẩm hot (xem nhiều nhất)
 public Page<ProductReponse> getHotProducts(int page, int size) {
     validatePagination(page, size);
     Pageable pageable = PageRequest.of(page, size);
-    return productRepository.findHotProducts(pageable).map(this::toResponse);
+    return toResponsePage(productRepository.findHotProducts(pageable));
 }
 
 // Sản phẩm đang sale
 public Page<ProductReponse> getSaleProducts(int page, int size) {
     validatePagination(page, size);
     Pageable pageable = PageRequest.of(page, size);
-    return productRepository.findSaleProducts(pageable).map(this::toResponse);
+    return toResponsePage(productRepository.findSaleProducts(pageable));
 }
 
 // Sản phẩm mới nhất
 public Page<ProductReponse> getNewestProducts(int page, int size) {
     validatePagination(page, size);
     Pageable pageable = PageRequest.of(page, size);
-    return productRepository.findNewestProducts(pageable).map(this::toResponse);
+    return toResponsePage(productRepository.findNewestProducts(pageable));
 }
     
     // Thêm sản phẩm
@@ -216,6 +246,9 @@ public Page<ProductReponse> getNewestProducts(int page, int size) {
 
         existingProduct.setName(request.getName());
         existingProduct.setPrice(request.getPrice()); // Cập nhật giá gốc
+        if (existingProduct.getProductPrice() != null && existingProduct.getProductPrice().getSalePrice() != null && existingProduct.getProductPrice().getSalePrice() >= request.getPrice()) {
+            existingProduct.getProductPrice().setSalePrice(null);
+        }
         if (request.getCostPrice() != null) {
             existingProduct.setCostPrice(request.getCostPrice());
         }
@@ -352,7 +385,7 @@ public Page<ProductReponse> getNewestProducts(int page, int size) {
 
         Pageable pageable = PageRequest.of(page, size);
         Page<Product> products = productRepository.searchByNameContainingIgnoreCase(keyword, pageable);
-        return products.map(this::toResponse);
+        return toResponsePage(products);
     }
 
     public Page<ProductReponse> findProductsByBrand(Long brandId, int page, int size) {
@@ -363,7 +396,7 @@ public Page<ProductReponse> getNewestProducts(int page, int size) {
         validatePagination(page, size);
         Pageable pageable = PageRequest.of(page, size);
         Page<Product> products = productRepository.findByBrandId(brandId, pageable);
-        return products.map(this::toResponse);
+        return toResponsePage(products);
     }
 
     public Page<ProductReponse> findProductsByCategory(Long categoryId, int page, int size) {
@@ -375,7 +408,7 @@ public Page<ProductReponse> getNewestProducts(int page, int size) {
 
         Pageable pageable = PageRequest.of(page, size);
         Page<Product> products = productRepository.findByCategoryId(categoryId, pageable);
-        return products.map(this::toResponse);
+        return toResponsePage(products);
     }
 
     // Lọc theo khoảng giá gốc
@@ -391,7 +424,7 @@ public Page<ProductReponse> getNewestProducts(int page, int size) {
 
         Pageable pageable = PageRequest.of(page, size);
         Page<Product> products = productRepository.findByPriceBetween(minPrice, maxPrice, pageable);
-        return products.map(this::toResponse);
+        return toResponsePage(products);
     }
 
     // ==========================================
@@ -422,7 +455,7 @@ public Page<ProductReponse> getNewestProducts(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, sort);
         Specification<Product> spec = ProductSpecification.filter(filterRequest);
 
-        return productRepository.findAll(spec, pageable).map(this::toResponse);
+        return toResponsePage(productRepository.findAll(spec, pageable));
     }
 
     // ==========================================
@@ -459,7 +492,7 @@ public Page<ProductReponse> getNewestProducts(int page, int size) {
             }
 
             Double salePrice = null;
-            if (product.getProductPrice() != null && product.getProductPrice().getSalePrice() != null && product.getProductPrice().getSalePrice() > 0) {
+            if (product.getProductPrice() != null && product.getProductPrice().getSalePrice() != null && product.getProductPrice().getSalePrice() > 0 && product.getProductPrice().getSalePrice() < product.getPrice()) {
                 salePrice = product.getProductPrice().getSalePrice();
             }
 
@@ -538,7 +571,7 @@ public Page<ProductReponse> getNewestProducts(int page, int size) {
             }
         }
 
-        return result.stream().map(this::toResponse).toList();
+        return toResponseList(result);
     }
 
     private void validatePagination(int page, int size) {
@@ -550,8 +583,42 @@ public Page<ProductReponse> getNewestProducts(int page, int size) {
         }
     }
 
-    // Hàm chuyển đổi sang DTO
+    private Map<Long, Long> getSoldQuantityMap(List<Product> products) {
+        if (products == null || products.isEmpty()) return Collections.emptyMap();
+        List<Long> ids = products.stream().map(Product::getId).filter(Objects::nonNull).toList();
+        if (ids.isEmpty()) return Collections.emptyMap();
+
+        Map<Long, Long> map = new HashMap<>();
+        List<Object[]> rawList = orderItemRepository.sumSoldQuantityByProductIds(ids);
+        if (rawList != null) {
+            for (Object[] row : rawList) {
+                if (row != null && row.length >= 2 && row[0] != null && row[1] != null) {
+                    Long pid = ((Number) row[0]).longValue();
+                    Long qty = ((Number) row[1]).longValue();
+                    map.put(pid, qty);
+                }
+            }
+        }
+        return map;
+    }
+
+    private Page<ProductReponse> toResponsePage(Page<Product> page) {
+        Map<Long, Long> soldMap = getSoldQuantityMap(page.getContent());
+        return page.map(p -> toResponse(p, soldMap));
+    }
+
+    private List<ProductReponse> toResponseList(List<Product> list) {
+        Map<Long, Long> soldMap = getSoldQuantityMap(list);
+        return list.stream().map(p -> toResponse(p, soldMap)).toList();
+    }
+
+    // Hàm chuyển đổi sang DTO (đơn lẻ)
     private ProductReponse toResponse(Product product) {
+        return toResponse(product, null);
+    }
+
+    // Hàm chuyển đổi sang DTO kèm Map số lượng đã bán (batch optimization)
+    private ProductReponse toResponse(Product product, Map<Long, Long> soldMap) {
         ProductReponse response = new ProductReponse();
         response.setId(product.getId());
         response.setName(product.getName());
@@ -562,6 +629,11 @@ public Page<ProductReponse> getNewestProducts(int page, int size) {
         response.setSlug(product.getSlug());
         response.setViews(product.getViews());
         response.setHot(product.isHot());
+
+        Long sold = (soldMap != null && soldMap.containsKey(product.getId()))
+                ? soldMap.get(product.getId())
+                : getSoldQuantityByProductId(product.getId());
+        response.setSoldQuantity(sold != null ? sold : 0L);
 
         // ---> GÁN THÔNG TIN KHUYẾN MÃI VÀO FIELD RIÊNG PRODUCT_PRICE NẾU CÓ <---
         if (product.getProductPrice() != null && product.getProductPrice().getSalePrice() != null) {

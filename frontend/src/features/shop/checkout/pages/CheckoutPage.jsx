@@ -78,6 +78,7 @@ export default function CheckoutPage() {
     profile,
     updateProfile,
     placeOrder,
+    updateShippingLocation,
   } = useShopState();
 
   const checkoutItems =
@@ -187,6 +188,11 @@ export default function CheckoutPage() {
 
     try {
       const trimmedAddress = formValues.shippingAddress.trim();
+      try {
+        sessionStorage.setItem('last_payment_method', paymentMethod);
+      } catch {
+        // ignore
+      }
       const createdOrder = await placeOrder({
         ...formValues,
         shippingAddress: trimmedAddress,
@@ -274,6 +280,8 @@ export default function CheckoutPage() {
             errors={errors}
             savedAddresses={profile?.addresses || []}
             profileDefaultAddress={cleanDefaultAddr}
+            subtotal={cartSummary.subtotal}
+            onLocationChange={updateShippingLocation}
             onSelectSavedAddress={handleSelectSavedAddress}
             onChangeField={handleFieldChange}
             onBlurField={handleBlurField}

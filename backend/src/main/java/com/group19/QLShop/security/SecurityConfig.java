@@ -50,6 +50,7 @@ public class SecurityConfig {
                 return config;
             }))
             .csrf(csrf -> csrf.disable())
+            .headers(headers -> headers.frameOptions(frame -> frame.disable()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint((request, response, authException) -> {
@@ -74,10 +75,12 @@ public class SecurityConfig {
                     "/api/auth/forgot-password",
                     "/api/auth/reset-password",
                     "/error",
+                    "/h2-console/**",
                     "/api/seed/**",
                     "/api/webhook/**",
                     "/api/vouchers/available",
-                    "/api/vouchers/apply"
+                    "/api/vouchers/apply",
+                    "/ws-chat/**"
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET,
                     "/api/products/**",
@@ -88,6 +91,7 @@ public class SecurityConfig {
                 ).permitAll()
                 .requestMatchers("/uploads/**", "/api/upload/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/goods-receipts/**", "/api/suppliers/**", "/api/orders/**", "/api/vouchers/**", "/api/admin/dashboard/**").permitAll()
+                .requestMatchers(HttpMethod.PUT, "/api/orders/*/payment-status").permitAll()
 
                 // ==========================================
                 // 2. AUTH: Thông tin cá nhân, đổi mật khẩu, đăng xuất (Đã đăng nhập)
@@ -107,10 +111,10 @@ public class SecurityConfig {
                 // 4. QUẢN LÝ THƯƠNG HIỆU, DANH MỤC, BANNER & VOUCHER
                 // ==========================================
                 .requestMatchers(HttpMethod.GET, "/api/vouchers").hasAnyRole("ADMIN", "STAFF")
-                .requestMatchers(HttpMethod.POST, "/api/brands/**", "/api/categories/**", "/api/banners/**", "/api/vouchers/**").hasAnyRole("ADMIN", "STAFF")
-                .requestMatchers(HttpMethod.PUT, "/api/brands/**", "/api/categories/**", "/api/banners/**", "/api/vouchers/**").hasAnyRole("ADMIN", "STAFF")
-                .requestMatchers(HttpMethod.PATCH, "/api/banners/**").hasAnyRole("ADMIN", "STAFF")
-                .requestMatchers(HttpMethod.DELETE, "/api/brands/**", "/api/categories/**", "/api/banners/**", "/api/vouchers/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/api/brands", "/api/brands/**", "/api/categories", "/api/categories/**", "/api/banners", "/api/banners/**", "/api/vouchers", "/api/vouchers/**").hasAnyRole("ADMIN", "STAFF")
+                .requestMatchers(HttpMethod.PUT, "/api/brands", "/api/brands/**", "/api/categories", "/api/categories/**", "/api/banners", "/api/banners/**", "/api/vouchers", "/api/vouchers/**").hasAnyRole("ADMIN", "STAFF")
+                .requestMatchers(HttpMethod.PATCH, "/api/banners", "/api/banners/**").hasAnyRole("ADMIN", "STAFF")
+                .requestMatchers(HttpMethod.DELETE, "/api/brands", "/api/brands/**", "/api/categories", "/api/categories/**", "/api/banners", "/api/banners/**", "/api/vouchers", "/api/vouchers/**").hasRole("ADMIN")
 
                 // ==========================================
                 // 5. QUẢN LÝ NGƯỜI DÙNG (USERS)
@@ -125,7 +129,7 @@ public class SecurityConfig {
                 // ==========================================
                 .requestMatchers(HttpMethod.GET, "/api/orders").hasAnyRole("ADMIN", "STAFF")
                 .requestMatchers(HttpMethod.PUT, "/api/orders/*/status").hasAnyRole("ADMIN", "STAFF")
-                .requestMatchers(HttpMethod.DELETE, "/api/orders/**").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.DELETE, "/api/orders/**").hasAnyRole("ADMIN", "STAFF")
                 .requestMatchers("/api/orders/**").authenticated()
 
                 // ==========================================

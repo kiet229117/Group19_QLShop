@@ -10,18 +10,12 @@ const PAYMENT_METHODS = [
   },
   {
     id: 'BANK_TRANSFER',
-    title: 'Chuyển khoản ngân hàng (VietQR)',
-    description: 'Quét mã VietQR chuyển khoản nhanh 24/7 qua ứng dụng ngân hàng.',
+    title: 'Chuyển khoản ngân hàng (Quét mã QR 24/7)',
+    description: 'Quét mã QR chuyển khoản nhanh 24/7 qua ứng dụng ngân hàng.',
     icon: Building2,
     badge: 'Khuyên dùng',
   },
-  {
-    id: 'E_WALLET',
-    title: 'Ví điện tử MoMo / VNPAY',
-    description: 'Thanh toán tiện lợi qua ứng dụng MoMo hoặc cổng VNPAY-QR.',
-    icon: Wallet,
-    badge: 'Tiện lợi',
-  },
+
 ];
 
 /**
@@ -48,7 +42,7 @@ export default function PaymentMethodSelector({ value = 'COD', onChange }) {
               className={`flex cursor-pointer items-start gap-4 rounded-2xl border p-4 transition ${
                 selected
                   ? 'border-zinc-900 bg-zinc-900/[0.03] ring-1 ring-zinc-900'
-                  : 'border-zinc-200 hover:border-zinc-300'
+                  : 'border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50/50'
               }`}
             >
               <input
@@ -61,37 +55,44 @@ export default function PaymentMethodSelector({ value = 'COD', onChange }) {
               />
 
               <div
-                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
-                  selected ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-600'
+                className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition ${
+                  selected
+                    ? 'bg-zinc-900 text-white shadow-xs'
+                    : 'bg-zinc-100 text-zinc-600'
                 }`}
               >
-                <Icon className="h-5 w-5" aria-hidden="true" />
+                <Icon className="h-5 w-5" />
               </div>
 
-              <div className="min-w-0 flex-1">
+              <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-bold text-zinc-900">{method.title}</span>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
-                      selected
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-zinc-100 text-zinc-600'
-                    }`}
-                  >
-                    {method.badge}
-                  </span>
+                  <span className="font-bold text-sm text-zinc-900">{method.title}</span>
+                  {method.badge && (
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                        selected
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-zinc-100 text-zinc-600'
+                      }`}
+                    >
+                      {method.badge}
+                    </span>
+                  )}
                 </div>
-                <p className="mt-1 text-xs leading-relaxed text-zinc-500">
+                <p className="mt-0.5 text-xs text-zinc-500 leading-relaxed">
                   {method.description}
                 </p>
               </div>
 
-              <CheckCircle2
-                className={`h-5 w-5 shrink-0 ${
-                  selected ? 'text-emerald-600' : 'text-zinc-200'
+              <div
+                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition ${
+                  selected
+                    ? 'border-zinc-900 bg-zinc-900 text-white'
+                    : 'border-zinc-300 bg-white'
                 }`}
-                aria-hidden="true"
-              />
+              >
+                {selected && <CheckCircle2 className="h-4 w-4" />}
+              </div>
             </label>
           );
         })}

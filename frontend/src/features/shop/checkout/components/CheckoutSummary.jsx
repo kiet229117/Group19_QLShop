@@ -147,6 +147,15 @@ export default function CheckoutSummary({
                     <p className="mt-1 truncate text-xs font-bold text-zinc-800">
                       {v.name || v.description}
                     </p>
+                    {v.productName ? (
+                      <p className="truncate text-[11px] font-semibold text-emerald-700">
+                        Áp dụng riêng cho: {v.productName}
+                      </p>
+                    ) : v.unlockCondition ? (
+                      <p className="truncate text-[11px] font-medium text-amber-700">
+                        {v.unlockCondition}
+                      </p>
+                    ) : null}
                     {v.description && (
                       <p className="truncate text-[11px] text-zinc-500">{v.description}</p>
                     )}
@@ -200,7 +209,14 @@ export default function CheckoutSummary({
           </dd>
         </div>
         <div className="flex justify-between text-zinc-600">
-          <dt>Phí vận chuyển</dt>
+          <dt className="flex flex-col">
+            <span>Phí vận chuyển</span>
+            {summary?.shippingDistanceKm != null && (
+              <span className="text-[11px] text-emerald-700 font-medium">
+                {summary.shippingDistanceKm} km ({summary.shippingTier})
+              </span>
+            )}
+          </dt>
           <dd className="font-semibold text-zinc-900">
             {shippingFee === 0 ? 'Miễn phí' : formatCurrency(shippingFee)}
           </dd>

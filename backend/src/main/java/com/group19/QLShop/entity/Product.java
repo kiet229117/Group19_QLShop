@@ -66,6 +66,9 @@ public class Product {
     @Column(name = "is_hot")
     private boolean isHot;
 
+    @jakarta.persistence.Transient
+    private Long soldQuantity;
+
     // Helper method gán quan hệ 2 chiều
     public void setProductPrice(ProductPrice productPrice) {
         this.productPrice = productPrice;

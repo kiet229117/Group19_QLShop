@@ -2,15 +2,15 @@ import ProductCard from './ProductCard';
 
 const COLUMN_CLASSES = {
   2: 'grid-cols-1 sm:grid-cols-2',
-  3: 'grid-cols-2 md:grid-cols-3',
-  4: 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4',
+  3: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
+  4: 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4',
 };
 
 /** Skeleton trung tính (không chứa chữ hoặc dữ liệu giả) khi đang tải danh sách sản phẩm. */
 export function ProductGridSkeleton({ count = 8, columns = 4 }) {
   const colClass = COLUMN_CLASSES[columns] || COLUMN_CLASSES[4];
   return (
-    <div className={`grid gap-4 sm:gap-6 ${colClass}`} aria-hidden="true">
+    <div className={`grid gap-5 sm:gap-6 lg:gap-7 ${colClass}`} aria-hidden="true">
       {Array.from({ length: count }, (_, idx) => (
         <div
           key={idx}
@@ -44,7 +44,7 @@ export default function ProductGrid({
   const colClass = COLUMN_CLASSES[columns] || COLUMN_CLASSES[4];
 
   return (
-    <div className={`grid gap-4 sm:gap-6 ${colClass} ${className}`}>
+    <div className={`grid gap-5 sm:gap-6 lg:gap-7 ${colClass} ${className}`}>
       {products.map((product) => {
         const category =
           categoryMap && product?.categoryId != null

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Check, ShoppingBag } from 'lucide-react';
+import { Check, ShoppingBag, XCircle } from 'lucide-react';
 import ShopButton from './ShopButton';
 import { useShopState } from '../../../features/shop/shared/context/ShopStateContext';
 import { useAuth } from '../../../features/auth/context/AuthContext';
@@ -31,7 +31,14 @@ export default function AddToCartButton({
   const handleClick = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!product || disabled) return;
+    if (!product) return;
+
+    if (disabled) {
+      const variantDesc = [color, size].filter(Boolean).join(' - ');
+      const desc = variantDesc ? ` (${variantDesc})` : '';
+      toast.error(`Sản phẩm "${product.name}"${desc} hiện đã hết hàng, không thể thêm vào giỏ!`);
+      return;
+    }
 
     // Chưa đăng nhập -> chặn và điều hướng đăng nhập
     if (!isAuthenticated) {
@@ -58,14 +65,18 @@ export default function AddToCartButton({
       variant={justAdded ? 'accent' : variant}
       size={buttonSize}
       fullWidth={fullWidth}
-      disabled={disabled}
       onClick={handleClick}
-      className={className}
+      className={`${disabled ? 'opacity-60 cursor-not-allowed bg-zinc-300 hover:bg-zinc-300 text-zinc-600 shadow-none' : ''} ${className}`}
     >
       {justAdded ? (
         <>
           <Check className="h-4 w-4" aria-hidden="true" />
           Đã thêm vào giỏ hàng
+        </>
+      ) : disabled ? (
+        <>
+          <XCircle className="h-4 w-4" aria-hidden="true" />
+          Tạm hết hàng
         </>
       ) : (
         <>

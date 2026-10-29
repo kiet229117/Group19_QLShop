@@ -45,4 +45,7 @@ public class VoucherRequest {
 
     @Builder.Default
     private Boolean active = true;
+
+    // ID sản phẩm áp dụng (nếu null là áp dụng toàn shop)
+    private Long productId;
 }

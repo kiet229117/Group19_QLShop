@@ -34,6 +34,12 @@ public class OrderRequest {
 
     private String note;
 
+    // Phí vận chuyển (tính dựa trên khoảng cách OpenStreetMap)
+    private Double shippingFee;
+
+    // Phương thức thanh toán (COD, BANK_TRANSFER, etc.)
+    private String paymentMethod;
+
     // Mã voucher áp dụng cho đơn hàng (nếu có)
     private String voucherCode;
 

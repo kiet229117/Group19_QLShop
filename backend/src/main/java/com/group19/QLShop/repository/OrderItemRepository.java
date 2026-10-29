@@ -17,6 +17,25 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
     void deleteByOrderId(Long orderId);
 
     // ==========================================
+    // TÍNH TỔNG SỐ LƯỢNG ĐÃ BÁN CỦA 1 SẢN PHẨM (Không tính đơn bị HỦY)
+    // ==========================================
+    @Query("SELECT COALESCE(SUM(oi.quantity), 0L) " +
+           "FROM OrderItem oi " +
+           "WHERE oi.product.id = :productId " +
+           "AND oi.order.status != com.group19.QLShop.entity.enums.OrderStatus.CANCELLED")
+    Long sumSoldQuantityByProductId(@org.springframework.data.repository.query.Param("productId") Long productId);
+
+    // ==========================================
+    // TÍNH TỔNG SỐ LƯỢNG ĐÃ BÁN THEO DANH SÁCH PRODUCT IDS (Không tính đơn bị HỦY)
+    // ==========================================
+    @Query("SELECT oi.product.id, COALESCE(SUM(oi.quantity), 0L) " +
+           "FROM OrderItem oi " +
+           "WHERE oi.product.id IN :productIds " +
+           "AND oi.order.status != com.group19.QLShop.entity.enums.OrderStatus.CANCELLED " +
+           "GROUP BY oi.product.id")
+    List<Object[]> sumSoldQuantityByProductIds(@org.springframework.data.repository.query.Param("productIds") List<Long> productIds);
+
+    // ==========================================
     // TOP SẢN PHẨM BÁN CHẠY NHẤT (Không tính đơn bị HỦY)
     // ==========================================
     @Query("SELECT oi.product.id, oi.product.name, SUM(oi.quantity), SUM(oi.price * oi.quantity) " +

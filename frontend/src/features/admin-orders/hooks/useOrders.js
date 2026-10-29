@@ -56,6 +56,31 @@ export default function useOrders(initialPageSize = 10) {
     }
   };
 
+  // 2b. Cập nhật trạng thái thanh toán (PUT /api/orders/{id}/payment-status)
+  const handleUpdatePaymentStatus = async (orderId, paymentStatus) => {
+    try {
+      await orderService.updatePaymentStatus(orderId, paymentStatus);
+      const isPaid = paymentStatus === 'PAID';
+      toast.success(`Đã cập nhật đơn #${orderId} sang trạng thái "${isPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}"!`);
+      
+      setOrders(prev => prev.map(o => o.id === orderId ? {
+        ...o,
+        paymentStatus,
+        status: isPaid && o.status === 'PENDING' ? 'CONFIRMED' : o.status
+      } : o));
+
+      if (selectedOrder && selectedOrder.id === orderId) {
+        setSelectedOrder(prev => ({
+          ...prev,
+          paymentStatus,
+          status: isPaid && prev.status === 'PENDING' ? 'CONFIRMED' : prev.status
+        }));
+      }
+    } catch (err) {
+      toast.error(getFriendlyErrorMessage(err, 'Không thể cập nhật trạng thái thanh toán'));
+    }
+  };
+
   // 3. Duyệt yêu cầu hủy đơn hàng (PUT /api/orders/{id}/cancel-approve)
   const handleApproveCancel = async (orderId) => {
     if (!window.confirm(`Xác nhận duyệt hủy đơn hàng #${orderId}? Sau khi duyệt, tồn kho sẽ được hoàn lại và mã voucher của khách sẽ được khôi phục.`)) {
@@ -140,8 +165,12 @@ export default function useOrders(initialPageSize = 10) {
     try {
       await orderService.deleteOrder(orderId);
       toast.success(`Đã xóa vĩnh viễn đơn hàng #${orderId}!`);
-      if (selectedOrder?.id === orderId) setIsDetailModalOpen(false);
-      fetchOrders(true);
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+      if (selectedOrder?.id === orderId) {
+        setIsDetailModalOpen(false);
+        setSelectedOrder(null);
+      }
+      await fetchOrders(true);
     } catch (err) {
       toast.error(getFriendlyErrorMessage(err, 'Không thể xóa đơn hàng'));
     }
@@ -205,6 +234,7 @@ export default function useOrders(initialPageSize = 10) {
     updatingStatusId,
     fetchOrders,
     handleUpdateStatus,
+    handleUpdatePaymentStatus,
     handleConfirmAllPending,
     handleApproveCancel,
     handleRejectCancel,

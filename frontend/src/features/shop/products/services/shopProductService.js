@@ -12,6 +12,12 @@ export const getBySlug = async (slug, signal) => {
   return res.data || res;
 };
 
+// 2b. Lấy số lượng đã bán của 1 sản phẩm - GET /api/products/{id}/sold-quantity
+export const getProductSoldQuantity = async (id, signal) => {
+  const res = await api.get(`/products/${id}/sold-quantity`, { signal });
+  return res.data || res;
+};
+
 // 3. Lấy sản phẩm mới nhất - GET /api/products/newest
 export const getNewest = async ({ page = 0, size = 8 } = {}, signal) => {
   const res = await api.get(`/products/newest?page=${page}&size=${size}`, { signal });

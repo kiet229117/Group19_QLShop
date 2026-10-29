@@ -25,5 +25,10 @@ public class VoucherResponse {
     private Integer usedCount;
     private Boolean active;
     private String unlockCondition;
+
+    // Ràng buộc sản phẩm
+    private Long productId;
+    private String productName;
+    private String productImageUrl;
 }
 

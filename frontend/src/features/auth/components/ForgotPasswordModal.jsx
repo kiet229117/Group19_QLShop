@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Mail, Lock, KeyRound, X, RefreshCw, CheckCircle2, AlertCircle, ArrowRight, ShieldCheck } from 'lucide-react';
 import authService from '../services/authService';
 import { toast } from '../../../components/common/Toast';
+import { getFriendlyErrorMessage } from '../../../utils/errorHandler';
 
 export default function ForgotPasswordModal({ isOpen, onClose }) {
   const [step, setStep] = useState(1); // 1: nhập email, 2: nhập token & mật khẩu mới
@@ -75,9 +76,12 @@ export default function ForgotPasswordModal({ isOpen, onClose }) {
       }, 1500);
     } catch (err) {
       console.error('Lỗi reset password:', err);
-      const msg = err.response?.data?.message || err.response?.data || 'Mã xác nhận không đúng hoặc đã hết hạn. Vui lòng thử lại!';
-      setError(typeof msg === 'string' ? msg : 'Lỗi khi đặt lại mật khẩu');
-      toast.error('Đặt lại mật khẩu thất bại');
+      const friendlyMsg = getFriendlyErrorMessage(
+        err,
+        'Mã xác nhận không đúng hoặc đã hết hạn. Vui lòng thử lại!'
+      );
+      setError(friendlyMsg);
+      toast.error(friendlyMsg);
     } finally {
       setLoading(false);
     }
@@ -196,7 +200,7 @@ export default function ForgotPasswordModal({ isOpen, onClose }) {
 
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-zinc-600 mb-1">
-                Mật khẩu mới (tối thiểu 6 ký tự) *
+                Mật khẩu mới (tối thiểu 6 ký tự, khác mật khẩu cũ) *
               </label>
               <div className="relative">
                 <input

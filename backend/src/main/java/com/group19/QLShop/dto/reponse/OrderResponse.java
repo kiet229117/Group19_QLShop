@@ -18,6 +18,8 @@ public class OrderResponse {
 
     private Long id;
 
+    private String orderCode;
+
     private Long userId;
 
     private String userName;
@@ -36,6 +38,12 @@ public class OrderResponse {
 
     private Double discountAmount;
 
+    private Double shippingFee;
+
+    private String paymentMethod;
+
+    private String paymentStatus;
+
     private OrderStatus status;
 
     private String cancelReason;
@@ -48,4 +56,12 @@ public class OrderResponse {
 
     // Danh sách các Voucher mới vừa được mở khóa từ đơn hàng này (để Frontend hiển thị Toast/Popup thưởng)
     private List<VoucherResponse> newlyUnlockedVouchers;
+
+    public List<VoucherResponse> getNewlyUnlockedVouchers() {
+        return this.newlyUnlockedVouchers;
+    }
+
+    public void setNewlyUnlockedVouchers(List<VoucherResponse> newlyUnlockedVouchers) {
+        this.newlyUnlockedVouchers = newlyUnlockedVouchers;
+    }
 }

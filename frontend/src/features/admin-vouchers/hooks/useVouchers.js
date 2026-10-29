@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import voucherService from '../services/voucherService';
+import productService from '../../admin-products/services/productService';
 import { toast } from '../../../components/common/Toast';
 import { getFriendlyErrorMessage } from '../../../utils/errorHandler';
 
@@ -14,11 +15,13 @@ const initialFormData = {
   startDate: new Date().toISOString().slice(0, 16),
   endDate: new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString().slice(0, 16),
   usageLimit: 100,
-  active: true
+  active: true,
+  productId: '',
 };
 
 export default function useVouchers() {
   const [vouchers, setVouchers] = useState([]);
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('ALL'); // ALL, PERCENTAGE, FIXED_AMOUNT
@@ -45,6 +48,12 @@ export default function useVouchers() {
 
   useEffect(() => {
     fetchVouchers();
+    productService.getAllProducts(0, 100)
+      .then((res) => {
+        const list = res?.content || (Array.isArray(res) ? res : []);
+        setProducts(list);
+      })
+      .catch(() => {});
   }, [fetchVouchers]);
 
   // 2. Submit Tạo Voucher mới (POST /api/vouchers)
@@ -68,7 +77,8 @@ export default function useVouchers() {
         startDate: formData.startDate ? `${formData.startDate}:00` : new Date().toISOString(),
         endDate: formData.endDate ? `${formData.endDate}:00` : new Date().toISOString(),
         usageLimit: Number(formData.usageLimit) || 100,
-        active: Boolean(formData.active)
+        active: Boolean(formData.active),
+        productId: formData.productId ? Number(formData.productId) : null
       };
 
       await voucherService.createVoucher(payload);
@@ -151,7 +161,8 @@ export default function useVouchers() {
     handleDeleteVoucher,
     handleCopyCode,
     filteredVouchers,
-    stats
+    stats,
+    products
   };
 }
 

@@ -60,7 +60,11 @@ public class EmailService {
         body.append("=== THÔNG TIN ĐƠN HÀNG #").append(order.getId()).append(" ===\n");
         body.append("- Người nhận: ").append(order.getReceiverName()).append("\n");
         body.append("- Số điện thoại: ").append(order.getReceiverPhone()).append("\n");
-        body.append("- Địa chỉ giao hàng: ").append(order.getShippingAddress()).append("\n\n");
+        body.append("- Địa chỉ giao hàng: ").append(order.getShippingAddress()).append("\n");
+        String pmLabel = "BANK_TRANSFER".equalsIgnoreCase(order.getPaymentMethod())
+                ? "Chuyển khoản VietQR"
+                : "Thanh toán khi nhận hàng (COD)";
+        body.append("- Hình thức thanh toán: ").append(pmLabel).append("\n\n");
 
         body.append("=== CHI TIẾT SẢN PHẨM ===\n");
         if (order.getOrderItems() != null) {
@@ -78,6 +82,11 @@ public class EmailService {
         if (order.getDiscountAmount() != null && order.getDiscountAmount() > 0) {
             body.append("\nGiảm giá Voucher (").append(order.getVoucherCode()).append("): -")
                     .append(String.format("%,.0f đ", order.getDiscountAmount()));
+        }
+        if (order.getShippingFee() != null && order.getShippingFee() > 0) {
+            body.append("\nPhí vận chuyển: +").append(String.format("%,.0f đ", order.getShippingFee()));
+        } else {
+            body.append("\nPhí vận chuyển: Miễn phí (0 đ)");
         }
         body.append("\n=> TỔNG THANH TOÁN: ").append(String.format("%,.0f đ", order.getTotalAmount())).append("\n\n");
         body.append("Trân trọng,\nĐội ngũ QLShop");

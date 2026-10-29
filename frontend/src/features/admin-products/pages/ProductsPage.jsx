@@ -311,7 +311,7 @@ export default function ProductsPage() {
                 <th className="py-3 px-4">SẢN PHẨM &amp; THƯƠNG HIỆU</th>
                 <th className="py-3 px-4">BIẾN THỂ (SIZE / COLOR)</th>
                 <th className="py-3 px-4">GIÁ BÁN NIÊM YẾT</th>
-                <th className="py-3 px-4">TỔNG TỒN KHO</th>
+                <th className="py-3 px-4">TỒN KHO &amp; ĐÃ BÁN</th>
                 <th className="py-3 px-4 text-center">TRẠNG THÁI</th>
                 <th className="py-3 px-4 text-center">THAO TÁC</th>
               </tr>
@@ -437,10 +437,14 @@ export default function ProductsPage() {
                           )}
                         </td>
 
-                        {/* Tổng tồn kho */}
+                        {/* Tổng tồn kho & Đã bán */}
                         <td className="py-3.5 px-4">
                           <div className={`font-bold ${totalStock <= 0 ? 'text-rose-600' : (totalStock < 20 || hasOutOfStockVariant) ? 'text-amber-700' : 'text-gray-900'}`}>
                             {totalStock.toLocaleString('vi-VN')} chiếc
+                          </div>
+                          <div className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1">
+                            <span>Đã bán:</span>
+                            <span className="font-bold text-emerald-700">{(p.soldQuantity || 0).toLocaleString('vi-VN')} chiếc</span>
                           </div>
                           {hasOutOfStockVariant && totalStock > 0 ? (
                             <div className="text-[10px] text-rose-600 font-semibold mt-0.5">
@@ -536,6 +540,9 @@ export default function ProductsPage() {
                                 <div className="flex items-center gap-3">
                                   <div className="text-[11px] text-gray-500">
                                     Tổng tồn kho: <strong className="text-gray-900">{totalStock} cái</strong>
+                                  </div>
+                                  <div className="text-[11px] text-gray-500">
+                                    Đã bán: <strong className="text-emerald-700">{(p.soldQuantity || 0).toLocaleString('vi-VN')} cái</strong>
                                   </div>
                                   <button
                                     type="button"

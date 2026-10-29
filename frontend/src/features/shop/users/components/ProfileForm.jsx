@@ -12,6 +12,7 @@ import {
   User,
 } from 'lucide-react';
 import ShopInput from '../../../../components/shop/common/ShopInput';
+import AddressAutocompleteInput from '../../../../components/shop/common/AddressAutocompleteInput';
 import ShopButton from '../../../../components/shop/common/ShopButton';
 import { resolveShopImageUrl } from '../../shared/utils/productUtils';
 import { useShopState } from '../../shared/context/ShopStateContext';
@@ -419,8 +420,10 @@ export default function ProfileForm({ profile, onSave, onUploadAvatar }) {
             </div>
           </div>
 
-          <ShopInput
+          <AddressAutocompleteInput
+            name="defaultAddress"
             label="Địa chỉ nhận hàng mặc định (*)"
+            placeholder="Nhập số nhà, tên đường hoặc tìm kiếm tự động (VD: 268 Lý Thường Kiệt...)"
             icon={MapPin}
             value={values.defaultAddress}
             error={errors.defaultAddress}

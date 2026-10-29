@@ -38,6 +38,23 @@ public class ProductController {
         return ResponseEntity.ok(product);
     }
 
+    // Lấy bằng ID
+    @GetMapping("/{id}")
+    public ResponseEntity<ProductReponse> getById(@PathVariable Long id) {
+        ProductReponse product = productService.getProductById(id);
+        return ResponseEntity.ok(product);
+    }
+
+    // Lấy số lượng đã bán của 1 sản phẩm
+    @GetMapping("/{id}/sold-quantity")
+    public ResponseEntity<java.util.Map<String, Object>> getSoldQuantity(@PathVariable Long id) {
+        Long sold = productService.getSoldQuantityByProductId(id);
+        return ResponseEntity.ok(java.util.Map.of(
+            "productId", id,
+            "soldQuantity", sold
+        ));
+    }
+
     // Lấy tất cả sản phẩm (Có phân trang)
     @GetMapping 
     public ResponseEntity<Page<ProductReponse>> getAll(

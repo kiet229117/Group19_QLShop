@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { MapPin, User, Phone, Mail, FileText, AlertTriangle, Info } from 'lucide-react';
 import ShopInput from '../../../../components/shop/common/ShopInput';
+import AddressAutocompleteInput from '../../../../components/shop/common/AddressAutocompleteInput';
 import { shopPaths } from '../../shopPaths';
 import { isPlaceholderAddress } from '../../shared/utils/addressUtils';
 
@@ -14,6 +15,8 @@ export default function ShippingAddressForm({
   savedAddresses = [],
   profileDefaultAddress = '',
   onSelectSavedAddress,
+  subtotal = 0,
+  onLocationChange,
   onChangeField,
   onBlurField,
 }) {
@@ -156,12 +159,14 @@ export default function ShippingAddressForm({
         onBlur={() => onBlurField?.('recipientEmail')}
       />
 
-      <ShopInput
+      <AddressAutocompleteInput
         name="shippingAddress"
         label="Địa chỉ nhận hàng chi tiết (*)"
         icon={MapPin}
-        placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành phố"
+        placeholder="Nhập số nhà, tên đường hoặc tìm kiếm tự động (VD: 268 Lý Thường Kiệt...)"
         value={values.shippingAddress}
+        subtotal={subtotal}
+        onLocationChange={onLocationChange}
         error={errors.shippingAddress}
         onChange={(e) => onChangeField('shippingAddress', e.target.value)}
         onBlur={() => onBlurField?.('shippingAddress')}

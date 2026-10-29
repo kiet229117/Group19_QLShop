@@ -24,6 +24,7 @@ import com.group19.QLShop.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +37,7 @@ public class ChatService {
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final ProductImageRepository productImageRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     /**
      * Gửi tin nhắn mới (mở hội thoại mới hoặc tiếp tục hội thoại có sẵn theo sản phẩm / ID)
@@ -108,9 +110,12 @@ public class ChatService {
         conversation.setLastMessageAt(LocalDateTime.now());
         conversationRepository.save(conversation);
 
-        return mapToMessageResponse(savedMessage);
+        MessageResponse response = mapToMessageResponse(savedMessage);
+        broadcastMessage(conversation, response);
+        return response;
     }
 
+    
     /**
      * Trả lời tin nhắn trong một cuộc hội thoại cụ thể
      */
@@ -143,7 +148,27 @@ public class ChatService {
         conversation.setLastMessageAt(LocalDateTime.now());
         conversationRepository.save(conversation);
 
-        return mapToMessageResponse(savedMessage);
+        MessageResponse response = mapToMessageResponse(savedMessage);
+        broadcastMessage(conversation, response);
+        return response;
+    }
+
+    private void broadcastMessage(Conversation conversation, MessageResponse response) {
+        if (messagingTemplate == null || conversation == null || response == null) return;
+        try {
+            // 1. Gửi realtime vào phòng chat cụ thể (/topic/conversations/{id})
+            messagingTemplate.convertAndSend("/topic/conversations/" + conversation.getId(), response);
+
+            // 2. Gửi realtime thông báo cho toàn bộ Admin/Staff (/topic/admin/conversations)
+            messagingTemplate.convertAndSend("/topic/admin/conversations", response);
+
+            // 3. Gửi realtime cho người mua (/topic/user/{buyerId}/messages)
+            if (conversation.getBuyer() != null && conversation.getBuyer().getId() != null) {
+                messagingTemplate.convertAndSend("/topic/user/" + conversation.getBuyer().getId() + "/messages", response);
+            }
+        } catch (Exception e) {
+            log.warn("Lỗi khi gửi WebSocket STOMP broadcast: {}", e.getMessage());
+        }
     }
 
     /**

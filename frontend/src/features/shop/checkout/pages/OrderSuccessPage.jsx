@@ -17,7 +17,9 @@ export default function OrderSuccessPage() {
   const order =
     orders.find((o) => String(o.id) === String(orderId) || String(o.code) === String(orderId)) || orders[0] || null;
 
-  const isBankTransfer = order?.paymentMethod === 'BANK_TRANSFER';
+  const isBankTransfer =
+    order?.paymentMethod === 'BANK_TRANSFER' ||
+    sessionStorage.getItem('last_payment_method') === 'BANK_TRANSFER';
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">

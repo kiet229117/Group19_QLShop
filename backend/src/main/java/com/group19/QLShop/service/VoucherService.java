@@ -25,6 +25,7 @@ import com.group19.QLShop.entity.User;
 import com.group19.QLShop.entity.Voucher;
 import com.group19.QLShop.entity.enums.OrderStatus;
 import com.group19.QLShop.repository.OrderRepository;
+import com.group19.QLShop.repository.ProductRepository;
 import com.group19.QLShop.repository.UserRepository;
 import com.group19.QLShop.repository.VoucherRepository;
 
@@ -35,14 +36,17 @@ public class VoucherService {
     private final VoucherRepository voucherRepository;
     private final UserRepository userRepository;
     private final OrderRepository orderRepository;
+    private final ProductRepository productRepository;
 
     public VoucherService(
             VoucherRepository voucherRepository,
             UserRepository userRepository,
-            OrderRepository orderRepository) {
+            OrderRepository orderRepository,
+            ProductRepository productRepository) {
         this.voucherRepository = voucherRepository;
         this.userRepository = userRepository;
         this.orderRepository = orderRepository;
+        this.productRepository = productRepository;
     }
 
     // Chuẩn hóa mã AOPOLO10 và POLO10 thống nhất thành POLO10 để khớp chuẩn giao diện & DB
@@ -90,6 +94,11 @@ public class VoucherService {
         if (v == null) return "";
         double minVal = v.getMinOrderValue() != null ? v.getMinOrderValue() : 0.0;
         String minStr = minVal > 0 ? String.format("%,.0fđ", minVal) : "0đ";
+
+        if (v.getProduct() != null) {
+            return "Chỉ áp dụng khi mua sản phẩm: " + v.getProduct().getName()
+                    + (minVal > 0 ? " (Đơn từ " + minStr + ")" : "");
+        }
 
         if (isWelcomeVoucher(v)) {
             return minVal > 0
@@ -509,6 +518,84 @@ public class VoucherService {
                 String.format("Đơn hàng phải từ %,.0f VNĐ trở lên mới đủ điều kiện dùng mã này", voucher.getMinOrderValue()));
         }
 
+        // ---> KIỂM TRA RÀNG BUỘC SẢN PHẨM TRONG ĐƠN HÀNG / GIỎ HÀNG <---
+        List<Long> reqProductIds = request.getProductIds() != null ? request.getProductIds() : List.of();
+
+        // 1. Trường hợp Voucher được gán trực tiếp cho 1 sản phẩm cụ thể
+        if (voucher.getProduct() != null) {
+            Long requiredProductId = voucher.getProduct().getId();
+            boolean hasProduct = reqProductIds.contains(requiredProductId);
+            if (!hasProduct) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        String.format("Mã %s chỉ áp dụng khi mua sản phẩm '%s'. Vui lòng chọn sản phẩm này vào giỏ hàng để được giảm giá!",
+                                normCode, voucher.getProduct().getName()));
+            }
+        } else {
+            // 2. Trường hợp Voucher theo dòng sản phẩm (dựa vào từ khóa tên/mã/mô tả như POLO, TEELAB/Thun, HOODIE, SƠ MI)
+            String vText = ((voucher.getCode() != null ? voucher.getCode() : "") + " "
+                    + (voucher.getName() != null ? voucher.getName() : "") + " "
+                    + (voucher.getDescription() != null ? voucher.getDescription() : "")).toLowerCase();
+
+            boolean requiresPolo = vText.contains("polo") || vText.contains("routine");
+            boolean requiresTee = vText.contains("teelab") || vText.contains("thun") || vText.contains("tee");
+            boolean requiresHoodie = vText.contains("hoodie") || vText.contains("khoác") || vText.contains("khoac")
+                    || vText.contains("sweater") || vText.contains("jacket") || vText.contains("bomber")
+                    || vText.contains("cardigan");
+            boolean requiresShirt = vText.contains("sơ mi") || vText.contains("so mi") || vText.contains("oxford");
+
+            if (!isWelcomeVoucher(voucher) && (requiresPolo || requiresTee || requiresHoodie || requiresShirt)) {
+                if (reqProductIds.isEmpty()) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            String.format("Mã %s yêu cầu có sản phẩm phù hợp trong giỏ hàng để áp dụng!", normCode));
+                }
+
+                List<Product> productsInCart = productRepository.findAllById(reqProductIds);
+                boolean matchesCategory = false;
+                String categoryLabel = "";
+
+                if (requiresPolo) {
+                    categoryLabel = "Áo Polo / Routine";
+                    matchesCategory = productsInCart.stream().anyMatch(p -> {
+                        String pText = (p.getName() + " "
+                                + (p.getBrand() != null ? p.getBrand().getName() : "") + " "
+                                + (p.getCategory() != null ? p.getCategory().getName() : "")).toLowerCase();
+                        return pText.contains("polo") || pText.contains("routine");
+                    });
+                } else if (requiresTee) {
+                    categoryLabel = "Áo Thun / Teelab";
+                    matchesCategory = productsInCart.stream().anyMatch(p -> {
+                        String pText = (p.getName() + " "
+                                + (p.getBrand() != null ? p.getBrand().getName() : "") + " "
+                                + (p.getCategory() != null ? p.getCategory().getName() : "")).toLowerCase();
+                        return pText.contains("thun") || pText.contains("teelab") || pText.contains("tee");
+                    });
+                } else if (requiresHoodie) {
+                    categoryLabel = "Áo Khoác & Hoodie";
+                    matchesCategory = productsInCart.stream().anyMatch(p -> {
+                        String pText = (p.getName() + " "
+                                + (p.getBrand() != null ? p.getBrand().getName() : "") + " "
+                                + (p.getCategory() != null ? p.getCategory().getName() : "")).toLowerCase();
+                        return pText.contains("hoodie") || pText.contains("khoác") || pText.contains("khoac")
+                                || pText.contains("sweater") || pText.contains("jacket") || pText.contains("bomber");
+                    });
+                } else if (requiresShirt) {
+                    categoryLabel = "Áo Sơ Mi";
+                    matchesCategory = productsInCart.stream().anyMatch(p -> {
+                        String pText = (p.getName() + " "
+                                + (p.getBrand() != null ? p.getBrand().getName() : "") + " "
+                                + (p.getCategory() != null ? p.getCategory().getName() : "")).toLowerCase();
+                        return pText.contains("sơ mi") || pText.contains("so mi") || pText.contains("oxford");
+                    });
+                }
+
+                if (!matchesCategory) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            String.format("Mã %s chỉ áp dụng khi mua sản phẩm dòng %s. Đơn hàng của bạn chưa có sản phẩm phù hợp!",
+                                    normCode, categoryLabel));
+                }
+            }
+        }
+
         // TÍNH TOÁN TIỀN ĐƯỢC GIẢM
         double discountAmount = 0.0;
         if ("PERCENTAGE".equalsIgnoreCase(voucher.getDiscountType())) {
@@ -526,6 +613,12 @@ public class VoucherService {
 
         double finalAmount = request.getOrderAmount() - discountAmount;
         String displayCode = normalizeCode(voucher.getCode());
+        Product p = voucher.getProduct();
+        Long pId = p != null ? p.getId() : null;
+        String pName = p != null ? p.getName() : null;
+        String pImg = (p != null && p.getImages() != null && !p.getImages().isEmpty())
+                ? p.getImages().get(0).getImageUrl()
+                : null;
 
         return VoucherApplyResponse.builder()
                 .valid(true)
@@ -591,6 +684,12 @@ public class VoucherService {
     @Transactional
     public VoucherResponse createVoucher(VoucherRequest request) {
         String cleanCode = request.getCode().trim().toUpperCase();
+        Product product = null;
+        if (request.getProductId() != null) {
+            product = productRepository.findById(request.getProductId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Sản phẩm ràng buộc ID " + request.getProductId() + " không tồn tại"));
+        }
         if (voucherRepository.existsByCodeIgnoreCase(cleanCode)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Mã voucher '" + cleanCode + "' đã tồn tại");
         }
@@ -611,6 +710,7 @@ public class VoucherService {
                 .usageLimit(request.getUsageLimit())
                 .usedCount(0)
                 .active(request.getActive() != null ? request.getActive() : true)
+                .product(product)
                 .build();
 
         return toResponse(voucherRepository.save(voucher));
@@ -631,6 +731,12 @@ public class VoucherService {
 
     public VoucherResponse toResponse(Voucher voucher) {
         String displayCode = normalizeCode(voucher.getCode());
+        Product p = voucher.getProduct();
+        Long pId = p != null ? p.getId() : null;
+        String pName = p != null ? p.getName() : null;
+        String pImg = (p != null && p.getImages() != null && !p.getImages().isEmpty())
+                ? p.getImages().get(0).getImageUrl()
+                : null;
         return VoucherResponse.builder()
                 .id(voucher.getId())
                 .code(displayCode)
@@ -646,6 +752,9 @@ public class VoucherService {
                 .usedCount(voucher.getUsedCount())
                 .active(voucher.getActive())
                 .unlockCondition(buildUnlockConditionText(voucher))
+                .productId(pId)
+                .productName(pName)
+                .productImageUrl(pImg)
                 .build();
     }
 }

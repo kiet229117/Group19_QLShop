@@ -69,7 +69,8 @@ public class OrderService {
     }
 
     // ==========================================
-    // 1. TẠO ĐƠN HÀNG (Có Trừ Tồn Kho Variant & Tặng Voucher Tự Động Chuẩn Theo API)
+    // 1. TẠO ĐƠN HÀNG (Có Trừ Tồn Kho Variant & Tặng Voucher Tự Động Chuẩn Theo
+    // API)
     // ==========================================
     @Transactional(rollbackFor = Exception.class)
     public OrderResponse createOrder(OrderRequest request) {
@@ -78,7 +79,8 @@ public class OrderService {
         }
 
         User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy User với ID: " + request.getUserId()));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Không tìm thấy User với ID: " + request.getUserId()));
 
         String cleanAddress = request.getShippingAddress() != null ? request.getShippingAddress().trim() : "";
         if (isPlaceholderAddress(cleanAddress) || cleanAddress.length() < 10 || cleanAddress.split("\\s+").length < 3) {
@@ -86,7 +88,8 @@ public class OrderService {
                     "Bạn chưa nhập địa chỉ nhận hàng hợp lệ! Vui lòng nhập đầy đủ số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành phố.");
         }
 
-        // Nếu tài khoản User chưa có địa chỉ mặc định trong hồ sơ thì tự động lưu địa chỉ hợp lệ vừa nhập
+        // Nếu tài khoản User chưa có địa chỉ mặc định trong hồ sơ thì tự động lưu địa
+        // chỉ hợp lệ vừa nhập
         if (isPlaceholderAddress(user.getAddress())) {
             user.setAddress(cleanAddress);
             userRepository.save(user);
@@ -133,8 +136,9 @@ public class OrderService {
                 if (variant != null) {
                     if (variant.getStockQuantity() < itemReq.getQuantity()) {
                         throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                                "Sản phẩm \"" + product.getName() + "\" (" + variant.getColor() + " - Size " + variant.getSize() +
-                                ") vừa hết hàng! Vui lòng bỏ chọn sản phẩm này khỏi giỏ hàng.");
+                                "Sản phẩm \"" + product.getName() + "\" (" + variant.getColor() + " - Size "
+                                        + variant.getSize() +
+                                        ") vừa hết hàng! Vui lòng bỏ chọn sản phẩm này khỏi giỏ hàng.");
                     }
                     variant.setStockQuantity(variant.getStockQuantity() - itemReq.getQuantity());
                     productVariantRepository.save(variant);
@@ -170,7 +174,8 @@ public class OrderService {
         } else {
             // Checkout từ giỏ hàng
             Cart cart = cartRepository.findByUserId(user.getId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Giỏ hàng của người dùng đang trống"));
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Giỏ hàng của người dùng đang trống"));
 
             List<CartItems> cartItems = cartItemRepository.findByCartId(cart.getId());
             if (cartItems.isEmpty()) {
@@ -201,10 +206,15 @@ public class OrderService {
         double discountAmount = 0.0;
         String appliedVoucherCode = null;
         if (request.getVoucherCode() != null && !request.getVoucherCode().trim().isEmpty()) {
+            List<Long> orderProductIds = orderItems.stream()
+                    .map(it -> it.getProduct().getId())
+                    .distinct()
+                    .toList();
             VoucherApplyRequest applyReq = VoucherApplyRequest.builder()
                     .code(request.getVoucherCode().trim())
                     .orderAmount(totalAmount)
                     .userId(user.getId())
+                    .productIds(orderProductIds)
                     .build();
             VoucherApplyResponse voucherResult = voucherService.applyVoucher(applyReq, user.getUsername());
             discountAmount = voucherResult.getDiscountAmount();
@@ -212,13 +222,21 @@ public class OrderService {
             voucherService.recordVoucherUsage(appliedVoucherCode);
         }
 
-        double finalAmount = Math.max(0.0, totalAmount - discountAmount);
+        double shippingFee = request.getShippingFee() != null ? Math.max(0.0, request.getShippingFee()) : 0.0;
+        double finalAmount = Math.max(0.0, totalAmount - discountAmount + shippingFee);
+        order.setShippingFee(shippingFee);
+        String paymentMethod = request.getPaymentMethod() != null && !request.getPaymentMethod().isBlank()
+                ? request.getPaymentMethod().trim().toUpperCase()
+                : "COD";
+        order.setPaymentMethod(paymentMethod);
+        order.setPaymentStatus("UNPAID");
         order.setTotalAmount(finalAmount);
         order.setVoucherCode(appliedVoucherCode);
         order.setDiscountAmount(discountAmount);
         order.setOrderItems(orderItems);
 
-        // Đánh giá các voucher mới mở khóa TRƯỚC khi lưu đơn mới để so sánh chính xác với lịch sử đơn cũ
+        // Đánh giá các voucher mới mở khóa TRƯỚC khi lưu đơn mới để so sánh chính xác
+        // với lịch sử đơn cũ
         List<VoucherResponse> newlyUnlockedVouchers = voucherService.evaluateAndUnlockVouchersForOrder(
                 user, orderItems, totalAmount, appliedVoucherCode);
 
@@ -227,9 +245,9 @@ public class OrderService {
         // Gửi email xác nhận đơn hàng cho khách
         emailService.sendOrderConfirmationEmail(savedOrder);
 
-        OrderResponse response = toOrderResponse(savedOrder);
-        response.setNewlyUnlockedVouchers(newlyUnlockedVouchers);
-        return response;
+        return toOrderResponse(savedOrder, newlyUnlockedVouchers);
+
+
     }
 
     // ==========================================
@@ -237,7 +255,8 @@ public class OrderService {
     // ==========================================
     public OrderResponse getOrderById(Long id) {
         Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng với ID: " + id));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Không tìm thấy đơn hàng với ID: " + id));
         return toOrderResponse(order);
     }
 
@@ -268,7 +287,8 @@ public class OrderService {
     @Transactional
     public OrderResponse updateOrderStatus(Long orderId, OrderStatusUpdateRequest request) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng với ID: " + orderId));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Không tìm thấy đơn hàng với ID: " + orderId));
 
         if (order.getStatus() == OrderStatus.CANCELLED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Không thể cập nhật đơn hàng đã bị hủy");
@@ -299,23 +319,27 @@ public class OrderService {
     @Transactional
     public OrderResponse requestCancelOrder(Long orderId, String reason) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng với ID: " + orderId));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Không tìm thấy đơn hàng với ID: " + orderId));
 
         if (order.getStatus() == OrderStatus.COMPLETED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng đã hoàn thành, không thể yêu cầu hủy");
         }
         if (order.getStatus() == OrderStatus.SHIPPING) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng đang được vận chuyển, không thể hủy đơn trực tiếp");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Đơn hàng đang được vận chuyển, không thể hủy đơn trực tiếp");
         }
         if (order.getStatus() == OrderStatus.CANCELLED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng đã ở trạng thái hủy trước đó");
         }
         if (order.getStatus() == OrderStatus.CANCEL_REQUESTED) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng đã gửi yêu cầu hủy và đang chờ Admin duyệt");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Đơn hàng đã gửi yêu cầu hủy và đang chờ Admin duyệt");
         }
 
         order.setStatus(OrderStatus.CANCEL_REQUESTED);
-        String finalReason = (reason != null && !reason.trim().isEmpty()) ? reason.trim() : "Khách hàng yêu cầu hủy đơn";
+        String finalReason = (reason != null && !reason.trim().isEmpty()) ? reason.trim()
+                : "Khách hàng yêu cầu hủy đơn";
         order.setCancelReason(finalReason);
         order.setUpdatedAt(LocalDateTime.now());
 
@@ -329,7 +353,8 @@ public class OrderService {
     @Transactional
     public OrderResponse approveCancelOrder(Long orderId) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng với ID: " + orderId));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Không tìm thấy đơn hàng với ID: " + orderId));
 
         if (order.getStatus() == OrderStatus.CANCELLED) {
             return toOrderResponse(order);
@@ -364,7 +389,8 @@ public class OrderService {
     @Transactional
     public OrderResponse rejectCancelOrder(Long orderId, String rejectReason) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng với ID: " + orderId));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Không tìm thấy đơn hàng với ID: " + orderId));
 
         if (order.getStatus() != OrderStatus.CANCEL_REQUESTED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng không ở trạng thái yêu cầu hủy");
@@ -387,7 +413,8 @@ public class OrderService {
     @Transactional
     public OrderResponse cancelOrder(Long orderId) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng với ID: " + orderId));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Không tìm thấy đơn hàng với ID: " + orderId));
 
         if (order.getStatus() == OrderStatus.COMPLETED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Đơn hàng đã hoàn thành, không thể hủy");
@@ -402,7 +429,6 @@ public class OrderService {
         order.setStatus(OrderStatus.CANCELLED);
         order.setUpdatedAt(LocalDateTime.now());
 
-
         // 1. HOÀN LẠI SỐ LƯỢNG TỒN KHO CHO SẢN PHẨM / BIẾN THỂ
         if (order.getOrderItems() != null) {
             for (OrderItem item : order.getOrderItems()) {
@@ -414,25 +440,72 @@ public class OrderService {
             }
         }
 
-
-        // 2. HOÀN LẠI MÃ VOUCHER ĐÃ DÙNG CHO TÀI KHOẢN (ĐỂ KHÁCH CÓ THỂ DÙNG LẠI Ở ĐƠN SAU)
+        // 2. HOÀN LẠI MÃ VOUCHER ĐÃ DÙNG CHO TÀI KHOẢN (ĐỂ KHÁCH CÓ THỂ DÙNG LẠI Ở ĐƠN
+        // SAU)
         if (order.getVoucherCode() != null && !order.getVoucherCode().isBlank()) {
             voucherService.restoreVoucherUsage(order.getUser(), order.getVoucherCode());
         }
-
 
         Order updated = orderRepository.save(order);
         return toOrderResponse(updated);
     }
 
+    private void restoreStockForOrder(Order order) {
+        if (order.getOrderItems() != null) {
+            for (OrderItem item : order.getOrderItems()) {
+                ProductVariant variant = item.getProductVariant();
+                if (variant != null) {
+                    variant.setStockQuantity(variant.getStockQuantity() + item.getQuantity());
+                    productVariantRepository.save(variant);
+                }
+            }
+        }
+    }
+
+    // ==========================================
+    // 7. XÓA ĐƠN HÀNG (ADMIN)
+    // ==========================================
+
+        // ==========================================
+    // CAP NHAT TRANG THAI THANH TOAN (ADMIN HOAC HE THONG)
+    // ==========================================
+    @Transactional
+    public OrderResponse updatePaymentStatus(Long id, String paymentStatus) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Khong tim thay don hang voi ID: " + id));
+        String status = paymentStatus != null ? paymentStatus.trim().toUpperCase() : "PAID";
+        order.setPaymentStatus(status);
+        if ("PAID".equalsIgnoreCase(status) && order.getStatus() == OrderStatus.PENDING) {
+            order.setStatus(OrderStatus.CONFIRMED);
+        }
+        Order saved = orderRepository.saveAndFlush(order);
+        return toOrderResponse(saved);
+    }
     // ==========================================
     // 7. XÓA ĐƠN HÀNG (ADMIN)
     // ==========================================
     @Transactional
     public void deleteOrder(Long orderId) {
         Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Không tìm thấy đơn hàng với ID: " + orderId));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Không tìm thấy đơn hàng với ID: " + orderId));
+
+        // 1. Hoàn lại tồn kho và voucher nếu đơn chưa bị hủy
+        if (order.getStatus() != OrderStatus.CANCELLED) {
+            restoreStockForOrder(order);
+            voucherService.restoreVoucherUsage(order.getUser(), order.getVoucherCode());
+        }
+
+        // 2. Xóa các chi tiết đơn hàng (OrderItem) trước
+        if (order.getOrderItems() != null) {
+            order.getOrderItems().clear();
+        }
+        orderRepository.saveAndFlush(order);
+
+        // 3. Xóa vĩnh viễn đơn hàng
         orderRepository.delete(order);
+        orderRepository.flush();
     }
 
     // ==========================================
@@ -488,7 +561,8 @@ public class OrderService {
         }
         if (product.getProductPrice() != null) {
             Double salePrice = product.getProductPrice().getSalePrice();
-            if (salePrice != null && salePrice > 0) {
+            // Chi ap dung salePrice neu > 0 va thuc su nho hon gia goc (product.getPrice())
+            if (salePrice != null && salePrice > 0 && salePrice < product.getPrice()) {
                 return salePrice;
             }
         }
@@ -505,12 +579,17 @@ public class OrderService {
     }
 
     private OrderResponse toOrderResponse(Order order) {
+        return toOrderResponse(order, List.of());
+    }
+
+    private OrderResponse toOrderResponse(Order order, List<VoucherResponse> newlyUnlockedVouchers) {
         List<OrderItemResponse> itemResponses = order.getOrderItems() != null
                 ? order.getOrderItems().stream().map(this::toOrderItemResponse).toList()
                 : List.of();
 
         return OrderResponse.builder()
                 .id(order.getId())
+                .orderCode(order.getOrderCode() != null ? order.getOrderCode() : ("QL" + order.getId()))
                 .userId(order.getUser() != null ? order.getUser().getId() : null)
                 .userName(order.getUser() != null ? order.getUser().getName() : null)
                 .receiverName(order.getReceiverName())
@@ -520,11 +599,14 @@ public class OrderService {
                 .totalAmount(order.getTotalAmount())
                 .voucherCode(order.getVoucherCode())
                 .discountAmount(order.getDiscountAmount())
+                .shippingFee(order.getShippingFee() != null ? order.getShippingFee() : 0.0)
+                .paymentMethod(order.getPaymentMethod() != null ? order.getPaymentMethod() : "COD").paymentStatus(order.getPaymentStatus() != null ? order.getPaymentStatus() : "UNPAID")
                 .status(order.getStatus())
                 .cancelReason(order.getCancelReason())
                 .createdAt(order.getCreatedAt())
                 .updatedAt(order.getUpdatedAt())
                 .items(itemResponses)
+                .newlyUnlockedVouchers(newlyUnlockedVouchers != null ? newlyUnlockedVouchers : List.of())
                 .build();
     }
 
@@ -553,9 +635,11 @@ public class OrderService {
                 .build();
     }
 
-    // Phát hiện địa chỉ rỗng hoặc chỉ là câu placeholder ("Chưa cập nhật địa chỉ", "Chưa có địa chỉ"...)
+    // Phát hiện địa chỉ rỗng hoặc chỉ là câu placeholder ("Chưa cập nhật địa chỉ",
+    // "Chưa có địa chỉ"...)
     private static boolean isPlaceholderAddress(String address) {
-        if (address == null || address.isBlank()) return true;
+        if (address == null || address.isBlank())
+            return true;
         String norm = java.text.Normalizer.normalize(address, java.text.Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "")
                 .replace('đ', 'd').replace('Đ', 'D')
@@ -567,7 +651,8 @@ public class OrderService {
                 "dia chi mac dinh", "nhap dia chi", "n/a", "null", "undefined"
         };
         for (String p : placeholders) {
-            if (norm.contains(p)) return true;
+            if (norm.contains(p))
+                return true;
         }
         return false;
     }

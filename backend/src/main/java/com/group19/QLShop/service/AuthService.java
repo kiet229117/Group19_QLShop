@@ -162,6 +162,10 @@ public class AuthService {
             throw new AppException("Mật khẩu cũ không chính xác");
         }
 
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new AppException("Mật khẩu mới không được trùng với mật khẩu cũ");
+        }
+
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
     }
@@ -188,6 +192,10 @@ public class AuthService {
 
         if (user.getResetPasswordTokenExpiry() != null && user.getResetPasswordTokenExpiry().isBefore(LocalDateTime.now())) {
             throw new AppException("Mã xác nhận đã hết hạn");
+        }
+
+        if (user.getPassword() != null && passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new AppException("Mật khẩu mới không được trùng với mật khẩu cũ");
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));

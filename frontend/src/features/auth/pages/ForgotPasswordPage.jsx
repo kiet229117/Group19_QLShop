@@ -238,9 +238,9 @@ export default function ForgotPasswordPage() {
                     2
                   </div>
                   <div>
-                    <div className="font-bold text-xs text-white">Xác thực mã Token (15 phút)</div>
+                    <div className="font-bold text-xs text-white">Xác thực mã Token & mật khẩu mới</div>
                     <p className="text-[11px] text-gray-300 mt-0.5 leading-snug">
-                      Kiểm tra hộp thư đến (hoặc mục Spam) để lấy mã Token và nhập mật khẩu mới.
+                      Nhập mã Token và mật khẩu mới (mật khẩu mới không được trùng với mật khẩu cũ).
                     </p>
                   </div>
                 </div>
@@ -442,7 +442,7 @@ export default function ForgotPasswordPage() {
                   {/* Mật khẩu mới */}
                   <div>
                     <label className="block text-[11px] font-bold text-gray-700 mb-1 uppercase tracking-wider">
-                      MẬT KHẨU MỚI * (TỐI THIỂU 6 KÝ TỰ)
+                      MẬT KHẨU MỚI * (TỐI THIỂU 6 KÝ TỰ, KHÔNG TRÙNG MẬT KHẨU CŨ)
                     </label>
                     <div className="relative">
                       <input

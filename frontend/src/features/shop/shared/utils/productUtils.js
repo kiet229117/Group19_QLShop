@@ -66,14 +66,29 @@ export function getProductThumbnail(product) {
 
 /** Tổng tồn kho từ các biến thể. Trả về null nếu sản phẩm không có biến thể nào. */
 export function getTotalStock(product) {
-  if (!Array.isArray(product?.variants) || product.variants.length === 0) return null;
-  return product.variants.reduce((sum, v) => sum + (Number(v?.stockQuantity) || 0), 0);
+  if (Array.isArray(product?.variants) && product.variants.length > 0) {
+    return product.variants.reduce((sum, v) => sum + (Number(v?.stockQuantity) || 0), 0);
+  }
+  if (product?.stockQuantity !== undefined && product?.stockQuantity !== null) {
+    return Number(product.stockQuantity) || 0;
+  }
+  if (Array.isArray(product?.variants) && product.variants.length === 0) {
+    return 0;
+  }
+  return null;
+
 }
 
 /** Sản phẩm có biến thể nhưng tất cả đều hết hàng. */
 export function isOutOfStock(product) {
   const total = getTotalStock(product);
   return total !== null && total <= 0;
+}
+
+/** Sản phẩm sắp hết hàng (tổng tồn kho dưới 10 sản phẩm). */
+export function isLowStock(product) {
+  const total = getTotalStock(product);
+  return total !== null && total > 0 && total < 10;
 }
 
 /** Danh sách giá trị duy nhất (giữ thứ tự) của một thuộc tính biến thể (color / size). */

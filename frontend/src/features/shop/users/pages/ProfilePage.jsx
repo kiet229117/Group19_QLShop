@@ -4,6 +4,7 @@ import { MapPin, Plus, CheckCircle2, LogIn, Trash2 } from 'lucide-react';
 import ProductBreadcrumb from '../../../../components/shop/common/ProductBreadcrumb';
 import ShopButton from '../../../../components/shop/common/ShopButton';
 import ShopInput from '../../../../components/shop/common/ShopInput';
+import AddressAutocompleteInput from '../../../../components/shop/common/AddressAutocompleteInput';
 import { useShopState } from '../../shared/context/ShopStateContext';
 import { useAuth } from '../../../auth/context/AuthContext';
 import { toast } from '../../../../components/common/Toast';
@@ -204,9 +205,8 @@ export default function ProfilePage() {
                     value={newAddressLabel}
                     onChange={(e) => setNewAddressLabel(e.target.value)}
                   />
-                  <ShopInput
+                  <AddressAutocompleteInput
                     label="Địa chỉ chi tiết (*)"
-                    icon={MapPin}
                     placeholder="Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố"
                     value={newAddressText}
                     onChange={(e) => setNewAddressText(e.target.value)}

@@ -44,7 +44,8 @@ export default function VouchersPage() {
     handleDeleteVoucher,
     handleCopyCode,
     filteredVouchers,
-    stats
+    stats,
+    products
   } = useVouchers();
 
   return (
@@ -150,11 +151,10 @@ export default function VouchersPage() {
               key={tab.id}
               type="button"
               onClick={() => setStatusFilter(tab.id)}
-              className={`px-3 py-1.5 rounded-lg font-bold text-xs transition ${
-                statusFilter === tab.id
-                  ? 'bg-emerald-800 text-white shadow-2xs'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              className={`px-3 py-1.5 rounded-lg font-bold text-xs transition ${statusFilter === tab.id
+                ? 'bg-emerald-800 text-white shadow-2xs'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
             >
               {tab.label}
             </button>
@@ -171,11 +171,10 @@ export default function VouchersPage() {
               key={type.id}
               type="button"
               onClick={() => setTypeFilter(type.id)}
-              className={`px-2.5 py-1.5 rounded-lg font-semibold text-xs transition ${
-                typeFilter === type.id
-                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
-                  : 'text-gray-500 hover:bg-gray-100'
-              }`}
+              className={`px-2.5 py-1.5 rounded-lg font-semibold text-xs transition ${typeFilter === type.id
+                ? 'bg-emerald-50 text-emerald-800 border border-emerald-300'
+                : 'text-gray-500 hover:bg-gray-100'
+                }`}
             >
               {type.label}
             </button>
@@ -221,11 +220,10 @@ export default function VouchersPage() {
             return (
               <div
                 key={v.id}
-                className={`bg-white rounded-2xl border shadow-2xs overflow-hidden flex flex-col justify-between transition hover:shadow-md ${
-                  isExpired || !v.active
-                    ? 'border-gray-200 opacity-75'
-                    : 'border-emerald-200/80 hover:border-emerald-400'
-                }`}
+                className={`bg-white rounded-2xl border shadow-2xs overflow-hidden flex flex-col justify-between transition hover:shadow-md ${isExpired || !v.active
+                  ? 'border-gray-200 opacity-75'
+                  : 'border-emerald-200/80 hover:border-emerald-400'
+                  }`}
               >
                 {/* Coupon Header */}
                 <div className="p-4 bg-gradient-to-r from-emerald-50/60 to-white border-b border-dashed border-gray-200">
@@ -290,6 +288,21 @@ export default function VouchersPage() {
                     <span>Đơn tối thiểu:</span>
                     <span className="font-semibold text-gray-800">
                       {v.minOrderValue ? `${Number(v.minOrderValue).toLocaleString('vi-VN')} đ` : 'Mọi đơn hàng'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-gray-600">
+                    <span>Sản phẩm áp dụng:</span>
+                    <span className="font-semibold text-gray-800 line-clamp-1 max-w-[200px]" title={v.productName || v.unlockCondition || 'Toàn shop'}>
+                      {v.productName ? (
+                        <span className="text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-[10px]">
+                          SP: {v.productName}
+                        </span>
+                      ) : (
+                        <span className="text-gray-600 text-[10px]">
+                          {v.unlockCondition ? v.unlockCondition : 'Toàn bộ cửa hàng'}
+                        </span>
+                      )}
                     </span>
                   </div>
 
@@ -423,6 +436,28 @@ export default function VouchersPage() {
                   placeholder="VD: Áp dụng cho đơn hàng mua áo thun và áo polo từ 300k"
                   className="w-full px-3 py-2 bg-gray-50 rounded-lg border border-gray-200 focus:bg-white focus:border-emerald-600 focus:outline-none"
                 ></textarea>
+              </div>
+
+              {/* Ràng buộc sản phẩm */}
+              <div>
+                <label className="block font-bold text-gray-700 mb-1">
+                  Sản phẩm áp dụng (Ràng buộc khi mua)
+                </label>
+                <select
+                  value={formData.productId || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, productId: e.target.value }))}
+                  className="w-full px-3 py-2 bg-gray-50 rounded-lg border border-gray-200 focus:bg-white focus:border-emerald-600 focus:outline-none text-xs"
+                >
+                  <option value="">Toàn bộ cửa hàng (Không ràng buộc sản phẩm cụ thể)</option>
+                  {products.map(p => (
+                    <option key={p.id} value={p.id}>
+                      [SP #{p.id}] {p.name} - {Number(p.price).toLocaleString('vi-VN')} đ
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-gray-500 mt-1">
+                  * Khách hàng bắt buộc phải có sản phẩm này trong giỏ hàng thì mới có thể áp dụng mã voucher.
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

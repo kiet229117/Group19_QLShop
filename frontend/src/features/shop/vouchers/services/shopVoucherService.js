@@ -14,8 +14,8 @@ export const getCatalogVouchers = async (signal) => {
   return res.data || res;
 };
 
-export const applyVoucher = async ({ code, orderAmount, userId }, signal) => {
-  const res = await api.post('/vouchers/apply', { code, orderAmount, userId }, { signal });
+export const applyVoucher = async ({ code, orderAmount, userId, productIds }, signal) => {
+  const res = await api.post('/vouchers/apply', { code, orderAmount, userId, productIds }, { signal });
   return res.data || res;
 };
 

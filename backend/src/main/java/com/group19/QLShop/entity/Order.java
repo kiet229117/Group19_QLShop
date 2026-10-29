@@ -60,6 +60,18 @@ public class Order {
     @Column(name = "discount_amount")
     private Double discountAmount = 0.0;
 
+    @Column(name = "shipping_fee")
+    private Double shippingFee = 0.0;
+
+    @Column(name = "payment_method", length = 50)
+    private String paymentMethod = "COD";
+
+    @Column(name = "payment_status", length = 50)
+    private String paymentStatus = "UNPAID";
+
+    @Column(name = "order_code", length = 50)
+    private String orderCode;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private OrderStatus status = OrderStatus.PENDING;
@@ -81,6 +93,12 @@ public class Order {
         this.createdAt = LocalDateTime.now();
         if (this.status == null) {
             this.status = OrderStatus.PENDING;
+        }
+        if (this.paymentStatus == null) {
+            this.paymentStatus = "UNPAID";
+        }
+        if (this.orderCode == null || this.orderCode.isBlank()) {
+            this.orderCode = "QL" + ((System.currentTimeMillis() / 1000) % 1000000) + String.format("%02d", (int)(Math.random() * 100));
         }
     }
 

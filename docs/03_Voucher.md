@@ -44,6 +44,10 @@ flowchart TD
 ---
 
 ### 3. Đảm bảo công bằng và chống gian lận 🔒
+* **Ràng buộc sản phẩm nghiêm ngặt (`productId` & Dòng sản phẩm):**
+  - **Voucher gắn sản phẩm cụ thể:** Khách hàng bắt buộc phải có đúng sản phẩm đó trong giỏ hàng/đơn hàng mới được áp dụng. Nếu không có, hệ thống lập tức từ chối và báo rõ tên sản phẩm cần mua.
+  - **Voucher theo dòng sản phẩm (Polo, Teelab, Hoodie...):** Đơn hàng bắt buộc phải chứa ít nhất 1 sản phẩm thuộc đúng danh mục/thương hiệu đó (ví dụ mã `AOPOLO10` chỉ dùng được khi mua Áo Polo / Routine; mua Áo Thun hoặc Sơ Mi sẽ bị chặn ngay).
+  - **Kiểm tra 2 lớp:** Cả lúc bấm Áp dụng (`POST /api/vouchers/apply`) và lúc xác nhận tạo đơn hàng (`POST /api/orders`) đều tự động quét danh sách sản phẩm để ngăn chặn gian lận hoặc sửa đổi mã thủ công.
 * **Trừ lượt sử dụng tức thì:** Khi đơn hàng hoàn tất, hệ thống tự động trừ `usageLimit` đi 1 để tránh trường hợp mã bị dùng vượt quá số lượng dự kiến của shop.
 * **Tự động khôi phục nếu hủy đơn:** Nếu khách hàng quyết định hủy đơn hàng chưa xử lý, lượt dùng voucher sẽ được hoàn trả lại để khách có thể mua lại lần khác.
 

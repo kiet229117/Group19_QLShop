@@ -18,6 +18,11 @@ export const getOrdersByUserId = async (userId, page = 0, size = 10, signal) => 
   return res.data || res;
 };
 
+export const updatePaymentStatus = async (id, paymentStatus = 'PAID', signal) => {
+  const res = await api.put(`/orders/${id}/payment-status`, { paymentStatus }, { signal });
+  return res.data || res;
+};
+
 export const requestCancelOrder = async (id, reason, signal) => {
   const res = await api.put(`/orders/${id}/cancel-request`, { reason }, { signal });
   return res.data || res;
@@ -32,6 +37,7 @@ export const shopOrderService = {
   createOrder,
   getOrderById,
   getOrdersByUserId,
+  updatePaymentStatus,
   requestCancelOrder,
   cancelOrder,
 };

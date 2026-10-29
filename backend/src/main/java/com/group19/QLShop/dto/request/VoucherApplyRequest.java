@@ -1,5 +1,7 @@
 package com.group19.QLShop.dto.request;
 
+import java.util.List;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -22,6 +24,9 @@ public class VoucherApplyRequest {
 
     // ID người dùng (tùy chọn, dùng để kiểm tra ví voucher cá nhân)
     private Long userId;
+
+    // Danh sách ID sản phẩm có trong giỏ hàng / đơn hàng
+    private List<Long> productIds;
 
     public VoucherApplyRequest(String code, Double orderAmount) {
         this.code = code;
