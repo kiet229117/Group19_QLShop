@@ -333,11 +333,7 @@ export default function UsersPage() {
               <span className="text-emerald-700 font-bold bg-emerald-50 px-1 rounded border border-emerald-200">
                 Live DB
               </span>
-              <span className="text-gray-400">tài khoản trong CSDL</span>
             </div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
-            <Users className="w-5 h-5" />
           </div>
         </div>
 
@@ -356,9 +352,7 @@ export default function UsersPage() {
               </span>
             </div>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
-            <Crown className="w-5 h-5" />
-          </div>
+
         </div>
 
         {/* Card 3: Nhân viên & Quản trị */}
@@ -374,11 +368,7 @@ export default function UsersPage() {
               <span className="text-blue-700 font-bold bg-blue-50 px-1 rounded border border-blue-200">
                 Admin &amp; Staff
               </span>
-              <span className="text-gray-400">quyền quản trị</span>
             </div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center">
-            <ShieldCheck className="w-5 h-5" />
           </div>
         </div>
 
@@ -392,13 +382,8 @@ export default function UsersPage() {
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
               {loading ? 'Đang kết nối...' : error ? 'Mất kết nối' : 'Đang hoạt động'}
             </div>
-            <div className="mt-1 text-[11px] text-gray-400 font-mono">
-              /api/users • Spring Boot
-            </div>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center">
-            <RotateCcw className="w-5 h-5" />
-          </div>
+  
         </div>
       </div>
 
@@ -429,7 +414,7 @@ export default function UsersPage() {
                   : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
               }`}
             >
-              👑 Quản trị viên ({users.filter((u) => u.role === 'ADMIN').length})
+              Quản trị viên ({users.filter((u) => u.role === 'ADMIN').length})
             </button>
             <button
               type="button"
@@ -440,7 +425,7 @@ export default function UsersPage() {
                   : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
               }`}
             >
-              🛡️ Nhân viên ({users.filter((u) => u.role === 'STAFF').length})
+              Nhân viên ({users.filter((u) => u.role === 'STAFF').length})
             </button>
             <button
               type="button"

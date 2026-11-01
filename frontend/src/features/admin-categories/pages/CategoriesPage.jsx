@@ -95,12 +95,7 @@ export default function CategoriesPage() {
             <div className="text-2xl font-black text-gray-900 mt-0.5">
               {loading ? '...' : categories.length} <span className="text-xs text-gray-400 font-medium">danh mục áo</span>
             </div>
-            <div className="text-[11px] text-emerald-700 font-bold mt-1">
-              ✓ Hoạt động đồng bộ 100%
-            </div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center shrink-0">
-            <FolderTree className="w-5 h-5" />
+
           </div>
         </div>
 
@@ -112,12 +107,7 @@ export default function CategoriesPage() {
             <div className="text-2xl font-black text-gray-900 mt-0.5">
               {loading ? '...' : products.length} <span className="text-xs text-gray-400 font-medium">mẫu áo</span>
             </div>
-            <div className="text-[11px] text-gray-400 mt-1">
-              Đã gán vào cấu trúc cây
-            </div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center shrink-0">
-            <Shirt className="w-5 h-5" />
+    
           </div>
         </div>
 
@@ -129,12 +119,6 @@ export default function CategoriesPage() {
             <div className="text-base font-black text-gray-900 mt-0.5">
               Áo Thun &amp; Áo Polo
             </div>
-            <div className="text-[11px] text-emerald-700 font-medium mt-1">
-              Tỷ trọng doanh số lớn nhất Shop
-            </div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center shrink-0">
-            <TrendingUp className="w-5 h-5" />
           </div>
         </div>
 
@@ -146,12 +130,6 @@ export default function CategoriesPage() {
             <div className="text-2xl font-black text-emerald-800 mt-0.5">
               {categories.filter((c) => c.active !== false).length} <span className="text-xs text-gray-400 font-medium">đang mở</span>
             </div>
-            <div className="text-[11px] text-gray-400 mt-1">
-              Menu điều hướng Storefront
-            </div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center shrink-0">
-            <Eye className="w-5 h-5" />
           </div>
         </div>
       </div>

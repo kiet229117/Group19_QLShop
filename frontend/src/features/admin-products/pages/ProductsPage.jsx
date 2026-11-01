@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import useProducts from '../hooks/useProducts';
 import ImagePicker, { getFullImageUrl } from '../../../components/common/ImagePicker';
+import { appendSizeGuide } from '../../shop/shared/utils/sizeGuideUtils';
 
 export default function ProductsPage() {
   const {
@@ -139,9 +140,7 @@ export default function ProductsPage() {
             </div>
             <div className="mt-1 flex items-center gap-1.5 text-[11px]">
               <span className="text-emerald-700 font-bold flex items-center">
-                <ArrowUpRight className="w-3 h-3" /> 100%
               </span>
-              <span className="text-gray-400">| Đang kinh doanh tại Shop</span>
             </div>
           </div>
           <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center shrink-0">
@@ -159,7 +158,6 @@ export default function ProductsPage() {
               {loading ? '...' : stats.totalSkus.toLocaleString('vi-VN')}
             </div>
             <div className="mt-1 text-[11px] text-gray-500">
-              <span className="font-semibold text-gray-700">TB {stats.avgVariantsPerProduct} SKUs / Mẫu</span> | Phân loại Size &amp; Màu
             </div>
           </div>
           <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center shrink-0">
@@ -860,9 +858,18 @@ export default function ProductsPage() {
               </div>
 
               <div>
-                <label className="block text-gray-700 font-bold mb-1">Mô tả chi tiết &amp; Chất liệu vải</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-gray-700 font-bold">Mô tả chi tiết &amp; Chất liệu vải</label>
+                  <button
+                    type="button"
+                    onClick={() => setNewProduct({ ...newProduct, description: appendSizeGuide(newProduct.description) })}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-emerald-300 bg-emerald-50 text-emerald-800 font-semibold hover:bg-emerald-100"
+                  >
+                    <Plus className="w-3 h-3" /> Chèn mẫu bảng size
+                  </button>
+                </div>
                 <textarea
-                  rows={2}
+                  rows={6}
                   placeholder="Chất liệu 100% Cotton Compact thoáng mát, thấm hút mồ hôi..."
                   value={newProduct.description}
                   onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
@@ -1107,9 +1114,18 @@ export default function ProductsPage() {
               </div>
 
               <div>
-                <label className="block text-gray-700 font-bold mb-1">Mô tả chi tiết</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-gray-700 font-bold">Mô tả chi tiết</label>
+                  <button
+                    type="button"
+                    onClick={() => setEditingProduct({ ...editingProduct, description: appendSizeGuide(editingProduct.description) })}
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-emerald-300 bg-emerald-50 text-emerald-800 font-semibold hover:bg-emerald-100"
+                  >
+                    <Plus className="w-3 h-3" /> Chèn mẫu bảng size
+                  </button>
+                </div>
                 <textarea
-                  rows={2}
+                  rows={6}
                   value={editingProduct.description}
                   onChange={(e) => setEditingProduct({ ...editingProduct, description: e.target.value })}
                   className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:outline-none focus:border-emerald-500"

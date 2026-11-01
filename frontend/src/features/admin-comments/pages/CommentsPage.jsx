@@ -138,11 +138,7 @@ export default function CommentsPage() {
               <span className="text-emerald-700 font-bold bg-emerald-50 px-1 rounded border border-emerald-200">
                 Live DB
               </span>
-              <span className="text-gray-400">bình luận hệ thống</span>
             </div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
-            <MessageSquare className="w-5 h-5" />
           </div>
         </div>
 
@@ -154,12 +150,6 @@ export default function CommentsPage() {
             <div className="text-2xl font-black text-emerald-700 mt-0.5">
               {loading ? '...' : reviews.filter((r) => !r.hidden).length}
             </div>
-            <div className="mt-1 text-[11px] text-gray-400">
-              Đang xuất hiện trên storefront
-            </div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center">
-            <CheckCircle2 className="w-5 h-5" />
           </div>
         </div>
 
@@ -171,12 +161,6 @@ export default function CommentsPage() {
             <div className="text-2xl font-black text-rose-600 mt-0.5">
               {loading ? '...' : reviews.filter((r) => r.hidden).length}
             </div>
-            <div className="mt-1 text-[11px] text-gray-400">
-              Chờ xử lý hoặc kiểm duyệt
-            </div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
-            <EyeOff className="w-5 h-5" />
           </div>
         </div>
 
@@ -189,12 +173,6 @@ export default function CommentsPage() {
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
               {loading ? 'Đang kết nối...' : 'GET /api/comments'}
             </div>
-            <div className="mt-1 text-[11px] text-gray-400 font-mono">
-              Spring Boot MySQL
-            </div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center">
-            <ShieldCheck className="w-5 h-5" />
           </div>
         </div>
       </div>

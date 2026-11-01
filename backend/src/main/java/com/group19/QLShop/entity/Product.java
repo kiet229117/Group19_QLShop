@@ -40,6 +40,7 @@ public class Product {
     @Column(name = "cost_price")
     private Double costPrice;
 
+    @Column(columnDefinition = "TEXT")
     private String description;
     private double rating;
     private String slug;

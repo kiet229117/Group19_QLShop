@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../../auth/context/AuthContext';
 import { toast } from '../../../../components/common/Toast';
-import { CheckCircle2, Eye, Flame, Layers, ShoppingCart, ShoppingBag, Tag, XCircle, MessageSquare, MessageCircle, Heart, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, Eye, Flame, Layers, ShoppingCart, ShoppingBag, Tag, XCircle, MessageSquare, MessageCircle, Heart, AlertTriangle, Ruler } from 'lucide-react';
 import ProductPrice from '../../../../components/shop/common/ProductPrice';
 import ProductRating from '../../../../components/shop/common/ProductRating';
 import ProductQuantitySelector from '../../../../components/shop/common/ProductQuantitySelector';
@@ -10,6 +10,7 @@ import AddToCartButton from '../../../../components/shop/common/AddToCartButton'
 import ShopButton from '../../../../components/shop/common/ShopButton';
 import useShopWishlist from '../../wishlist/hooks/useShopWishlist';
 import { formatNumber } from '../../shared/utils/formatters';
+import { parseSizeGuide } from '../../shared/utils/sizeGuideUtils';
 import {
   getTotalStock,
   getUniqueVariantValues,
@@ -46,6 +47,8 @@ export default function ProductDetailInfo({ product, category, brand }) {
     const colorMatch = !selectedColor || v.color === selectedColor;
     return sizeMatch && colorMatch;
   });
+
+  const sizeGuide = parseSizeGuide(product?.description);
 
   const totalStock = getTotalStock(product);
   const activeStock = matchedVariant ? Number(matchedVariant.stockQuantity) || 0 : totalStock;
@@ -167,7 +170,15 @@ export default function ProductDetailInfo({ product, category, brand }) {
       {sizes.length > 0 && (
         <div className="space-y-2.5">
           <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-zinc-500">
-            <span>Kích cỡ</span>
+            <span className="inline-flex items-center gap-3">
+              Kích cỡ
+              {sizeGuide.hasGuide && (
+                <a href="#size-guide" className="inline-flex items-center gap-1 normal-case text-emerald-600 hover:underline">
+                  <Ruler className="h-3.5 w-3.5" aria-hidden="true" />
+                  Hướng dẫn chọn size
+                </a>
+              )}
+            </span>
             {selectedSize && <span className="text-zinc-900">Đang chọn: {selectedSize}</span>}
           </div>
           <div className="flex flex-wrap gap-2">
@@ -321,9 +332,43 @@ export default function ProductDetailInfo({ product, category, brand }) {
           Mô tả sản phẩm
         </h2>
         {product.description ? (
-          <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-600">
-            {product.description}
-          </p>
+          <>
+            {sizeGuide.intro && (
+              <p className="whitespace-pre-line text-sm leading-relaxed text-zinc-600">
+                {sizeGuide.intro}
+              </p>
+            )}
+            {sizeGuide.hasGuide && (
+              <div id="size-guide" className="mt-3 overflow-hidden rounded-2xl border border-emerald-200 bg-emerald-50/50">
+                <div className="flex items-center gap-2 border-b border-emerald-200 bg-emerald-100/70 px-4 py-2.5 text-sm font-bold text-emerald-900">
+                  <Ruler className="h-4 w-4" aria-hidden="true" />
+                  Hướng dẫn chọn size
+                </div>
+                {sizeGuide.rows.length > 0 && (
+                  <table className="w-full text-sm">
+                    <tbody>
+                      {sizeGuide.rows.map((row) => (
+                        <tr
+                          key={row.size}
+                          className={`border-b border-emerald-100 last:border-0 ${
+                            row.size.toUpperCase() === String(selectedSize).toUpperCase() ? 'bg-emerald-100/60 font-semibold' : ''
+                          }`}
+                        >
+                          <td className="w-20 px-4 py-2 font-bold text-zinc-900">{row.size}</td>
+                          <td className="px-4 py-2 text-zinc-700">{row.detail}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+                {sizeGuide.notes.length > 0 && (
+                  <p className="whitespace-pre-line px-4 py-2.5 text-xs italic text-zinc-600">
+                    {sizeGuide.notes.join('\n')}
+                  </p>
+                )}
+              </div>
+            )}
+          </>
         ) : (
           <p className="text-sm italic text-zinc-400">
             Sản phẩm chưa có mô tả chi tiết.

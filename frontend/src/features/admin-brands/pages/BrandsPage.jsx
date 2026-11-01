@@ -98,12 +98,6 @@ export default function BrandsPage() {
             <div className="text-2xl font-black text-gray-900 mt-0.5">
               {loading ? '...' : brands.length} <span className="text-xs text-gray-400 font-medium">brand</span>
             </div>
-            <div className="text-[11px] text-emerald-700 font-bold mt-1">
-              ✓ Đối tác chính hãng &amp; Local Brand
-            </div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center shrink-0">
-            <Tag className="w-5 h-5" />
           </div>
         </div>
 
@@ -115,12 +109,6 @@ export default function BrandsPage() {
             <div className="text-2xl font-black text-gray-900 mt-0.5">
               {loading ? '...' : products.length} <span className="text-xs text-gray-400 font-medium">mẫu áo</span>
             </div>
-            <div className="text-[11px] text-gray-400 mt-1">
-              Được phân phối tại Shop
-            </div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center shrink-0">
-            <Shirt className="w-5 h-5" />
           </div>
         </div>
 
@@ -132,13 +120,9 @@ export default function BrandsPage() {
             <div className="text-base font-black text-gray-900 mt-0.5">
               Coolmate &amp; Nike
             </div>
-            <div className="text-[11px] text-emerald-700 font-medium mt-1">
-              Dẫn đầu lượt mua &amp; đánh giá
-            </div>
+
           </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center shrink-0">
-            <TrendingUp className="w-5 h-5" />
-          </div>
+
         </div>
 
         <div className="bg-white p-3.5 rounded-xl border border-gray-200/80 shadow-2xs flex items-center justify-between">
@@ -149,12 +133,6 @@ export default function BrandsPage() {
             <div className="text-2xl font-black text-emerald-800 mt-0.5">
               100% <span className="text-xs text-gray-400 font-medium">Verified</span>
             </div>
-            <div className="text-[11px] text-gray-400 mt-1">
-              Hợp đồng nhãn quyền hợp lệ
-            </div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center shrink-0">
-            <ShieldCheck className="w-5 h-5" />
           </div>
         </div>
       </div>

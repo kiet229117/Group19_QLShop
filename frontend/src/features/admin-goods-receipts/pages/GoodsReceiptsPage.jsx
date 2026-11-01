@@ -141,9 +141,6 @@ export default function GoodsReceiptsPage() {
               <span className="text-gray-400">so với tháng trước</span>
             </div>
           </div>
-          <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center shrink-0">
-            <FileText className="w-4 h-4" />
-          </div>
         </div>
 
         {/* Card 2: Phiếu nhập đang xử lý */}
@@ -164,9 +161,6 @@ export default function GoodsReceiptsPage() {
               Đã hoàn tất nhập kho: <strong className="text-emerald-700">{completedCount} phiếu</strong>
             </div>
           </div>
-          <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-700 border border-amber-100 flex items-center justify-center shrink-0">
-            <Clock className="w-4 h-4" />
-          </div>
         </div>
 
         {/* Card 3: Nhà cung cấp xưởng may */}
@@ -181,9 +175,6 @@ export default function GoodsReceiptsPage() {
             <div className="mt-1 text-[11px] text-gray-500">
               Công nợ nhập áo: <strong className="text-gray-900">42.500.000 đ</strong>
             </div>
-          </div>
-          <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-700 border border-blue-100 flex items-center justify-center shrink-0">
-            <Building2 className="w-4 h-4" />
           </div>
         </div>
 
@@ -202,9 +193,6 @@ export default function GoodsReceiptsPage() {
             <div className="mt-1 text-[11px] text-gray-400 truncate max-w-[200px]">
               Tỷ lệ lỗi đường may &lt; 0.8%
             </div>
-          </div>
-          <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-4 h-4" />
           </div>
         </div>
       </div>

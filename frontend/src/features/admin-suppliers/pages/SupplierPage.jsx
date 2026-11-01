@@ -112,12 +112,6 @@ export default function SupplierPage() {
             <div className="text-2xl font-black text-gray-900 mt-0.5">
               {loading ? '...' : suppliers.length} <span className="text-xs text-gray-400 font-medium">doanh nghiệp</span>
             </div>
-            <div className="text-[11px] text-emerald-700 font-bold mt-1">
-              ✓ Xưởng dệt may &amp; Nhà vải
-            </div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center shrink-0">
-            <Building2 className="w-5 h-5" />
           </div>
         </div>
 
@@ -129,12 +123,6 @@ export default function SupplierPage() {
             <div className="text-2xl font-black text-emerald-800 mt-0.5">
               {suppliers.filter((s) => s.active !== false).length} <span className="text-xs text-gray-400 font-medium">đối tác</span>
             </div>
-            <div className="text-[11px] text-gray-400 mt-1">
-              Sẵn sàng xuất kho đơn hàng
-            </div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center shrink-0">
-            <CheckCircle2 className="w-5 h-5" />
           </div>
         </div>
 
@@ -146,12 +134,6 @@ export default function SupplierPage() {
             <div className="text-base font-black text-gray-900 mt-0.5">
               Hà Nội, Nam Định &amp; TP.HCM
             </div>
-            <div className="text-[11px] text-emerald-700 font-medium mt-1">
-              Hệ thống xưởng dệt 3 miền
-            </div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center shrink-0">
-            <Truck className="w-5 h-5" />
           </div>
         </div>
 
@@ -163,12 +145,6 @@ export default function SupplierPage() {
             <div className="text-2xl font-black text-emerald-800 mt-0.5">
               100% <span className="text-xs text-gray-400 font-medium">Standard</span>
             </div>
-            <div className="text-[11px] text-gray-400 mt-1">
-              Kiểm định OEKO-TEX Standard 100
-            </div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100 flex items-center justify-center shrink-0">
-            <Shirt className="w-5 h-5" />
           </div>
         </div>
       </div>
